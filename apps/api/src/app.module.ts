@@ -9,14 +9,13 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { AgentsModule } from './modules/agents/agents.module';
-import { ConversationsModule } from './modules/conversations/conversations.module';
-import { MessagesModule } from './modules/messages/messages.module';
-import { ChannelsModule } from './modules/channels/channels.module';
-import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
-import { AiOrchestratorModule } from './modules/ai-orchestrator/ai-orchestrator.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { HealthModule } from './modules/health/health.module';
 import { QueueModule } from './modules/queue/queue.module';
+import { CoreIntelligenceModule } from './core/intelligence/core-intelligence.module';
+import { CoreOrchestrationModule } from './core/orchestration/core-orchestration.module';
+import { ModuleSystemModule } from './core/module-system/module-system.module';
+import { MessagingModule } from './product-modules/messaging/messaging.module';
 
 @Module({
   imports: [
@@ -50,11 +49,10 @@ import { QueueModule } from './modules/queue/queue.module';
     TenantsModule,
     UsersModule,
     AgentsModule,
-    ConversationsModule,
-    MessagesModule,
-    ChannelsModule,
-    KnowledgeBaseModule,
-    AiOrchestratorModule,
+    CoreIntelligenceModule,
+    CoreOrchestrationModule,
+    ModuleSystemModule,
+    MessagingModule,
     BillingModule,
     QueueModule
   ],

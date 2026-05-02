@@ -6,6 +6,7 @@ import { TelegramAdapter } from './adapters/telegram.adapter';
 import { ChannelAdapter } from './channel-adapter.interface';
 import { DiscordAdapter } from './adapters/discord.adapter';
 import { WhatsAppAdapter } from './adapters/whatsapp.adapter';
+import { QueueService } from '../queue/queue.service';
 
 type CreateChannelInput = {
   type: ChannelType;
@@ -21,7 +22,8 @@ export class ChannelsService {
     private readonly messagesService: MessagesService,
     private readonly telegramAdapter: TelegramAdapter,
     private readonly discordAdapter: DiscordAdapter,
-    private readonly whatsAppAdapter: WhatsAppAdapter
+    private readonly whatsAppAdapter: WhatsAppAdapter,
+    private readonly queueService: QueueService
   ) {}
 
   list(tenantId: string) {
@@ -92,7 +94,7 @@ export class ChannelsService {
       }
     });
 
-    return this.messagesService.create(tenantId, {
+    const message = await this.messagesService.create(tenantId, {
       conversationId: conversation.id,
       externalMessageId: normalized.externalMessageId,
       direction: MessageDirection.INBOUND,
@@ -105,6 +107,33 @@ export class ChannelsService {
       },
       providerPayload: normalized.raw
     });
+
+    await this.queueService.enqueueMessageProcessing({
+      tenantId,
+      channelAccountId,
+      normalizedMessage: {
+        tenantId,
+        channelAccountId,
+        channelType: channel.type,
+        externalMessageId: normalized.externalMessageId,
+        externalContactId: normalized.externalContactId,
+        contactDisplayName: normalized.contactDisplayName,
+        text: normalized.text,
+        receivedAt: normalized.receivedAt.toISOString(),
+        raw: normalized.raw
+      }
+    });
+
+    if (channel.agentId) {
+      await this.queueService.enqueueAiResponse({
+        tenantId,
+        conversationId: conversation.id,
+        agentId: channel.agentId,
+        triggerMessageId: message.id
+      });
+    }
+
+    return message;
   }
 
   private adapterFor(type: ChannelType): ChannelAdapter {

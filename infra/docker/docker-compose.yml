@@ -39,7 +39,8 @@ services:
     container_name: synapse-api
     restart: unless-stopped
     env_file:
-      - ../../.env
+      - path: ../../.env
+        required: false
     environment:
       DATABASE_URL: postgresql://synapse:synapse@postgres:5432/synapse?schema=public
       REDIS_URL: redis://redis:6379
@@ -58,7 +59,8 @@ services:
     container_name: synapse-web
     restart: unless-stopped
     env_file:
-      - ../../.env
+      - path: ../../.env
+        required: false
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/v1
     ports:

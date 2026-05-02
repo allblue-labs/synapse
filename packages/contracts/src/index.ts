@@ -148,8 +148,51 @@ export type AiResponseJob = {
 
 export type OutboundMessageJob = {
   tenantId: string;
+  moduleName?: string;
   channelAccountId: string;
   conversationId: string;
   externalContactId: string;
   text: string;
 };
+
+export type ModuleActionInput = Record<string, unknown>;
+export type ModuleActionOutput = Record<string, unknown>;
+
+export type ModuleAction = {
+  name: string;
+  description: string;
+  requiredPermissions?: string[];
+  inputSchemaVersion: string;
+};
+
+export type ModuleEvent = {
+  name: string;
+  description: string;
+  payloadSchemaVersion: string;
+};
+
+export type SynapseModuleManifest = {
+  name: string;
+  displayName: string;
+  version: string;
+  description: string;
+  actions: ModuleAction[];
+  events?: ModuleEvent[];
+  permissions?: string[];
+};
+
+export type RegisteredModule = SynapseModuleManifest & {
+  enabled: boolean;
+  registeredAt: string;
+};
+
+export type LlmTaskType = 'conversation_reply' | 'lead_extraction' | 'intent_classification' | 'workflow_reasoning';
+
+export type LlmRoutingPolicy = {
+  taskType: LlmTaskType;
+  privacy: 'standard' | 'private';
+  maxLatencyMs?: number;
+  maxCostTier?: 'low' | 'medium' | 'high';
+};
+
+export type MessagingConversationState = 'NEW' | 'QUALIFYING' | 'WAITING_ON_USER' | 'READY_FOR_HANDOFF' | 'CLOSED';

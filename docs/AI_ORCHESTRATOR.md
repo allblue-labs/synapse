@@ -1,6 +1,6 @@
-# AI Orchestrator
+# Core Intelligence Layer
 
-The AI orchestrator is Synapse's business intelligence layer, not a generic chatbot wrapper.
+The AI orchestrator is now part of Synapse core intelligence. Modules consume this capability; they do not call model providers directly.
 
 ## Prompt Lifecycle
 
@@ -17,7 +17,7 @@ Providers implement `LlmProvider`:
 
 - `generate(input): Promise<output>`
 
-OpenAI is the first provider. Future providers should be added through the same interface rather than branching provider-specific behavior through the orchestrator.
+OpenAI is the first provider. Model calls go through the LLM pool so future routing can account for task type, cost, latency, privacy, and tenant policy.
 
 ## Structured Output Strategy
 

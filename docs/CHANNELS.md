@@ -1,6 +1,6 @@
-# Channel Integrations
+# Messaging Module Channel Integrations
 
-Channels are transport adapters. They must not own AI behavior or business workflows.
+Channels belong to the messaging module. They are transport adapters and must not own AI behavior or core workflows.
 
 ## Adapter Contract
 
@@ -23,6 +23,7 @@ Each adapter must implement:
 - Telegram has a permissive development validation path and basic normalization.
 - WhatsApp has a provider-agnostic stub. It must be backed by a concrete provider implementation before production.
 - Discord has a stub with normalization shape and outbound delivery intentionally deferred.
+- Inbound accepted messages enqueue message-processing and AI-response jobs through core queue capabilities.
 
 ## Webhook Security Expectations
 

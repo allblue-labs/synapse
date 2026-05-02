@@ -2,47 +2,54 @@
 
 Last updated: 2026-05-02
 
-## What Exists Today
+## What Is Implemented
 
 - Monorepo workspace with `apps/api`, `apps/web`, and `packages/contracts`.
-- NestJS API with auth, tenants, users, agents, conversations, messages, channels, knowledge base, AI orchestrator, billing, and health modules.
-- Prisma schema for core multi-tenant SaaS entities.
-- Next.js dashboard with overview, agents, conversations, onboarding, knowledge, settings, and login screens.
+- NestJS API with auth, tenants, users, billing, health/readiness, structured logging, rate limiting, and tenant-aware access helpers.
+- Prisma schema for current SaaS entities, including messaging-related tables.
+- Initial core intelligence pieces: LLM provider interface, OpenAI provider boundary, prompt builder, response parser, knowledge lookup placeholder.
+- LLM pool service with OpenAI as the first routing target.
+- Core module system with registry endpoint and `SynapseModule` lifecycle contract.
+- Messaging registered as the first module manifest.
+- Initial queue foundation with BullMQ queues for message processing, AI response generation, and outbound messages.
+- Next.js web app with a premium guided overview page, modules, agents, settings, login, empty states, loading states, and sample-data labeling.
 - Docker Compose for PostgreSQL, Redis, API, and web.
-- Shared TypeScript contracts for tenant, agent, conversation, channel, and auth session shapes.
-- Production-readiness docs for tenancy, observability, queues, channels, AI orchestration, contracts, testing, and security.
-- API structured JSON logging, request correlation, readiness endpoint, metadata endpoint, rate limiting, and body size limit.
-- Queue foundation with shared job payload contracts.
-- Refined channel adapter contract with Telegram, WhatsApp, and Discord implementations/stubs.
-- AI prompt builder and response parser services.
-- Frontend sample-data banner, empty state, and loading state components.
+- Docker Compose config validates without requiring a local `.env` file.
+- Production-readiness docs for tenancy, security, observability, queues, channels, AI, contracts, and testing.
 
-## What Is Verified
+## What Is Partially Done
 
-- API build and lint passed during initial scaffold.
-- Web typecheck, lint, and production build passed during initial frontend setup.
-- Contracts typecheck passed during initial frontend setup.
-- Next.js dev server was verified reachable on `http://localhost:3000`.
-- Production-readiness verification passed for API build/lint/test, web typecheck/lint/build, contracts typecheck, and Prisma generation.
+- Core/module split is now reflected in backend structure, but some legacy messaging implementation files still live under `src/modules` and are wrapped by `product-modules/messaging`.
+- Messaging is registered as a module, but its implementation should be physically moved under the module folder in a later cleanup.
+- LLM pool routing exists as a first-pass OpenAI route; cost/latency/private routing is still pending.
+- Queue producers/contracts exist, but worker processors are not complete.
+- Web UI uses top-level platform navigation, module-owned routes, and a guided root overview that explains agents, modules, and execution.
 
-## What Is Incomplete
+## What Is Missing
 
-- Database migrations are not committed yet.
-- Backend tests are still minimal but now include prompt builder and tenant scoping helper examples.
-- Frontend uses temporary sample data for product shape.
-- Queue workers and async processing producers exist, but processors are not fully implemented.
-- Channel webhook validation contract exists, but production provider signature validation is not complete.
-- Stripe integration is not implemented.
-- AI structured outputs, lead extraction, and intent classification are early-stage.
-- Production secret storage/encryption is not implemented.
+- Module action execution and permission enforcement beyond registration metadata.
+- Messaging module registration and isolation from core.
+- Workflow/task engine.
+- LLM pool routing by cost, latency, privacy, and task type.
+- Production webhook signature validation.
+- Stripe billing implementation and module entitlements.
+- Metrics/tracing exports.
+- Kubernetes worker/deployment strategy.
 
-## Known Issues
+## Current Technical Risks
 
-- `npm audit` reports dependency findings. These need review, not blind automatic fixes.
-- Tenant isolation relies on explicit service patterns; PostgreSQL Row Level Security is not enabled.
-- Some routes still need role/permission boundaries beyond authenticated tenant access.
-- WhatsApp and Discord adapters are stubs and intentionally reject production-style webhook validation until provider config exists.
+- Core can absorb messaging logic if boundaries are not refactored now.
+- Tenant isolation depends on explicit helper/repository usage and needs broader tests.
+- WhatsApp and Discord adapters are not production-ready.
+- Static frontend data can imply functionality that is not wired yet, so sample-data labeling remains required.
+- `npm audit` reports dependency findings requiring triage.
 
 ## Next Recommended Step
 
-Implement queue processors for message ingestion and AI response generation, then add integration tests around tenant isolation and Telegram webhook flow.
+Connect the guided overview quick actions to real onboarding/API-backed state.
+
+## Frontend Routing Boundary
+
+Global routes are limited to platform primitives: overview, modules, agents, activity, and settings.
+
+Domain routes belong under module roots. Messaging is available only under `/modules/messaging` and its internal routes: conversations, leads, channels, and automations.

@@ -29,6 +29,10 @@ Current default:
 
 Failed jobs are not removed automatically. Production workers should emit structured logs with tenant ID, queue name, job ID, and provider/channel error metadata. A future dead-letter dashboard should allow replay after root-cause review.
 
+## Module Metadata
+
+Module-produced jobs should include `moduleName` when available. Messaging jobs currently use the queue contracts in `packages/contracts` and are produced after inbound message persistence.
+
 ## Ordering Risk
 
 Conversation messages can arrive rapidly. Future workers should use per-conversation ordering or locks before generating AI responses.

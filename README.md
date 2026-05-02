@@ -131,6 +131,7 @@ The web service must not import Prisma or NestJS internals. The API service must
 - `docs/DECISIONS.md`: concise architecture decision records.
 - `docs/REVIEW.md`: latest production-readiness review.
 - `docs/SECURITY.md`: dependency audit, secrets, webhook, tenant isolation, and rate-limiting policy.
+- `docs/MODULE_SYSTEM.md`: core/module contract and boundary rules.
 
 ## Why This Shape
 

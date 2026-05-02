@@ -3,14 +3,14 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { AiResponseParserService } from './ai-response-parser.service';
 import { PromptBuilderService } from './prompt-builder.service';
-import { OpenAiProvider } from './providers/openai.provider';
+import { LlmPoolService } from '../../core/intelligence/llm-pool/llm-pool.service';
 
 @Injectable()
 export class AiOrchestratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly knowledgeBase: KnowledgeBaseService,
-    private readonly openAiProvider: OpenAiProvider,
+    private readonly llmPool: LlmPoolService,
     private readonly promptBuilder: PromptBuilderService,
     private readonly responseParser: AiResponseParserService
   ) {}
@@ -38,12 +38,19 @@ export class AiOrchestratorService {
       knowledge
     });
 
-    const output = await this.openAiProvider.generate({
-      model: conversation.agent.modelName,
-      temperature: conversation.agent.temperature,
-      systemPrompt,
-      messages: this.promptBuilder.selectConversationHistory(conversation.messages)
-    });
+    const output = await this.llmPool.generate(
+      {
+        model: conversation.agent.modelName,
+        temperature: conversation.agent.temperature,
+        systemPrompt,
+        messages: this.promptBuilder.selectConversationHistory(conversation.messages)
+      },
+      {
+        taskType: 'conversation_reply',
+        privacy: 'standard',
+        maxCostTier: 'medium'
+      }
+    );
 
     return {
       ...output,

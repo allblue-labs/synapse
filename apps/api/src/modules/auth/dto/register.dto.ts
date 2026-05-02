@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @IsString()
@@ -7,6 +7,7 @@ export class RegisterDto {
 
   @IsString()
   @IsNotEmpty()
+  @Matches(/^[a-z0-9-]{3,48}$/)
   tenantSlug!: string;
 
   @IsString()

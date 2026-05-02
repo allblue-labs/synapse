@@ -1,23 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service';
+import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { CreateAgentDto } from './dto/create-agent.dto';
 import { UpdateAgentDto } from './dto/update-agent.dto';
 
 @Injectable()
 export class AgentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly tenantPrisma: TenantPrismaService) {}
 
   list(tenantId: string) {
-    return this.prisma.agent.findMany({
-      where: { tenantId },
+    return this.tenantPrisma.agents({ tenantId }).findMany({
       orderBy: { updatedAt: 'desc' }
     });
   }
 
   create(tenantId: string, dto: CreateAgentDto) {
-    return this.prisma.agent.create({
+    return this.tenantPrisma.agents({ tenantId }).create({
       data: {
-        tenantId,
         name: dto.name,
         goal: dto.goal,
         personality: dto.personality,
@@ -31,30 +29,33 @@ export class AgentsService {
   }
 
   async get(tenantId: string, id: string) {
-    const agent = await this.prisma.agent.findFirst({
-      where: { id, tenantId },
+    const agent = await this.tenantPrisma.agents({ tenantId }).findMany({
+      where: { id },
       include: {
         channelAccounts: true,
         knowledgeItems: {
           orderBy: { updatedAt: 'desc' },
           take: 10
         }
-      }
+      },
+      take: 1
     });
 
-    if (!agent) {
+    if (!agent[0]) {
       throw new NotFoundException('Agent not found.');
     }
 
-    return agent;
+    return agent[0];
   }
 
   async update(tenantId: string, id: string, dto: UpdateAgentDto) {
     await this.get(tenantId, id);
 
-    return this.prisma.agent.update({
-      where: { id },
-      data: dto
-    });
+    const result = await this.tenantPrisma.agents({ tenantId }).update(id, dto);
+    if (result.count !== 1) {
+      throw new NotFoundException('Agent not found.');
+    }
+
+    return this.get(tenantId, id);
   }
 }

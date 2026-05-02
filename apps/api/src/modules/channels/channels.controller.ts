@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ChannelType } from '@prisma/client';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
@@ -26,7 +26,12 @@ export class ChannelsController {
   }
 
   @Post(':id/receive')
-  receive(@TenantId() tenantId: string, @Param('id') channelAccountId: string, @Body() payload: Record<string, unknown>) {
-    return this.channelsService.receive(tenantId, channelAccountId, payload);
+  receive(
+    @TenantId() tenantId: string,
+    @Param('id') channelAccountId: string,
+    @Body() payload: Record<string, unknown>,
+    @Headers() headers: Record<string, string | string[] | undefined>
+  ) {
+    return this.channelsService.receive(tenantId, channelAccountId, payload, headers);
   }
 }

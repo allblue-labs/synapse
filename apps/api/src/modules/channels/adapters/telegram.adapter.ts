@@ -1,10 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { ChannelAdapter, NormalizedInboundMessage, SendMessageInput } from '../channel-adapter.interface';
+import { ChannelType } from '@prisma/client';
+import { ChannelAdapter, ChannelWebhookValidationResult, NormalizedChannelMessage, SendMessageInput } from '../channel-adapter.interface';
 
 @Injectable()
 export class TelegramAdapter implements ChannelAdapter {
-  async receiveMessage(payload: Record<string, unknown>): Promise<NormalizedInboundMessage> {
-    return this.normalizePayload(payload);
+  getChannelType(): ChannelType {
+    return ChannelType.TELEGRAM;
+  }
+
+  async validateWebhook(): Promise<ChannelWebhookValidationResult> {
+    return { valid: true };
   }
 
   async sendMessage(input: SendMessageInput): Promise<{ externalMessageId?: string; raw: Record<string, unknown> }> {
@@ -18,7 +23,7 @@ export class TelegramAdapter implements ChannelAdapter {
     };
   }
 
-  normalizePayload(payload: Record<string, unknown>): NormalizedInboundMessage {
+  normalizeInboundMessage(payload: Record<string, unknown>): NormalizedChannelMessage {
     const message = payload.message as Record<string, unknown> | undefined;
     const from = message?.from as Record<string, unknown> | undefined;
     const chat = message?.chat as Record<string, unknown> | undefined;

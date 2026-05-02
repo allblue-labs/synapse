@@ -3,11 +3,13 @@ import { ChannelsController } from './channels.controller';
 import { ChannelsService } from './channels.service';
 import { TelegramAdapter } from './adapters/telegram.adapter';
 import { MessagesModule } from '../messages/messages.module';
+import { DiscordAdapter } from './adapters/discord.adapter';
+import { WhatsAppAdapter } from './adapters/whatsapp.adapter';
 
 @Module({
   imports: [MessagesModule],
   controllers: [ChannelsController],
-  providers: [ChannelsService, TelegramAdapter],
+  providers: [ChannelsService, TelegramAdapter, DiscordAdapter, WhatsAppAdapter],
   exports: [ChannelsService]
 })
 export class ChannelsModule {}

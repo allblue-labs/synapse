@@ -16,7 +16,8 @@
     "build:web": "npm run build -w @synapse/web",
     "lint": "npm run lint -ws --if-present",
     "test": "npm run test -ws --if-present",
-    "typecheck": "npm run typecheck -ws --if-present"
+    "typecheck": "npm run typecheck -ws --if-present",
+    "audit:review": "npm audit --workspaces"
   },
   "engines": {
     "node": ">=20.11.0"

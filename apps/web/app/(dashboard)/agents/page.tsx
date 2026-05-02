@@ -1,6 +1,8 @@
 import { Bot, CircleGauge, MoreHorizontal, Plus, SlidersHorizontal } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SampleDataBanner } from '@/components/ui/sample-data-banner';
 
 const agents = [
   { name: 'Sales qualifier', goal: 'Sales', model: 'OpenAI / gpt-4.1-mini', status: 'ACTIVE', conversations: 84 },
@@ -12,6 +14,7 @@ const agents = [
 export default function AgentsPage() {
   return (
     <div className="space-y-6">
+      <SampleDataBanner />
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <p className="text-sm font-medium uppercase text-signal">Agents</p>
@@ -69,6 +72,9 @@ export default function AgentsPage() {
           ))}
         </div>
       </section>
+      {agents.length === 0 ? (
+        <EmptyState icon={Bot} title="No agents yet" description="Create your first outcome-focused agent and connect it to a channel when ready." actionLabel="Create agent" />
+      ) : null}
     </div>
   );
 }

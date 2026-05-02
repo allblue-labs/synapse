@@ -2,6 +2,7 @@ import { ArrowUpRight, Bot, MessageSquareText, Radio, ShieldCheck } from 'lucide
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Metric } from '@/components/ui/metric';
+import { SampleDataBanner } from '@/components/ui/sample-data-banner';
 
 const operatingFeed = [
   { label: 'Lead qualified', detail: 'Marina from Telegram matched enterprise buying intent.', time: '2m' },
@@ -12,6 +13,7 @@ const operatingFeed = [
 export default function OverviewPage() {
   return (
     <div className="space-y-6">
+      <SampleDataBanner />
       <section className="overflow-hidden rounded-md border border-ink/10 bg-white shadow-panel">
         <div className="grid gap-0 lg:grid-cols-[1.3fr_0.7fr]">
           <div className="p-6 md:p-8">

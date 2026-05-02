@@ -1,16 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { TenantPrismaService } from '../../common/prisma/tenant-prisma.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { UpdateConversationDto } from './dto/update-conversation.dto';
 
 @Injectable()
 export class ConversationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tenantPrisma: TenantPrismaService
+  ) {}
 
   list(tenantId: string) {
-    return this.prisma.conversation.findMany({
-      where: { tenantId },
+    return this.tenantPrisma.conversations({ tenantId }).findMany({
       include: {
         agent: { select: { id: true, name: true, status: true } },
         channelAccount: { select: { id: true, type: true, displayName: true } },
@@ -38,9 +41,8 @@ export class ConversationsService {
       }
     }
 
-    return this.prisma.conversation.create({
+    return this.tenantPrisma.conversations({ tenantId }).create({
       data: {
-        tenantId,
         channelAccountId: dto.channelAccountId,
         agentId: dto.agentId,
         externalContactId: dto.externalContactId,
@@ -50,8 +52,8 @@ export class ConversationsService {
   }
 
   async get(tenantId: string, id: string) {
-    const conversation = await this.prisma.conversation.findFirst({
-      where: { id, tenantId },
+    const conversation = await this.tenantPrisma.conversations({ tenantId }).findFirst({
+      where: { id },
       include: {
         agent: true,
         channelAccount: true,
@@ -84,9 +86,11 @@ export class ConversationsService {
       extractedData: dto.extractedData as Prisma.InputJsonValue | undefined
     };
 
-    return this.prisma.conversation.update({
-      where: { id },
-      data
-    });
+    const result = await this.tenantPrisma.conversations({ tenantId }).update(id, data);
+    if (result.count !== 1) {
+      throw new NotFoundException('Conversation not found.');
+    }
+
+    return this.get(tenantId, id);
   }
 }

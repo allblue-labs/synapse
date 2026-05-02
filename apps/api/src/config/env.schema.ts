@@ -13,5 +13,6 @@ export const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
-  CORS_ORIGINS: z.string().optional()
+  CORS_ORIGINS: z.string().optional(),
+  REQUEST_BODY_LIMIT: z.string().default('1mb')
 });

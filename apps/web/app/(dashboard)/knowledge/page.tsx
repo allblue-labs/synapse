@@ -1,6 +1,8 @@
 import { FileText, Link as LinkIcon, Plus, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SampleDataBanner } from '@/components/ui/sample-data-banner';
 
 const documents = [
   { title: 'Enterprise pricing policy', scope: 'Sales qualifier', source: 'Internal document', updated: 'Today' },
@@ -11,6 +13,7 @@ const documents = [
 export default function KnowledgePage() {
   return (
     <div className="space-y-6">
+      <SampleDataBanner />
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <p className="text-sm font-medium uppercase text-signal">Knowledge</p>
@@ -51,6 +54,9 @@ export default function KnowledgePage() {
           ))}
         </div>
       </section>
+      {documents.length === 0 ? (
+        <EmptyState icon={FileText} title="No knowledge sources" description="Add policies, product details, FAQs, or playbooks so agents can answer with customer-specific context." actionLabel="Add source" />
+      ) : null}
     </div>
   );
 }

@@ -124,6 +124,14 @@ Synapse is organized so services can live in one GitHub repository without becom
 
 The web service must not import Prisma or NestJS internals. The API service must not import React or Next.js. Shared packages stay framework-neutral.
 
+## Project Tracking
+
+- `docs/ROADMAP.md`: phased implementation roadmap and next actions.
+- `docs/STATUS.md`: current implementation state, verification, known issues, and next step.
+- `docs/DECISIONS.md`: concise architecture decision records.
+- `docs/REVIEW.md`: latest production-readiness review.
+- `docs/SECURITY.md`: dependency audit, secrets, webhook, tenant isolation, and rate-limiting policy.
+
 ## Why This Shape
 
 The backend is intentionally modular but not distributed. Synapse needs strong product velocity early, and a modular monolith gives clean ownership boundaries without forcing premature network seams. The schema and services are designed so high-load pieces, especially message ingestion and AI orchestration, can later move into workers or separate services with minimal domain churn.

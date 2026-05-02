@@ -1,9 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ChannelType, MessageAuthorType, MessageDirection } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { MessagesService } from '../messages/messages.service';
 import { TelegramAdapter } from './adapters/telegram.adapter';
 import { ChannelAdapter } from './channel-adapter.interface';
+import { DiscordAdapter } from './adapters/discord.adapter';
+import { WhatsAppAdapter } from './adapters/whatsapp.adapter';
 
 type CreateChannelInput = {
   type: ChannelType;
@@ -17,7 +19,9 @@ export class ChannelsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly messagesService: MessagesService,
-    private readonly telegramAdapter: TelegramAdapter
+    private readonly telegramAdapter: TelegramAdapter,
+    private readonly discordAdapter: DiscordAdapter,
+    private readonly whatsAppAdapter: WhatsAppAdapter
   ) {}
 
   list(tenantId: string) {
@@ -47,7 +51,12 @@ export class ChannelsService {
     });
   }
 
-  async receive(tenantId: string, channelAccountId: string, payload: Record<string, unknown>) {
+  async receive(
+    tenantId: string,
+    channelAccountId: string,
+    payload: Record<string, unknown>,
+    headers: Record<string, string | string[] | undefined> = {}
+  ) {
     const channel = await this.prisma.channelAccount.findFirst({
       where: { id: channelAccountId, tenantId }
     });
@@ -56,7 +65,12 @@ export class ChannelsService {
     }
 
     const adapter = this.adapterFor(channel.type);
-    const normalized = await adapter.receiveMessage(payload);
+    const validation = await adapter.validateWebhook(payload, headers);
+    if (!validation.valid) {
+      throw new UnauthorizedException(validation.reason ?? 'Invalid channel webhook.');
+    }
+
+    const normalized = adapter.normalizeInboundMessage(payload);
 
     const conversation = await this.prisma.conversation.upsert({
       where: {
@@ -96,6 +110,12 @@ export class ChannelsService {
   private adapterFor(type: ChannelType): ChannelAdapter {
     if (type === ChannelType.TELEGRAM) {
       return this.telegramAdapter;
+    }
+    if (type === ChannelType.DISCORD) {
+      return this.discordAdapter;
+    }
+    if (type === ChannelType.WHATSAPP) {
+      return this.whatsAppAdapter;
     }
 
     throw new BadRequestException(`Channel ${type} is not implemented yet.`);

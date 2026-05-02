@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
+import { AiResponseParserService } from './ai-response-parser.service';
+import { PromptBuilderService } from './prompt-builder.service';
 import { OpenAiProvider } from './providers/openai.provider';
 
 @Injectable()
@@ -8,7 +10,9 @@ export class AiOrchestratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly knowledgeBase: KnowledgeBaseService,
-    private readonly openAiProvider: OpenAiProvider
+    private readonly openAiProvider: OpenAiProvider,
+    private readonly promptBuilder: PromptBuilderService,
+    private readonly responseParser: AiResponseParserService
   ) {}
 
   async generateReply(tenantId: string, conversationId: string) {
@@ -29,24 +33,21 @@ export class AiOrchestratorService {
 
     const latestUserText = [...conversation.messages].reverse().find((message) => message.direction === 'INBOUND')?.content ?? '';
     const knowledge = await this.knowledgeBase.searchForAgent(tenantId, conversation.agent.id, latestUserText);
-    const systemPrompt = [
-      `You are ${conversation.agent.name}.`,
-      `Business goal: ${conversation.agent.goal}.`,
-      `Personality: ${conversation.agent.personality}.`,
-      `Instructions: ${conversation.agent.instructions}.`,
-      conversation.agent.rules.length ? `Rules:\n${conversation.agent.rules.map((rule) => `- ${rule}`).join('\n')}` : '',
-      knowledge.length ? `Relevant knowledge:\n${knowledge.map((item) => `# ${item.title}\n${item.content}`).join('\n\n')}` : '',
-      'Respond clearly, pursue the business outcome, and escalate when confidence is low.'
-    ].filter(Boolean).join('\n\n');
+    const systemPrompt = this.promptBuilder.buildSystemPrompt({
+      agent: conversation.agent,
+      knowledge
+    });
 
-    return this.openAiProvider.generate({
+    const output = await this.openAiProvider.generate({
       model: conversation.agent.modelName,
       temperature: conversation.agent.temperature,
       systemPrompt,
-      messages: conversation.messages.map((message) => ({
-        role: message.direction === 'INBOUND' ? 'user' : 'assistant',
-        content: message.content
-      }))
+      messages: this.promptBuilder.selectConversationHistory(conversation.messages)
     });
+
+    return {
+      ...output,
+      parsed: this.responseParser.parse(output.text)
+    };
   }
 }

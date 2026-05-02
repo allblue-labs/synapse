@@ -1,6 +1,8 @@
 import { ArrowUpRight, Bot, Clock, MessageSquareText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
+import { SampleDataBanner } from '@/components/ui/sample-data-banner';
 
 const conversations = [
   { name: 'Marina Costa', channel: 'Telegram', agent: 'Sales qualifier', status: 'ACTIVE', preview: 'Asked about enterprise pricing and rollout timeline.', time: '2m' },
@@ -10,7 +12,12 @@ const conversations = [
 
 export default function ConversationsPage() {
   return (
-    <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+    <div className="space-y-6">
+      <SampleDataBanner />
+      {conversations.length === 0 ? (
+        <EmptyState icon={MessageSquareText} title="No conversations yet" description="Inbound channel messages will appear here after a channel webhook is connected." />
+      ) : null}
+      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
       <section className="rounded-md border border-ink/10 bg-white shadow-panel">
         <div className="border-b border-ink/10 p-5">
           <p className="text-sm font-medium uppercase text-signal">Inbox</p>
@@ -84,6 +91,7 @@ export default function ConversationsPage() {
           </aside>
         </div>
       </section>
+      </div>
     </div>
   );
 }

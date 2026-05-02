@@ -1,6 +1,8 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { envSchema } from './config/env.schema';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -14,6 +16,7 @@ import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.mod
 import { AiOrchestratorModule } from './modules/ai-orchestrator/ai-orchestrator.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { HealthModule } from './modules/health/health.module';
+import { QueueModule } from './modules/queue/queue.module';
 
 @Module({
   imports: [
@@ -29,6 +32,18 @@ import { HealthModule } from './modules/health/health.module';
         }
       })
     }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'global',
+        ttl: 60_000,
+        limit: 120
+      },
+      {
+        name: 'auth',
+        ttl: 60_000,
+        limit: 10
+      }
+    ]),
     PrismaModule,
     HealthModule,
     AuthModule,
@@ -40,7 +55,14 @@ import { HealthModule } from './modules/health/health.module';
     ChannelsModule,
     KnowledgeBaseModule,
     AiOrchestratorModule,
-    BillingModule
+    BillingModule,
+    QueueModule
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard
+    }
   ]
 })
 export class AppModule {}

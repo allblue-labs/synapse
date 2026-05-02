@@ -11,8 +11,8 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-medium uppercase text-signal">Settings</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-normal text-ink">Workspace controls</h1>
+        <p className="text-sm font-medium uppercase text-signal">Control plane</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-normal text-ink">Workspace, modules, and platform controls</h1>
       </div>
       <section className="grid gap-4 md:grid-cols-2">
         {settings.map((item) => {

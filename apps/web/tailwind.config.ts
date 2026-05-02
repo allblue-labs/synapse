@@ -9,16 +9,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: '#101214',
-        graphite: '#24282d',
-        pearl: '#f7f7f4',
-        mist: '#eef1f3',
-        signal: '#1f9d8a',
-        pulse: '#3867ff',
-        ember: '#df6b3f'
+        ink: '#111312',
+        graphite: '#2b302f',
+        pearl: '#f6f5ef',
+        mist: '#ebe9df',
+        bone: '#fffdf7',
+        line: '#dad7cb',
+        signal: '#148f77',
+        pulse: '#3157d5',
+        ember: '#c95f3b',
+        gold: '#b98924'
       },
       boxShadow: {
-        panel: '0 1px 2px rgba(16, 18, 20, 0.08), 0 10px 30px rgba(16, 18, 20, 0.06)'
+        panel: '0 1px 2px rgba(17, 19, 18, 0.08), 0 24px 70px rgba(17, 19, 18, 0.08)',
+        lift: '0 18px 60px rgba(17, 19, 18, 0.12)'
       }
     }
   },

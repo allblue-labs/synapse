@@ -20,6 +20,8 @@ body {
   margin: 0;
   background: #f7f7f4;
   color: #101214;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 button,
@@ -31,4 +33,16 @@ select {
 
 ::selection {
   background: rgba(31, 157, 138, 0.18);
+}
+
+.surface-grid {
+  background-image:
+    linear-gradient(rgba(17, 19, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 19, 18, 0.045) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.soft-noise {
+  background-image: radial-gradient(circle at 20% 10%, rgba(20, 143, 119, 0.12), transparent 28%),
+    radial-gradient(circle at 80% 0%, rgba(185, 137, 36, 0.1), transparent 24%);
 }

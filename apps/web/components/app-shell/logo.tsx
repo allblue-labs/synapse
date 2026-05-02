@@ -12,8 +12,8 @@ export function SynapseLogo() {
         priority
       />
       <div>
-        <p className="text-sm font-semibold leading-4 text-ink">Synapse</p>
-        <p className="text-xs leading-4 text-graphite/60">Agent Operations</p>
+        <p className="text-sm font-semibold leading-4 text-current">Synapse</p>
+        <p className="text-xs leading-4 text-current opacity-55">Core Platform</p>
       </div>
     </div>
   );

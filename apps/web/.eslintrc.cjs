@@ -1,0 +1,7 @@
+module.exports = {
+  extends: ['next/core-web-vitals'],
+  root: true,
+  rules: {
+    'react/no-unescaped-entities': 'off'
+  }
+};

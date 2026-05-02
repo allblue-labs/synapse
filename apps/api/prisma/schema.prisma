@@ -1,0 +1,239 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_SETUP
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum AgentStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum AgentGoal {
+  SALES
+  LEAD_QUALIFICATION
+  SUPPORT
+  BOOKING
+  AUTOMATION
+}
+
+enum ConversationStatus {
+  ACTIVE
+  CLOSED
+  ESCALATED
+}
+
+enum ChannelType {
+  WHATSAPP
+  TELEGRAM
+  DISCORD
+}
+
+enum ChannelStatus {
+  ACTIVE
+  DISCONNECTED
+  NEEDS_ATTENTION
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+  SYSTEM
+}
+
+enum MessageAuthorType {
+  CONTACT
+  AGENT
+  HUMAN
+  SYSTEM
+}
+
+enum BillingStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  UNPAID
+  INCOMPLETE
+}
+
+model Tenant {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  status         TenantStatus    @default(PENDING_SETUP)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  users          UserMembership[]
+  agents         Agent[]
+  conversations  Conversation[]
+  messages       Message[]
+  channels       ChannelAccount[]
+  knowledgeItems KnowledgeItem[]
+  billingAccount BillingAccount?
+
+  @@index([status])
+}
+
+model User {
+  id            String           @id @default(cuid())
+  email         String           @unique
+  name          String
+  passwordHash  String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  memberships   UserMembership[]
+  ownedMessages Message[]        @relation("HumanMessageAuthor")
+}
+
+model UserMembership {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@index([tenantId, role])
+}
+
+model Agent {
+  id              String          @id @default(cuid())
+  tenantId        String
+  name            String
+  status          AgentStatus     @default(DRAFT)
+  goal            AgentGoal
+  personality     String
+  instructions    String
+  rules           String[]
+  modelProvider   String          @default("openai")
+  modelName       String          @default("gpt-4.1-mini")
+  temperature     Float           @default(0.3)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations   Conversation[]
+  knowledgeItems  KnowledgeItem[]
+  channelAccounts ChannelAccount[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, goal])
+}
+
+model Conversation {
+  id                  String             @id @default(cuid())
+  tenantId            String
+  agentId             String?
+  channelAccountId    String
+  status              ConversationStatus @default(ACTIVE)
+  externalContactId   String
+  contactDisplayName  String?
+  extractedData       Json               @default("{}")
+  lastMessageAt       DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent               Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  channelAccount      ChannelAccount     @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  messages            Message[]
+
+  @@unique([tenantId, channelAccountId, externalContactId])
+  @@index([tenantId, status, lastMessageAt])
+  @@index([tenantId, agentId])
+}
+
+model Message {
+  id                String            @id @default(cuid())
+  tenantId          String
+  conversationId    String
+  externalMessageId String?
+  direction         MessageDirection
+  authorType        MessageAuthorType
+  humanAuthorId     String?
+  content           String
+  normalizedPayload Json              @default("{}")
+  providerPayload   Json              @default("{}")
+  metadata          Json              @default("{}")
+  createdAt         DateTime          @default(now())
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation      Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  humanAuthor       User?             @relation("HumanMessageAuthor", fields: [humanAuthorId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, conversationId, externalMessageId])
+  @@index([tenantId, conversationId, createdAt])
+  @@index([tenantId, direction])
+}
+
+model ChannelAccount {
+  id             String             @id @default(cuid())
+  tenantId       String
+  agentId        String?
+  type           ChannelType
+  status         ChannelStatus      @default(DISCONNECTED)
+  displayName    String
+  externalId     String?
+  credentialsRef String?
+  settings       Json               @default("{}")
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent          Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  conversations  Conversation[]
+
+  @@unique([tenantId, type, externalId])
+  @@index([tenantId, type, status])
+  @@index([tenantId, agentId])
+}
+
+model KnowledgeItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  agentId     String?
+  title       String
+  content     String
+  sourceUrl   String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent       Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, agentId])
+  @@index([tenantId, updatedAt])
+}
+
+model BillingAccount {
+  id                   String        @id @default(cuid())
+  tenantId             String        @unique
+  stripeCustomerId     String?       @unique
+  stripeSubscriptionId String?       @unique
+  status               BillingStatus @default(INCOMPLETE)
+  planKey              String        @default("starter")
+  currentPeriodEnd     DateTime?
+  entitlements         Json          @default("{}")
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}

@@ -3,21 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "description": "Synapse multi-tenant SaaS platform for AI-powered conversational agents.",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "dev": "npm run dev:web",
-    "dev:api": "npm run start:dev -w @synapse/api",
-    "dev:web": "npm run dev -w @synapse/web",
-    "build": "npm run build -ws --if-present",
-    "build:api": "npm run build -w @synapse/api",
-    "build:web": "npm run build -w @synapse/web",
-    "lint": "npm run lint -ws --if-present",
-    "test": "npm run test -ws --if-present",
-    "typecheck": "npm run typecheck -ws --if-present",
-    "audit:review": "npm audit --workspaces"
+    "dev:api": "cd apps/api && npm run start:dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "build:api": "cd apps/api && npm run build",
+    "build:web": "cd apps/web && npm run build"
   },
   "engines": {
     "node": ">=20.11.0"

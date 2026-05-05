@@ -43,3 +43,7 @@ Shared manifest/action/event shapes live in `packages/contracts`.
 ## Boundary Rule
 
 Messaging, incidents, inventory, and workforce must not enter core. If core needs a new capability, it should be a generic primitive useful across modules.
+
+## Runtime Coordination
+
+When modules are enabled or disabled, Synapse updates a tenant runtime spec. Today this is stored in memory and sent to a stub Pain client. Later the same flow will apply specs to Pain Runtime Operator.

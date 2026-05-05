@@ -8,11 +8,13 @@ x-api-env: &api-env
   REDIS_URL: redis://redis:6379
   NODE_ENV: production
 
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
 services:
 
-  # -------------------------------------------------------------------------
-  # Infrastructure
-  # -------------------------------------------------------------------------
+  # ---- Infrastructure ------------------------------------------------------
+
   postgres:
     image: postgres:16-alpine
     container_name: synapse-postgres
@@ -24,7 +26,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - synapse-postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
       interval: 10s
@@ -42,7 +44,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - synapse-redis-data:/data
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -52,12 +54,11 @@ services:
     networks:
       - backend
 
-  # -------------------------------------------------------------------------
-  # Migration runner (runs once, then exits)
-  # -------------------------------------------------------------------------
+  # ---- Migration (runs once, exits) ----------------------------------------
+
   migrate:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/api/Dockerfile
       target: build
     container_name: synapse-migrate
@@ -65,7 +66,7 @@ services:
     environment:
       <<: *api-env
     env_file:
-      - path: ../../.env
+      - path: .env
         required: false
     command: ["npx", "prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
     working_dir: /app/apps/api
@@ -75,22 +76,20 @@ services:
     networks:
       - backend
 
-  # -------------------------------------------------------------------------
-  # API
-  # -------------------------------------------------------------------------
+  # ---- Backend -------------------------------------------------------------
+
   api:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/api/Dockerfile
     container_name: synapse-api
     restart: unless-stopped
     environment:
       <<: *api-env
-      # Required — set in .env or override here:
-      # JWT_SECRET: changeme
-      # OPENAI_API_KEY: sk-...
+      # Override secrets via .env:
+      #   JWT_SECRET, OPENAI_API_KEY, STRIPE_SECRET_KEY, ...
     env_file:
-      - path: ../../.env
+      - path: .env
         required: false
     ports:
       - "4000:4000"
@@ -111,19 +110,19 @@ services:
       - backend
       - frontend
 
-  # -------------------------------------------------------------------------
-  # Web
-  # -------------------------------------------------------------------------
+  # ---- Frontend ------------------------------------------------------------
+
   web:
     build:
-      context: ../..
+      context: .
       dockerfile: apps/web/Dockerfile
       args:
+        # Baked at build time — must match the public URL of the API
         NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/v1
     container_name: synapse-web
     restart: unless-stopped
     env_file:
-      - path: ../../.env
+      - path: .env
         required: false
     ports:
       - "3000:3000"
@@ -146,5 +145,5 @@ networks:
 # Volumes
 # ---------------------------------------------------------------------------
 volumes:
-  synapse-postgres-data:
-  synapse-redis-data:
+  postgres-data:
+  redis-data:

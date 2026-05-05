@@ -1,56 +1,72 @@
 # Security Policy
 
-## Dependency Audit Policy
+## Dependency Audit
 
-`npm audit` currently reports findings in the dependency tree. Do not blindly run `npm audit fix --force`; it can introduce breaking upgrades.
+Run `npm audit --workspaces` to classify findings. Do not run `npm audit fix --force` — it can introduce breaking changes.
 
-Recommended process:
+Process:
 
-1. Run `npm audit --workspaces`.
-2. Classify findings by severity, exploitability, runtime exposure, and whether they affect production code.
-3. Prefer direct dependency upgrades over force fixes.
-4. Record accepted temporary risk in this document or a security ticket.
-5. Re-run build, lint, typecheck, and relevant tests after dependency changes.
+1. Run `npm audit --workspaces`
+2. Classify by severity, exploitability, and runtime exposure
+3. Prefer direct dependency upgrades over force fixes
+4. Record accepted temporary risk below
 
-Useful command:
+---
 
-```bash
-npm audit --workspaces
-```
+## Authentication
 
-## Secret Handling
+- Passwords hashed with **Argon2** (memory-hard, resistant to GPU attacks)
+- JWT signed with `JWT_SECRET` (env var); default expiry 15m
+- Auth endpoints throttled to 5 req/min per IP via `ThrottlerModule`
+- Cookie: `SameSite=Lax`; `HttpOnly` hardening deferred (see DECISIONS.md)
 
-- Keep secrets out of Git.
-- Use `.env.example` only for names and safe defaults.
-- Tenant provider credentials should be stored as references and encrypted/managed by a production secrets system.
-- Frontend-exposed variables must use `NEXT_PUBLIC_` only when intentionally public.
+## Tenant Isolation
+
+- Every API request: `AuthGuard('jwt') → TenantGuard → RolesGuard`
+- `TenantGuard` rejects `x-tenant-id` header if it mismatches JWT payload
+- `TenantPrismaService` injects `tenantId` into all WHERE clauses
+- All Prisma indexes include `tenantId` as the leading key
+
+## Input Validation
+
+- Global `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true`
+- DTOs use `class-validator` decorators
+- Environment validated with Zod at startup
+
+## Rate Limiting
+
+- Global: 120 req/min per IP
+- Auth endpoints: 10 req/min per IP
+- Implemented via `@nestjs/throttler` with `ThrottlerGuard` as a global guard
 
 ## Webhook Security
 
-- Validate channel and Stripe webhook signatures before mutation or queue enqueue.
-- Use timestamps or nonce protections where providers support them.
-- Store provider message IDs for idempotency.
-- Log webhook failures without leaking secrets.
+| Adapter   | Status |
+|-----------|--------|
+| Telegram  | Basic validation (TODO: HMAC with bot secret) |
+| Discord   | Not implemented — throws `ServiceUnavailable` |
+| WhatsApp  | Not implemented — throws `ServiceUnavailable` |
 
-## Tenant Isolation Notes
+**Required before production:** Implement HMAC-SHA256 signature verification for all adapters using provider-specific header (`X-Hub-Signature-256` for WhatsApp, `X-Signature-Ed25519` for Discord).
 
-- Tenant-owned data must include `tenantId`.
-- Tenant scope comes from authenticated claims, not request bodies.
-- Use `TenantPrismaService` or domain repositories for tenant-sensitive access.
-- PostgreSQL Row Level Security should be evaluated before production scale.
+## Secure Headers
 
-## Rate Limiting Strategy
+Not yet configured. Required before production:
 
-- API has a global baseline throttle.
-- Auth endpoints have stricter throttles.
-- Future tenant-based limits should include seats, monthly messages, AI usage, and channel throughput.
+- `Helmet` for NestJS (X-Frame-Options, X-Content-Type-Options, Strict-Transport-Security, CSP)
+- Referrer-Policy: `strict-origin-when-cross-origin`
+- Permissions-Policy: restrict camera/microphone
 
-## Production Checklist
+## Safe Logging
 
-- Configure strong `JWT_SECRET`.
-- Configure CORS origins explicitly.
-- Enable provider webhook validation.
-- Encrypt or externally manage tenant integration secrets.
-- Add Stripe webhook idempotency.
-- Add CI quality gates.
-- Review `npm audit` findings before release.
+- `RequestLoggingInterceptor` logs method, path, status, duration, `requestId`
+- Passwords and tokens are **not** logged (dto bodies excluded from request log)
+- Action required: audit `json-logger.service.ts` calls that log raw payloads — mask `credentialsRef`, `passwordHash`, any token fields
+
+## Known Accepted Risks (Temporary)
+
+| Risk | Reason accepted | Target fix |
+|------|-----------------|------------|
+| Discord/WhatsApp webhook validation missing | Adapters throw 503 if called; not exposed in prod | Phase 3 |
+| JWT stored in `Lax` cookie (not `HttpOnly`) | Required for client-side API auth header injection | Phase 5 BFF |
+| No refresh token | 15m expiry; re-login required | Phase 5 |

@@ -196,3 +196,45 @@ export type LlmRoutingPolicy = {
 };
 
 export type MessagingConversationState = 'NEW' | 'QUALIFYING' | 'WAITING_ON_USER' | 'READY_FOR_HANDOFF' | 'CLOSED';
+
+export type TaskType = 'llm' | 'workflow' | 'message' | 'analysis';
+
+export type Task = {
+  id: string;
+  type: TaskType;
+  tenantId: string;
+  module: string;
+  payload: Record<string, unknown>;
+  priority?: number;
+  metadata?: Record<string, unknown>;
+};
+
+export type TaskResult = {
+  taskId: string;
+  tenantId: string;
+  module: string;
+  status: 'completed' | 'queued' | 'failed';
+  output?: Record<string, unknown>;
+  error?: string;
+  startedAt: string;
+  completedAt: string;
+};
+
+export type TenantRuntimeModuleSpec = {
+  name: string;
+  enabled: boolean;
+  config?: Record<string, unknown>;
+};
+
+export type TenantRuntimeSpec = {
+  tenantId: string;
+  plan: string;
+  modules: TenantRuntimeModuleSpec[];
+};
+
+export type TenantRuntimeStatus = {
+  tenantId: string;
+  state: 'local' | 'pending' | 'ready' | 'error';
+  lastAppliedAt?: string;
+  message?: string;
+};

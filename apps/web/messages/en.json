@@ -1,0 +1,100 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "modules": "Modules",
+    "agents": "Agents",
+    "activity": "Activity",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  },
+  "overview": {
+    "title": "Overview",
+    "tagline": "Orchestrate AI agents across every channel.",
+    "description": "Synapse connects your messaging channels to intelligent agents that understand context, extract intent, and take structured action — with humans in the loop.",
+    "modules": "Your Modules",
+    "quickActions": "Quick Actions",
+    "openModule": "Open Module",
+    "createAgent": "Create Agent",
+    "comingSoon": "Coming soon"
+  },
+  "modules": {
+    "title": "Modules",
+    "description": "Each module is an independent domain feature. Activate and configure them per workspace.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "open": "Open",
+    "comingSoon": "Coming soon"
+  },
+  "messaging": {
+    "title": "Messaging",
+    "description": "Connect WhatsApp, Telegram and other channels. Automate conversations and capture leads with AI.",
+    "clinicFlow": "ClinicFlow AI",
+    "clinicFlowDesc": "WhatsApp → AI scheduling → human validation → calendar. Full audit trail.",
+    "conversations": "Conversations",
+    "channels": "Channels"
+  },
+  "clinicFlow": {
+    "title": "ClinicFlow AI",
+    "description": "AI-powered scheduling from WhatsApp messages with human validation.",
+    "queue": "Queue",
+    "errors": "Errors",
+    "settings": "Settings",
+    "queueTitle": "Scheduling Queue",
+    "errorsTitle": "Processing Errors",
+    "settingsTitle": "ClinicFlow Settings",
+    "statuses": {
+      "processing": "Processing",
+      "pending_validation": "Pending Validation",
+      "ready_to_confirm": "Ready",
+      "scheduled": "Scheduled",
+      "failed": "Failed"
+    },
+    "columns": {
+      "contact": "Contact",
+      "message": "Message",
+      "procedure": "Procedure",
+      "datetime": "Date / Time",
+      "confidence": "Confidence",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "detail": {
+      "originalMessage": "Original Message",
+      "transcription": "Transcription",
+      "extractedData": "Extracted Data",
+      "aiSummary": "AI Summary",
+      "logs": "Processing Logs",
+      "approve": "Approve",
+      "reject": "Reject",
+      "edit": "Edit",
+      "procedure": "Procedure",
+      "date": "Date",
+      "time": "Time",
+      "notes": "Notes",
+      "phone": "Phone"
+    },
+    "empty": {
+      "queue": "No items in queue",
+      "queueDesc": "Scheduling requests from WhatsApp will appear here.",
+      "errors": "No errors",
+      "errorsDesc": "Processing errors will appear here when they occur."
+    }
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signInDesc": "Enter your credentials to access your workspace.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "noAccount": "Don't have an account?",
+    "register": "Contact sales"
+  },
+  "common": {
+    "loading": "Loading...",
+    "all": "All",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close"
+  }
+}

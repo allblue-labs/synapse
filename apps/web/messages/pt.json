@@ -1,0 +1,100 @@
+{
+  "nav": {
+    "overview": "Visão Geral",
+    "modules": "Módulos",
+    "agents": "Agentes",
+    "activity": "Atividade",
+    "settings": "Configurações",
+    "signOut": "Sair"
+  },
+  "overview": {
+    "title": "Visão Geral",
+    "tagline": "Orquestre agentes de IA em todos os canais.",
+    "description": "O Synapse conecta seus canais de mensagens a agentes inteligentes que entendem contexto, extraem intenção e executam ações estruturadas — com humanos no controle.",
+    "modules": "Seus Módulos",
+    "quickActions": "Ações Rápidas",
+    "openModule": "Abrir Módulo",
+    "createAgent": "Criar Agente",
+    "comingSoon": "Em breve"
+  },
+  "modules": {
+    "title": "Módulos",
+    "description": "Cada módulo é uma funcionalidade de domínio independente. Ative e configure por workspace.",
+    "active": "Ativo",
+    "inactive": "Inativo",
+    "open": "Abrir",
+    "comingSoon": "Em breve"
+  },
+  "messaging": {
+    "title": "Mensagens",
+    "description": "Conecte WhatsApp, Telegram e outros canais. Automatize conversas e capture leads com IA.",
+    "clinicFlow": "ClinicFlow AI",
+    "clinicFlowDesc": "WhatsApp → agendamento por IA → validação humana → calendário. Trilha de auditoria completa.",
+    "conversations": "Conversas",
+    "channels": "Canais"
+  },
+  "clinicFlow": {
+    "title": "ClinicFlow AI",
+    "description": "Agendamento inteligente via WhatsApp com validação humana.",
+    "queue": "Fila",
+    "errors": "Erros",
+    "settings": "Configurações",
+    "queueTitle": "Fila de Agendamentos",
+    "errorsTitle": "Erros de Processamento",
+    "settingsTitle": "Configurações do ClinicFlow",
+    "statuses": {
+      "processing": "Processando",
+      "pending_validation": "Aguardando Validação",
+      "ready_to_confirm": "Pronto",
+      "scheduled": "Agendado",
+      "failed": "Falhou"
+    },
+    "columns": {
+      "contact": "Contato",
+      "message": "Mensagem",
+      "procedure": "Procedimento",
+      "datetime": "Data / Hora",
+      "confidence": "Confiança",
+      "status": "Status",
+      "actions": "Ações"
+    },
+    "detail": {
+      "originalMessage": "Mensagem Original",
+      "transcription": "Transcrição",
+      "extractedData": "Dados Extraídos",
+      "aiSummary": "Resumo da IA",
+      "logs": "Logs de Processamento",
+      "approve": "Aprovar",
+      "reject": "Rejeitar",
+      "edit": "Editar",
+      "procedure": "Procedimento",
+      "date": "Data",
+      "time": "Horário",
+      "notes": "Observações",
+      "phone": "Telefone"
+    },
+    "empty": {
+      "queue": "Nenhum item na fila",
+      "queueDesc": "Solicitações de agendamento do WhatsApp aparecerão aqui.",
+      "errors": "Sem erros",
+      "errorsDesc": "Erros de processamento aparecerão aqui quando ocorrerem."
+    }
+  },
+  "auth": {
+    "signIn": "Entrar",
+    "signInDesc": "Insira suas credenciais para acessar seu workspace.",
+    "email": "E-mail",
+    "password": "Senha",
+    "submit": "Entrar",
+    "noAccount": "Não tem uma conta?",
+    "register": "Falar com vendas"
+  },
+  "common": {
+    "loading": "Carregando...",
+    "all": "Todos",
+    "back": "Voltar",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "close": "Fechar"
+  }
+}

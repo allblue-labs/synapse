@@ -1,32 +1,52 @@
-import type { Config } from 'tailwindcss';
+import type {Config} from 'tailwindcss';
 
 const config: Config = {
+  darkMode: 'class',
   content: [
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
-    './lib/**/*.{ts,tsx}'
+    './lib/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
-      colors: {
-        ink: '#111312',
-        graphite: '#2b302f',
-        pearl: '#f6f5ef',
-        mist: '#ebe9df',
-        bone: '#fffdf7',
-        line: '#dad7cb',
-        signal: '#148f77',
-        pulse: '#3157d5',
-        ember: '#c95f3b',
-        gold: '#b98924'
+      fontFamily: {
+        sans: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          '"Helvetica Neue"',
+          'Arial',
+          'sans-serif',
+        ],
       },
-      boxShadow: {
-        panel: '0 1px 2px rgba(17, 19, 18, 0.08), 0 24px 70px rgba(17, 19, 18, 0.08)',
-        lift: '0 18px 60px rgba(17, 19, 18, 0.12)'
-      }
-    }
+      colors: {
+        brand: {
+          50: '#eff6ff',
+          100: '#dbeafe',
+          400: '#60a5fa',
+          500: '#3b82f6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+        },
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.4s ease-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': {opacity: '0'},
+          '100%': {opacity: '1'},
+        },
+        slideUp: {
+          '0%': {opacity: '0', transform: 'translateY(8px)'},
+          '100%': {opacity: '1', transform: 'translateY(0)'},
+        },
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };
 
 export default config;

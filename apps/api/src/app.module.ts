@@ -16,6 +16,7 @@ import { CoreIntelligenceModule } from './core/intelligence/core-intelligence.mo
 import { CoreOrchestrationModule } from './core/orchestration/core-orchestration.module';
 import { ModuleSystemModule } from './core/module-system/module-system.module';
 import { MessagingModule } from './product-modules/messaging/messaging.module';
+import { RuntimeModule } from './core/runtime/runtime.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { MessagingModule } from './product-modules/messaging/messaging.module';
     AgentsModule,
     CoreIntelligenceModule,
     CoreOrchestrationModule,
+    RuntimeModule,
     ModuleSystemModule,
     MessagingModule,
     BillingModule,

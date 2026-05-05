@@ -7,6 +7,7 @@ import { ChannelAdapter } from './channel-adapter.interface';
 import { DiscordAdapter } from './adapters/discord.adapter';
 import { WhatsAppAdapter } from './adapters/whatsapp.adapter';
 import { QueueService } from '../queue/queue.service';
+import { TaskEngineService } from '../../core/orchestration/task-engine.service';
 
 type CreateChannelInput = {
   type: ChannelType;
@@ -23,7 +24,8 @@ export class ChannelsService {
     private readonly telegramAdapter: TelegramAdapter,
     private readonly discordAdapter: DiscordAdapter,
     private readonly whatsAppAdapter: WhatsAppAdapter,
-    private readonly queueService: QueueService
+    private readonly queueService: QueueService,
+    private readonly taskEngine: TaskEngineService
   ) {}
 
   list(tenantId: string) {
@@ -124,12 +126,46 @@ export class ChannelsService {
       }
     });
 
+    await this.taskEngine.dispatch({
+      id: `message:${message.id}`,
+      type: 'message',
+      tenantId,
+      module: 'messaging',
+      payload: {
+        channelAccountId,
+        conversationId: conversation.id,
+        messageId: message.id,
+        channelType: channel.type
+      },
+      priority: 5,
+      metadata: {
+        source: 'messaging.receive',
+        externalMessageId: normalized.externalMessageId
+      }
+    });
+
     if (channel.agentId) {
       await this.queueService.enqueueAiResponse({
         tenantId,
         conversationId: conversation.id,
         agentId: channel.agentId,
         triggerMessageId: message.id
+      });
+
+      await this.taskEngine.dispatch({
+        id: `llm:${conversation.id}:${message.id}`,
+        type: 'llm',
+        tenantId,
+        module: 'messaging',
+        payload: {
+          conversationId: conversation.id,
+          agentId: channel.agentId,
+          triggerMessageId: message.id
+        },
+        priority: 6,
+        metadata: {
+          source: 'messaging.ai_response'
+        }
       });
     }
 

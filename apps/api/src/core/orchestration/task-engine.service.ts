@@ -1,24 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { QueueService } from '../../modules/queue/queue.service';
-
-export type TaskDefinition<TPayload extends Record<string, unknown>> = {
-  tenantId: string;
-  moduleName: string;
-  taskType: string;
-  payload: TPayload;
-};
+import type { Task } from '@synapse/contracts';
+import { LocalExecutor } from '../runtime/executors/local.executor';
 
 @Injectable()
 export class TaskEngineService {
-  constructor(private readonly queues: QueueService) {}
+  constructor(private readonly executor: LocalExecutor) {}
 
-  dispatch<TPayload extends Record<string, unknown>>(task: TaskDefinition<TPayload>) {
-    return {
-      accepted: true,
-      tenantId: task.tenantId,
-      moduleName: task.moduleName,
-      taskType: task.taskType,
-      queuedAt: new Date().toISOString()
-    };
+  dispatch(task: Task) {
+    return this.executor.execute(task);
   }
 }

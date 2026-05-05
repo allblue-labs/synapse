@@ -5,9 +5,10 @@ import { AiResponseParserService } from './ai-response-parser.service';
 import { PromptBuilderService } from './prompt-builder.service';
 import { OpenAiProvider } from './providers/openai.provider';
 import { LlmPoolService } from '../../core/intelligence/llm-pool/llm-pool.service';
+import { CoreOrchestrationModule } from '../../core/orchestration/core-orchestration.module';
 
 @Module({
-  imports: [KnowledgeBaseModule],
+  imports: [KnowledgeBaseModule, CoreOrchestrationModule],
   providers: [AiOrchestratorService, PromptBuilderService, AiResponseParserService, OpenAiProvider, LlmPoolService],
   exports: [AiOrchestratorService, LlmPoolService]
 })

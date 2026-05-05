@@ -1,80 +1,113 @@
-import { Component, LockKeyhole, Power, Workflow } from 'lucide-react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { SampleDataBanner } from '@/components/ui/sample-data-banner';
+import {MessageSquare, Zap, Bot, BarChart2, ArrowRight} from 'lucide-react';
+import {Badge} from '@/components/ui/badge';
+import type {Metadata} from 'next';
 
-const moduleActions = ['messaging.receive_inbound', 'messaging.send_outbound', 'messaging.capture_lead'];
+export const metadata: Metadata = {title: 'Modules'};
+
+const ALL_MODULES = [
+  {
+    id: 'messaging',
+    label: 'Messaging',
+    description: 'Connect messaging channels, automate conversations and capture structured data with AI agents.',
+    href: '/modules/messaging',
+    icon: MessageSquare,
+    active: true,
+    features: ['WhatsApp', 'Telegram', 'AI Agents', 'ClinicFlow AI'],
+    color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+  },
+  {
+    id: 'automation',
+    label: 'Automation',
+    description: 'Build event-driven workflows that execute across modules and external services.',
+    href: '#',
+    icon: Zap,
+    active: false,
+    features: ['Event triggers', 'Multi-step workflows', 'Conditions'],
+    color: 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400',
+  },
+  {
+    id: 'agents',
+    label: 'Agents',
+    description: 'Define, deploy and monitor custom AI agents with domain-specific knowledge.',
+    href: '#',
+    icon: Bot,
+    active: false,
+    features: ['Custom agents', 'Knowledge base', 'Tool use'],
+    color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400',
+  },
+  {
+    id: 'analytics',
+    label: 'Analytics',
+    description: 'Track conversation outcomes, agent metrics and export data for reporting.',
+    href: '#',
+    icon: BarChart2,
+    active: false,
+    features: ['Conversation logs', 'Agent performance', 'Exports'],
+    color: 'bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400',
+  },
+] as const;
 
 export default function ModulesPage() {
   return (
-    <div className="space-y-6">
-      <SampleDataBanner />
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <p className="text-sm font-medium uppercase text-signal">Module system</p>
-          <h1 className="mt-2 text-4xl font-semibold tracking-normal text-ink">Capabilities without core pollution</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-graphite/72">
-            Modules register actions, events, and permissions, then consume core intelligence and orchestration through stable contracts.
-          </p>
-        </div>
-        <Button variant="secondary">
-          <Workflow className="h-4 w-4" aria-hidden="true" />
-          View lifecycle
-        </Button>
+    <div className="animate-fade-in">
+      <div className="mb-10">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Modules
+        </h1>
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+          Browse and enable platform modules.
+        </p>
       </div>
 
-      <section className="rounded-md border border-line bg-bone shadow-panel">
-        <div className="grid gap-0 lg:grid-cols-[360px_1fr]">
-          <div className="border-b border-line p-6 lg:border-b-0 lg:border-r">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-ink text-white">
-              <Component className="h-5 w-5" aria-hidden="true" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {ALL_MODULES.map(({id, label, description, href, icon: Icon, active, features, color}) => (
+          <div
+            key={id}
+            className={
+              active
+                ? 'group rounded-xl border border-zinc-200 bg-white/60 p-6 dark:border-zinc-800 dark:bg-zinc-900/60'
+                : 'rounded-xl border border-zinc-100 bg-zinc-50/40 p-6 dark:border-zinc-800/50 dark:bg-zinc-900/20'
+            }
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}>
+                <Icon size={20} />
+              </div>
+              <Badge variant={active ? 'active' : 'inactive'}>
+                {active ? 'Active' : 'Coming Soon'}
+              </Badge>
             </div>
-            <h2 className="mt-5 text-2xl font-semibold text-ink">Messaging</h2>
-            <p className="mt-2 text-sm leading-6 text-graphite/70">The first real Synapse module. It owns channels, conversations, message normalization, lead capture, and conversation state.</p>
-            <div className="mt-5 flex items-center gap-2">
-              <Badge tone="success">Enabled</Badge>
-              <Badge tone="info">v0.1.0</Badge>
+
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">{label}</h3>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+              {description}
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {features.map((f) => (
+                <span
+                  key={f}
+                  className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                >
+                  {f}
+                </span>
+              ))}
             </div>
-            <Link
-              href="/modules/messaging"
-              className="mt-6 inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 text-sm font-medium text-white transition hover:bg-graphite focus:outline-none focus:ring-2 focus:ring-ink/20"
-            >
-              Open module
-            </Link>
+
+            {active && (
+              <div className="mt-5">
+                <Link
+                  href={href}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  Open <ArrowRight size={12} />
+                </Link>
+              </div>
+            )}
           </div>
-          <div className="p-6">
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-md border border-line bg-white/70 p-4">
-                <Power className="h-4 w-4 text-signal" aria-hidden="true" />
-                <p className="mt-3 text-sm font-semibold text-ink">Lifecycle</p>
-                <p className="mt-2 text-sm leading-6 text-graphite/70">Register, enable, disable, list.</p>
-              </div>
-              <div className="rounded-md border border-line bg-white/70 p-4">
-                <LockKeyhole className="h-4 w-4 text-gold" aria-hidden="true" />
-                <p className="mt-3 text-sm font-semibold text-ink">Permissions</p>
-                <p className="mt-2 text-sm leading-6 text-graphite/70">Read, write, channels, conversations.</p>
-              </div>
-              <div className="rounded-md border border-line bg-white/70 p-4">
-                <Workflow className="h-4 w-4 text-pulse" aria-hidden="true" />
-                <p className="mt-3 text-sm font-semibold text-ink">Events</p>
-                <p className="mt-2 text-sm leading-6 text-graphite/70">Message received and state changed.</p>
-              </div>
-            </div>
-            <div className="mt-6">
-              <p className="text-sm font-semibold text-ink">Registered actions</p>
-              <div className="mt-3 divide-y divide-line rounded-md border border-line bg-white/70">
-                {moduleActions.map((action) => (
-                  <div key={action} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <code className="text-sm text-graphite">{action}</code>
-                    <Badge>2026-05-02</Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+        ))}
+      </div>
     </div>
   );
 }

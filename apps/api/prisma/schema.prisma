@@ -87,8 +87,9 @@ model Tenant {
   conversations  Conversation[]
   messages       Message[]
   channels       ChannelAccount[]
-  knowledgeItems KnowledgeItem[]
-  billingAccount BillingAccount?
+  knowledgeItems   KnowledgeItem[]
+  billingAccount   BillingAccount?
+  clinicFlowEntries ClinicFlowEntry[]
 
   @@index([status])
 }
@@ -236,4 +237,42 @@ model BillingAccount {
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+enum ClinicFlowStatus {
+  PROCESSING
+  PENDING_VALIDATION
+  READY_TO_CONFIRM
+  SCHEDULED
+  FAILED
+}
+
+model ClinicFlowEntry {
+  id             String           @id @default(cuid())
+  tenantId       String
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationId String?
+  status         ClinicFlowStatus @default(PROCESSING)
+
+  originalMessage String   @default("")
+  transcription   String?
+  mediaUrl        String?
+  contactPhone    String
+  contactName     String?
+
+  extractedData   Json?
+  confidence      Float?
+  aiSummary       String?
+
+  scheduledAt     DateTime?
+  errorMessage    String?
+  retryCount      Int      @default(0)
+  processingLogs  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@map("clinic_flow_entries")
 }

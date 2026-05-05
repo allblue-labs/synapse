@@ -2,47 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: light;
-  background: #f7f7f4;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+  }
+
+  * {
+    @apply border-zinc-200 dark:border-zinc-800;
+  }
+
+  body {
+    @apply bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::selection {
+    @apply bg-brand-100 text-brand-700;
+  }
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html {
-  min-height: 100%;
-}
-
-body {
-  min-height: 100%;
-  margin: 0;
-  background: #f7f7f4;
-  color: #101214;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-}
-
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-::selection {
-  background: rgba(31, 157, 138, 0.18);
-}
-
-.surface-grid {
-  background-image:
-    linear-gradient(rgba(17, 19, 18, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(17, 19, 18, 0.045) 1px, transparent 1px);
-  background-size: 32px 32px;
-}
-
-.soft-noise {
-  background-image: radial-gradient(circle at 20% 10%, rgba(20, 143, 119, 0.12), transparent 28%),
-    radial-gradient(circle at 80% 0%, rgba(185, 137, 36, 0.1), transparent 24%);
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
 }

@@ -16,4 +16,12 @@ export class ModuleRegistryService implements OnModuleInit {
   list() {
     return this.core.listModules();
   }
+
+  enable(tenantId: string, name: string) {
+    return this.core.enableModule(name, tenantId);
+  }
+
+  disable(tenantId: string, name: string) {
+    return this.core.disableModule(name, tenantId);
+  }
 }

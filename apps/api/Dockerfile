@@ -1,25 +1,47 @@
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json* ./
-COPY apps/api/package.json apps/api/package.json
-RUN npm install
+# ---- Base: patched Alpine ----
+FROM node:20-alpine AS base
+RUN apk upgrade --no-cache
 
-FROM node:20-alpine AS build
+# ---- Stage 1: install dependencies ----
+FROM base AS deps
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY . .
-RUN npm run prisma:generate -w @synapse/api
-RUN npm run build -w @synapse/api
 
-FROM node:20-alpine AS runner
+# Copy local contracts package (file: dependency)
+COPY packages/contracts/ packages/contracts/
+
+# Copy API manifest and lock file
+COPY apps/api/package.json apps/api/package-lock.json* apps/api/
+
+# Install from apps/api (resolves file:../../packages/contracts)
+WORKDIR /app/apps/api
+RUN npm ci --prefer-offline 2>/dev/null || npm install
+
+# ---- Stage 2: build ----
+FROM base AS build
+WORKDIR /app
+
+COPY packages/ packages/
+COPY apps/api/ apps/api/
+COPY --from=deps /app/apps/api/node_modules apps/api/node_modules
+
+WORKDIR /app/apps/api
+RUN npx prisma generate --schema=prisma/schema.prisma
+RUN npm run build
+
+# ---- Stage 3: production runner ----
+FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=build /app/apps/api/dist ./apps/api/dist
-COPY --from=build /app/apps/api/prisma ./apps/api/prisma
-COPY package.json ./
-COPY apps/api/package.json ./apps/api/package.json
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nestjs
+
+COPY --from=build --chown=nestjs:nodejs /app/apps/api/dist apps/api/dist
+COPY --from=build --chown=nestjs:nodejs /app/apps/api/node_modules apps/api/node_modules
+COPY --from=build --chown=nestjs:nodejs /app/apps/api/prisma apps/api/prisma
+COPY --chown=nestjs:nodejs apps/api/package.json apps/api/package.json
+
+USER nestjs
 EXPOSE 4000
-CMD ["npm", "run", "start", "-w", "@synapse/api"]
+WORKDIR /app/apps/api
+CMD ["node", "dist/main.js"]

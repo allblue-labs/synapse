@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { RegisteredModule } from '@synapse/contracts';
 import { JsonLoggerService } from '../../common/logging/json-logger.service';
 import { QueueService } from '../../modules/queue/queue.service';
+import { RuntimeService } from '../runtime/runtime.service';
 
 @Injectable()
 export class SynapseCoreService {
@@ -9,7 +10,8 @@ export class SynapseCoreService {
 
   constructor(
     private readonly logger: JsonLoggerService,
-    private readonly queues: QueueService
+    private readonly queues: QueueService,
+    private readonly runtime: RuntimeService
   ) {}
 
   registerModule(module: Omit<RegisteredModule, 'enabled' | 'registeredAt'>) {
@@ -33,7 +35,7 @@ export class SynapseCoreService {
     return registered;
   }
 
-  enableModule(name: string) {
+  async enableModule(name: string, tenantId = 'system') {
     const module = this.modules.get(name);
     if (!module) {
       return undefined;
@@ -41,10 +43,11 @@ export class SynapseCoreService {
 
     const enabled = { ...module, enabled: true };
     this.modules.set(name, enabled);
+    await this.runtime.setModuleState(tenantId, name, true);
     return enabled;
   }
 
-  disableModule(name: string) {
+  async disableModule(name: string, tenantId = 'system') {
     const module = this.modules.get(name);
     if (!module) {
       return undefined;
@@ -52,6 +55,7 @@ export class SynapseCoreService {
 
     const disabled = { ...module, enabled: false };
     this.modules.set(name, disabled);
+    await this.runtime.setModuleState(tenantId, name, false);
     return disabled;
   }
 
@@ -61,5 +65,9 @@ export class SynapseCoreService {
 
   get queue() {
     return this.queues;
+  }
+
+  get runtimeState() {
+    return this.runtime;
   }
 }

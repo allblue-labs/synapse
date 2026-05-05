@@ -4,6 +4,7 @@ import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 import { AiResponseParserService } from './ai-response-parser.service';
 import { PromptBuilderService } from './prompt-builder.service';
 import { LlmPoolService } from '../../core/intelligence/llm-pool/llm-pool.service';
+import { TaskEngineService } from '../../core/orchestration/task-engine.service';
 
 @Injectable()
 export class AiOrchestratorService {
@@ -12,7 +13,8 @@ export class AiOrchestratorService {
     private readonly knowledgeBase: KnowledgeBaseService,
     private readonly llmPool: LlmPoolService,
     private readonly promptBuilder: PromptBuilderService,
-    private readonly responseParser: AiResponseParserService
+    private readonly responseParser: AiResponseParserService,
+    private readonly taskEngine: TaskEngineService
   ) {}
 
   async generateReply(tenantId: string, conversationId: string) {
@@ -51,6 +53,22 @@ export class AiOrchestratorService {
         maxCostTier: 'medium'
       }
     );
+
+    await this.taskEngine.dispatch({
+      id: `analysis:${conversation.id}:${Date.now()}`,
+      type: 'analysis',
+      tenantId,
+      module: 'core.intelligence',
+      payload: {
+        conversationId,
+        agentId: conversation.agent.id,
+        taskType: 'conversation_reply'
+      },
+      metadata: {
+        provider: conversation.agent.modelProvider,
+        model: conversation.agent.modelName
+      }
+    });
 
     return {
       ...output,

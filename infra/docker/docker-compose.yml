@@ -4,8 +4,8 @@ name: synapse
 # Shared environment anchors
 # ---------------------------------------------------------------------------
 x-api-env: &api-env
-  DATABASE_URL: postgresql://synapse:synapse@postgres:5432/synapse?schema=public
-  REDIS_URL: redis://redis:6379
+  DATABASE_URL: postgresql://synapse:synapse@postgres-synapse:5432/synapse?schema=public
+  REDIS_URL: redis://redis-synapse:6379
   NODE_ENV: production
 
 services:
@@ -13,7 +13,7 @@ services:
   # -------------------------------------------------------------------------
   # Infrastructure
   # -------------------------------------------------------------------------
-  postgres:
+  postgres-synapse:
     image: postgres:16-alpine
     container_name: synapse-postgres
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
       POSTGRES_PASSWORD: synapse
       POSTGRES_DB: synapse
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - synapse-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -34,13 +34,13 @@ services:
     networks:
       - backend
 
-  redis:
+  redis-synapse:
     image: redis:7-alpine
     container_name: synapse-redis
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--loglevel", "warning"]
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - synapse-redis-data:/data
     healthcheck:
@@ -55,7 +55,7 @@ services:
   # -------------------------------------------------------------------------
   # Migration runner (runs once, then exits)
   # -------------------------------------------------------------------------
-  migrate:
+  migrate-synapse:
     build:
       context: ../..
       dockerfile: apps/api/Dockerfile
@@ -70,7 +70,7 @@ services:
     command: ["npx", "prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
     working_dir: /app/apps/api
     depends_on:
-      postgres:
+      postgres-synapse:
         condition: service_healthy
     networks:
       - backend
@@ -78,7 +78,7 @@ services:
   # -------------------------------------------------------------------------
   # API
   # -------------------------------------------------------------------------
-  api:
+  api-synapse:
     build:
       context: ../..
       dockerfile: apps/api/Dockerfile
@@ -86,14 +86,11 @@ services:
     restart: unless-stopped
     environment:
       <<: *api-env
-      # Required — set in .env or override here:
-      # JWT_SECRET: changeme
-      # OPENAI_API_KEY: sk-...
     env_file:
       - path: ../../.env
         required: false
     ports:
-      - "4000:4000"
+      - "5000:4000"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
       interval: 15s
@@ -101,11 +98,11 @@ services:
       retries: 5
       start_period: 20s
     depends_on:
-      postgres:
+      postgres-synapse:
         condition: service_healthy
-      redis:
+      redis-synapse:
         condition: service_healthy
-      migrate:
+      migrate-synapse:
         condition: service_completed_successfully
     networks:
       - backend
@@ -114,21 +111,21 @@ services:
   # -------------------------------------------------------------------------
   # Web
   # -------------------------------------------------------------------------
-  web:
+  web-synapse:
     build:
       context: ../..
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:4000/v1
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:5000/v1
     container_name: synapse-web
     restart: unless-stopped
     env_file:
       - path: ../../.env
         required: false
     ports:
-      - "3000:3000"
+      - "5001:3000"
     depends_on:
-      api:
+      api-synapse:
         condition: service_healthy
     networks:
       - frontend

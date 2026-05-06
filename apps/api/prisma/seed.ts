@@ -21,7 +21,7 @@ import * as argon2 from 'argon2';
 const prisma = new PrismaClient();
 
 const ADMIN_EMAIL    = process.env.SEED_ADMIN_EMAIL    ?? 'admin@synapse.ai';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'Synapse123!';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'Neri7%Xasa6!Cowi3%Jiru1!Xujo6^Zolu1';
 const ADMIN_NAME     = process.env.SEED_ADMIN_NAME     ?? 'Administrator';
 const TENANT_NAME    = process.env.SEED_TENANT_NAME    ?? 'Synapse HQ';
 const TENANT_SLUG    = process.env.SEED_TENANT_SLUG    ?? 'synapse-hq';

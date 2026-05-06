@@ -1,6 +1,9 @@
-# ---- Base: patched Alpine ----
+# ---- Base: patched Alpine with OpenSSL for Prisma ----
+# Prisma needs openssl + libssl + libc6-compat at runtime to detect TLS bindings.
+# Without these, the schema engine fails with "Unexpected token 'E'" / "openssl-1.1.x" warnings.
 FROM node:20-alpine AS base
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache && \
+    apk add --no-cache openssl libssl3 libcrypto3 libc6-compat
 
 # ---- Stage 1: install dependencies ----
 FROM base AS deps

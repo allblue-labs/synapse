@@ -55,6 +55,10 @@ COPY --from=build --chown=nestjs:nodejs /app/apps/api/dist apps/api/dist
 COPY --from=build --chown=nestjs:nodejs /app/apps/api/node_modules apps/api/node_modules
 COPY --from=build --chown=nestjs:nodejs /app/apps/api/prisma apps/api/prisma
 COPY --chown=nestjs:nodejs apps/api/package.json apps/api/package.json
+# Operational scripts (e.g. `npm run admin:create`) — executed via ts-node from
+# the same node_modules. Kept out of the build pipeline so they ship as-is.
+COPY --chown=nestjs:nodejs apps/api/scripts apps/api/scripts
+COPY --chown=nestjs:nodejs apps/api/tsconfig.json apps/api/tsconfig.json
 
 USER nestjs
 EXPOSE 4000

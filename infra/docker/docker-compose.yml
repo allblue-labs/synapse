@@ -90,10 +90,10 @@ services:
       - path: ../../.env
         required: false
     ports:
-      - "5000:4000"
+      - "5000:3000"
     healthcheck:
       # The Nest app uses a global '/v1' prefix, so the route is /v1/health.
-      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/v1/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/v1/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 8

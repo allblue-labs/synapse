@@ -45,6 +45,6 @@ COPY --from=build --chown=nestjs:nodejs /app/apps/api/prisma apps/api/prisma
 COPY --chown=nestjs:nodejs apps/api/package.json apps/api/package.json
 
 USER nestjs
-EXPOSE 4000
+EXPOSE 3000
 WORKDIR /app/apps/api
 CMD ["node", "dist/main.js"]

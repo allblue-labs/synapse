@@ -7,6 +7,8 @@ import {Sun, Moon, Monitor, LogOut, Settings, ChevronDown, Search, Command} from
 import Image from 'next/image';
 import {useState, useEffect} from 'react';
 import {cn} from '@/lib/utils';
+import {signOut} from '@/lib/auth';
+import type {CurrentUser} from '@/lib/api';
 
 const PRIMARY_NAV = [
   {label: 'Overview', href: '/overview'},
@@ -71,13 +73,12 @@ function ThemeToggle() {
   );
 }
 
-function UserMenu() {
+function UserMenu({user}: {user: CurrentUser | null}) {
   const [open, setOpen] = useState(false);
 
-  function handleSignOut() {
-    document.cookie = 'synapse_token=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    window.location.href = '/login';
-  }
+  const initial = (user?.name?.charAt(0) ?? user?.email?.charAt(0) ?? '?').toUpperCase();
+  const displayName = user?.name ?? 'Account';
+  const displayEmail = user?.email ?? '—';
 
   return (
     <div className="relative">
@@ -88,7 +89,7 @@ function UserMenu() {
         aria-label="User menu"
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-[11px] font-bold text-white shadow-soft">
-          A
+          {initial}
         </div>
         <ChevronDown size={11} className="text-zinc-400" />
       </button>
@@ -96,10 +97,16 @@ function UserMenu() {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-11 z-20 w-56 overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-card backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
+          <div className="absolute right-0 top-11 z-20 w-60 overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-card backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
             <div className="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Admin</p>
-              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">admin@synapse.ai</p>
+              <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">{displayName}</p>
+              <p className="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">{displayEmail}</p>
+              {user?.tenant && (
+                <p className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  {user.tenant.name}
+                </p>
+              )}
             </div>
             <div className="py-1">
               <Link
@@ -113,7 +120,7 @@ function UserMenu() {
             <div className="border-t border-zinc-100 py-1 dark:border-zinc-800">
               <button
                 type="button"
-                onClick={handleSignOut}
+                onClick={signOut}
                 className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
                 <LogOut size={14} /> Sign out
@@ -141,7 +148,7 @@ function CommandTrigger() {
   );
 }
 
-export function TopNav() {
+export function TopNav({user}: {user: CurrentUser | null}) {
   const pathname = usePathname();
 
   return (
@@ -197,7 +204,7 @@ export function TopNav() {
         <div className="flex items-center gap-1.5">
           <CommandTrigger />
           <ThemeToggle />
-          <UserMenu />
+          <UserMenu user={user} />
         </div>
       </div>
     </header>

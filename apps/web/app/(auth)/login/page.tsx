@@ -1,12 +1,13 @@
 'use client';
 
 import {useState, type FormEvent} from 'react';
-import {useRouter} from 'next/navigation';
+import {useRouter, useSearchParams} from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {ArrowLeft, ArrowRight, CheckCircle2, Sparkles} from 'lucide-react';
 import {SynapseBgDark} from '@/components/background/synapse-bg';
-import {api} from '@/lib/api';
+import {api, ApiError} from '@/lib/api';
+import {setToken} from '@/lib/auth';
 
 const FEATURES = [
   'Connect WhatsApp, Telegram & web chat in minutes',
@@ -15,8 +16,18 @@ const FEATURES = [
   'Monitor every conversation with full audit trails',
 ];
 
+function safeNext(raw: string | null): string {
+  if (!raw) return '/overview';
+  // Accept only relative paths to prevent open-redirects
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/overview';
+  return raw;
+}
+
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = safeNext(searchParams.get('next'));
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -28,10 +39,20 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const {accessToken} = await api.auth.login(email, password);
-      document.cookie = `synapse_token=${encodeURIComponent(accessToken)};path=/;max-age=86400;SameSite=Lax`;
-      router.push('/overview');
+      setToken(accessToken);
+      router.push(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please check your credentials.');
+      if (err instanceof ApiError) {
+        setError(
+          err.isUnauthorized
+            ? 'Invalid email or password.'
+            : err.isNetworkError
+              ? 'Could not reach the server. Please try again.'
+              : err.message,
+        );
+      } else {
+        setError('Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

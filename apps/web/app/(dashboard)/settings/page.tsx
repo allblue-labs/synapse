@@ -1,10 +1,11 @@
 'use client';
 
-import {useState} from 'react';
+import {useState, useEffect} from 'react';
 import {Sun, Moon, Monitor, Shield, CreditCard, User, Settings as SettingsIcon} from 'lucide-react';
 import {useTheme} from 'next-themes';
 import {cn} from '@/lib/utils';
 import {PageHeader} from '@/components/ui/page-header';
+import {api, type CurrentUser} from '@/lib/api';
 
 const SECTIONS = [
   {id: 'profile',     label: 'Profile',     icon: User},
@@ -39,6 +40,32 @@ function SectionNav({active, onChange}: {active: SectionId; onChange: (s: Sectio
 }
 
 function ProfileSection() {
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.users
+      .me()
+      .then((u) => {
+        if (!cancelled) setUser(u);
+      })
+      .catch(() => {/* 401 already redirects via api.ts */})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const rows = [
+    {label: 'Name',   value: user?.name ?? '—'},
+    {label: 'Email',  value: user?.email ?? '—'},
+    {label: 'Role',   value: user?.role ? user.role.charAt(0) + user.role.slice(1).toLowerCase() : '—'},
+    {label: 'Tenant', value: user?.tenant?.name ?? '—'},
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -51,15 +78,17 @@ function ProfileSection() {
       <div className="relative overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-soft dark:border-zinc-800 dark:bg-zinc-900">
         <div className="pointer-events-none absolute inset-0 bg-grid-micro opacity-30" />
         <div className="relative divide-y divide-zinc-100 dark:divide-zinc-800">
-          {[
-            {label: 'Name',         value: 'Administrator'},
-            {label: 'Email',        value: 'admin@synapse.ai'},
-            {label: 'Role',         value: 'Owner'},
-            {label: 'Tenant',       value: 'My Organization'},
-          ].map(({label, value}) => (
+          {rows.map(({label, value}) => (
             <div key={label} className="flex items-center justify-between px-5 py-4">
               <span className="text-sm text-zinc-500 dark:text-zinc-400">{label}</span>
-              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{value}</span>
+              <span className={cn(
+                'text-sm font-medium',
+                loading
+                  ? 'h-4 w-32 animate-skeleton rounded bg-zinc-200 dark:bg-zinc-800'
+                  : 'text-zinc-900 dark:text-zinc-100',
+              )}>
+                {!loading && value}
+              </span>
             </div>
           ))}
         </div>

@@ -5,6 +5,7 @@ import {ListChecks, Phone, Calendar, Clock, ChevronRight, RefreshCw} from 'lucid
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Sheet} from '@/components/ui/sheet';
+import {TableRowSkeleton} from '@/components/ui/skeleton';
 import {cn, confidenceColor, confidenceLabel, formatRelative} from '@/lib/utils';
 import {api, type ClinicFlowEntry, type ClinicFlowStatus} from '@/lib/api';
 
@@ -251,8 +252,24 @@ export function QueueClient() {
       </div>
 
       {loading ? (
-        <div className="flex h-48 items-center justify-center">
-          <RefreshCw size={18} className="animate-spin text-zinc-300 dark:text-zinc-600" />
+        <div className="overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-900/60">
+                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Contact</th>
+                <th className="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 md:table-cell">Procedure</th>
+                <th className="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 lg:table-cell">Date / Time</th>
+                <th className="hidden px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 sm:table-cell">Confidence</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400">Age</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({length: 5}).map((_, i) => (
+                <TableRowSkeleton key={i} cols={6} />
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : entries.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">

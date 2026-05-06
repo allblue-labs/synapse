@@ -1,7 +1,7 @@
-import Link from 'next/link';
-import {ChevronRight, AlertTriangle, Clock, Phone} from 'lucide-react';
+import {AlertTriangle, Clock, Phone, RotateCw, X, UserPlus} from 'lucide-react';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
+import {PageHeader} from '@/components/ui/page-header';
 import {formatRelative} from '@/lib/utils';
 import type {Metadata} from 'next';
 
@@ -28,88 +28,74 @@ const MOCK_ERRORS = [
 
 export default function ErrorsPage() {
   return (
-    <div className="animate-fade-in">
-      <nav className="mb-6 flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
-        <Link href="/modules" className="hover:text-zinc-600 dark:hover:text-zinc-300">
-          Modules
-        </Link>
-        <ChevronRight size={12} />
-        <Link href="/modules/messaging" className="hover:text-zinc-600 dark:hover:text-zinc-300">
-          Messaging
-        </Link>
-        <ChevronRight size={12} />
-        <Link
-          href="/modules/messaging/clinic-flow"
-          className="hover:text-zinc-600 dark:hover:text-zinc-300"
-        >
-          ClinicFlow AI
-        </Link>
-        <ChevronRight size={12} />
-        <span className="text-zinc-600 dark:text-zinc-300">Errors</span>
-      </nav>
-
-      <div className="mb-8">
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-          <AlertTriangle size={20} className="text-red-500" />
-          Processing Errors
-        </h1>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-          {MOCK_ERRORS.length} failed entries requiring attention.
-        </p>
-      </div>
+    <div className="animate-fade-in space-y-8">
+      <PageHeader
+        eyebrow="ClinicFlow · Workspace"
+        title="Processing Errors"
+        description={`${MOCK_ERRORS.length} failed entries requiring attention. Retry, reassign, or dismiss with a full audit trail.`}
+        icon={<AlertTriangle size={26} />}
+        iconGradient="from-red-500 to-rose-500"
+        glowColor="bg-red-500/15"
+      />
 
       {MOCK_ERRORS.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800">
-          <p className="text-sm font-medium text-zinc-400 dark:text-zinc-500">No errors</p>
-          <p className="mt-1 text-xs text-zinc-300 dark:text-zinc-600">
+        <div className="relative overflow-hidden rounded-2xl border border-dashed border-zinc-200 bg-white/40 py-16 text-center dark:border-zinc-800 dark:bg-zinc-900/40">
+          <div className="pointer-events-none absolute inset-0 bg-grid-micro opacity-30" />
+          <p className="relative text-sm font-medium text-zinc-500 dark:text-zinc-400">No errors</p>
+          <p className="relative mt-1 text-xs text-zinc-400 dark:text-zinc-500">
             Processing errors will appear here when they occur.
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {MOCK_ERRORS.map((entry) => (
-            <div
+            <article
               key={entry.id}
-              className="rounded-xl border border-red-100 bg-red-50/40 p-5 dark:border-red-900/30 dark:bg-red-900/10"
+              className="relative overflow-hidden rounded-2xl border border-red-200/70 bg-white p-5 shadow-soft dark:border-red-900/40 dark:bg-zinc-900"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-xs font-semibold text-red-600 dark:bg-red-900/40 dark:text-red-400">
+              <div className="pointer-events-none absolute inset-0 bg-grid-micro opacity-30" />
+
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-rose-500 text-xs font-bold text-white">
                     {(entry.contactName ?? entry.contactPhone).charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                       {entry.contactName ?? 'Unknown contact'}
                     </p>
-                    <p className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-500">
                       <Phone size={10} /> {entry.contactPhone}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex shrink-0 items-center gap-2">
                   <Badge variant="failed">Failed</Badge>
-                  <span className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+                  <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-500">
                     <Clock size={10} /> {formatRelative(entry.createdAt)}
                   </span>
                 </div>
               </div>
 
-              <p className="mt-3 rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm text-red-700 dark:border-red-800 dark:bg-zinc-900 dark:text-red-400">
+              <p className="relative mt-4 rounded-lg border border-red-200/80 bg-red-50/80 px-3 py-2.5 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
                 {entry.errorMessage}
               </p>
 
-              <div className="mt-3 flex items-center gap-2">
+              <div className="relative mt-4 flex flex-wrap items-center gap-2">
                 <Button variant="secondary" size="sm">
+                  <RotateCw size={12} />
                   Retry ({entry.retryCount} attempt{entry.retryCount !== 1 ? 's' : ''})
                 </Button>
                 <Button variant="ghost" size="sm">
+                  <X size={12} />
                   Dismiss
                 </Button>
                 <Button variant="ghost" size="sm">
+                  <UserPlus size={12} />
                   Assign to operator
                 </Button>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}

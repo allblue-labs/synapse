@@ -47,4 +47,4 @@ COPY --chown=nestjs:nodejs apps/api/package.json apps/api/package.json
 USER nestjs
 EXPOSE 3000
 WORKDIR /app/apps/api
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]

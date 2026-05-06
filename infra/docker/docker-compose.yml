@@ -7,6 +7,9 @@ x-api-env: &api-env
   DATABASE_URL: postgresql://synapse:synapse@postgres-synapse:5432/synapse?schema=public
   REDIS_URL: redis://redis-synapse:6379
   NODE_ENV: production
+  # Browser origin allowlist — must match the host where the frontend runs.
+  # Comma-separated. Override in `.env` for staging/production deployments.
+  CORS_ORIGINS: http://localhost:5001,http://127.0.0.1:5001
 
 services:
 

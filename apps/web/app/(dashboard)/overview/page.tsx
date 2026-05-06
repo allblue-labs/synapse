@@ -12,6 +12,7 @@ import {
   Workflow,
   Sparkles,
 } from 'lucide-react';
+import {Can} from '@/components/auth/can';
 import type {Metadata} from 'next';
 
 export const metadata: Metadata = {title: 'Overview'};
@@ -101,10 +102,12 @@ export default function OverviewPage() {
               <Layers size={14} />
               Modules
             </Link>
-            <Link href="/agents" className="btn-primary h-10 px-4">
-              <Plus size={14} />
-              New agent
-            </Link>
+            <Can permission="agents:write">
+              <Link href="/agents" className="btn-primary h-10 px-4">
+                <Plus size={14} />
+                New agent
+              </Link>
+            </Can>
           </div>
         </div>
       </section>

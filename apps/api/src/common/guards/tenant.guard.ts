@@ -1,9 +1,27 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { AuthenticatedUser } from '../types/authenticated-user';
+import { IS_PUBLIC_KEY } from '../authorization/public.decorator';
 
+/**
+ * Verifies that an authenticated request carries a tenant context. Public
+ * routes (those marked `@Public()`) are skipped because they may run before
+ * a tenant is established (login, register, health probes).
+ *
+ * Optionally cross-checks the `x-tenant-id` header so a token issued for
+ * tenant A cannot be used to address tenant B's resources.
+ */
 @Injectable()
 export class TenantGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
   canActivate(context: ExecutionContext): boolean {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+
     const request = context.switchToHttp().getRequest<{
       user?: AuthenticatedUser;
       tenantId?: string;

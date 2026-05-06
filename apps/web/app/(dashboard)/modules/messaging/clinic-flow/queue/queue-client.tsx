@@ -6,6 +6,7 @@ import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Sheet} from '@/components/ui/sheet';
 import {TableRowSkeleton} from '@/components/ui/skeleton';
+import {Can} from '@/components/auth/can';
 import {cn, confidenceColor, confidenceLabel, formatRelative} from '@/lib/utils';
 import {api, type ClinicFlowEntry, type ClinicFlowStatus} from '@/lib/api';
 
@@ -156,28 +157,44 @@ function EntryDetail({
         )}
 
         {(entry.status === 'pending_validation' || entry.status === 'ready_to_confirm') && (
-          <div className="flex gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleValidate}
-              disabled={acting}
-            >
-              Approve
-            </Button>
-            <Button variant="secondary" size="sm" disabled={acting}>
-              Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-              onClick={handleReject}
-              disabled={acting}
-            >
-              Reject
-            </Button>
-          </div>
+          <Can
+            any={['clinic-flow:validate', 'clinic-flow:reject']}
+            fallback={
+              <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+                <p className="text-xs text-zinc-500 dark:text-zinc-500">
+                  You have read-only access. Validation actions require an Operator
+                  role or higher.
+                </p>
+              </div>
+            }
+          >
+            <div className="flex gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <Can permission="clinic-flow:validate">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleValidate}
+                  disabled={acting}
+                >
+                  Approve
+                </Button>
+                <Button variant="secondary" size="sm" disabled={acting}>
+                  Edit
+                </Button>
+              </Can>
+              <Can permission="clinic-flow:reject">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                  onClick={handleReject}
+                  disabled={acting}
+                >
+                  Reject
+                </Button>
+              </Can>
+            </div>
+          </Can>
         )}
       </div>
     </Sheet>

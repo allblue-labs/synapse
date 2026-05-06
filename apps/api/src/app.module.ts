@@ -5,6 +5,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { envSchema } from './config/env.schema';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { JwtAuthGuard, PermissionsGuard } from './common/authorization';
+import { TenantGuard } from './common/guards/tenant.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
@@ -59,10 +61,15 @@ import { RuntimeModule } from './core/runtime/runtime.module';
     QueueModule
   ],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard
-    }
+    // Global guards run in registration order. Order matters:
+    //   1. ThrottlerGuard       — rate limit before doing any auth work
+    //   2. JwtAuthGuard         — verify Bearer token (skipped on @Public)
+    //   3. TenantGuard          — verify tenant context (skipped on @Public)
+    //   4. PermissionsGuard     — enforce @Permissions metadata
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: TenantGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard }
   ]
 })
 export class AppModule {}

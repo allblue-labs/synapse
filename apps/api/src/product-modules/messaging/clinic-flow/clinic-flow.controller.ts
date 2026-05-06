@@ -5,10 +5,8 @@ import {
   Param,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import {AuthGuard} from '@nestjs/passport';
-import {TenantGuard} from '../../../common/guards/tenant.guard';
+import {Permissions} from '../../../common/authorization';
 import {TenantId} from '../../../common/decorators/tenant-id.decorator';
 import {ListQueueDto} from './application/dtos/list-queue.dto';
 import {CreateEntryDto} from './application/dtos/create-entry.dto';
@@ -21,7 +19,6 @@ import {RejectEntryUseCase} from './application/use-cases/reject-entry.use-case'
 import {RetryEntryUseCase} from './application/use-cases/retry-entry.use-case';
 
 @Controller('clinic-flow')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
 export class ClinicFlowController {
   constructor(
     private readonly listQueue: ListQueueUseCase,
@@ -32,21 +29,25 @@ export class ClinicFlowController {
     private readonly retryEntry: RetryEntryUseCase,
   ) {}
 
+  @Permissions('clinic-flow:read')
   @Get('queue')
   list(@TenantId() tenantId: string, @Query() query: ListQueueDto) {
     return this.listQueue.execute(tenantId, query);
   }
 
+  @Permissions('clinic-flow:read')
   @Get('queue/:id')
   get(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.getEntry.execute(tenantId, id);
   }
 
+  @Permissions('clinic-flow:write')
   @Post('entries')
   create(@TenantId() tenantId: string, @Body() dto: CreateEntryDto) {
     return this.createEntry.execute({tenantId, ...dto});
   }
 
+  @Permissions('clinic-flow:validate')
   @Post('queue/:id/validate')
   validate(
     @TenantId() tenantId: string,
@@ -59,6 +60,7 @@ export class ClinicFlowController {
     });
   }
 
+  @Permissions('clinic-flow:reject')
   @Post('queue/:id/reject')
   reject(
     @TenantId() tenantId: string,
@@ -68,11 +70,13 @@ export class ClinicFlowController {
     return this.rejectEntry.execute(tenantId, id, reason);
   }
 
+  @Permissions('clinic-flow:retry')
   @Post('queue/:id/retry')
   retry(@TenantId() tenantId: string, @Param('id') id: string) {
     return this.retryEntry.execute(tenantId, id);
   }
 
+  @Permissions('clinic-flow:read')
   @Get('errors')
   errors(@TenantId() tenantId: string) {
     return this.listQueue.execute(tenantId, {status: 'FAILED' as const});

@@ -9,6 +9,7 @@ import {
   Plug,
 } from 'lucide-react';
 import {PageHeader} from '@/components/ui/page-header';
+import {Can} from '@/components/auth/can';
 import type {Metadata} from 'next';
 
 export const metadata: Metadata = {title: 'Messaging'};
@@ -68,10 +69,12 @@ export default function MessagingPage() {
         iconGradient="from-blue-500 to-cyan-500"
         glowColor="bg-blue-500/15"
         actions={
-          <button type="button" className="btn-secondary h-9 px-3.5 text-xs">
-            <Plug size={13} />
-            Add channel
-          </button>
+          <Can permission="channels:connect">
+            <button type="button" className="btn-secondary h-9 px-3.5 text-xs">
+              <Plug size={13} />
+              Add channel
+            </button>
+          </Can>
         }
       />
 

@@ -1,12 +1,14 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
-import { TenantGuard } from '../../common/guards/tenant.guard';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { UsersService } from './users.service';
 
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+/**
+ * `/users/me` is intentionally *not* gated by `@Permissions(...)` — every
+ * authenticated user must be able to read their own session, regardless of
+ * role. The global JwtAuthGuard + TenantGuard still apply.
+ */
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

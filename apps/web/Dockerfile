@@ -6,6 +6,10 @@ RUN apk upgrade --no-cache && apk add --no-cache libc6-compat
 FROM base AS deps
 WORKDIR /app
 
+# Local contracts package (file:../../packages/contracts) — must be present
+# before npm install resolves it.
+COPY packages/contracts/ packages/contracts/
+
 COPY apps/web/package.json apps/web/package-lock.json* apps/web/
 
 WORKDIR /app/apps/web
@@ -15,6 +19,7 @@ RUN npm ci --prefer-offline 2>/dev/null || npm install
 FROM base AS build
 WORKDIR /app
 
+COPY packages/ packages/
 COPY apps/web/ apps/web/
 COPY --from=deps /app/apps/web/node_modules apps/web/node_modules
 

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {Bot, Plus, ArrowUpRight, Zap, MessageSquare, BookOpen} from 'lucide-react';
 import {PageHeader} from '@/components/ui/page-header';
+import {Can} from '@/components/auth/can';
 import type {Metadata} from 'next';
 
 export const metadata: Metadata = {title: 'Agents'};
@@ -38,10 +39,12 @@ export default function AgentsPage() {
         iconGradient="from-indigo-500 to-violet-500"
         glowColor="bg-indigo-500/15"
         actions={
-          <button type="button" className="btn-primary h-9 px-4 text-xs">
-            <Plus size={13} />
-            New agent
-          </button>
+          <Can permission="agents:write">
+            <button type="button" className="btn-primary h-9 px-4 text-xs">
+              <Plus size={13} />
+              New agent
+            </button>
+          </Can>
         }
       />
 
@@ -58,13 +61,19 @@ export default function AgentsPage() {
         <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
           Agents are AI workers that run continuously inside a module. Start from a template or build your own.
         </p>
-        <button
-          type="button"
-          className="btn-primary relative mt-6 h-10 px-5"
+        <Can
+          permission="agents:write"
+          fallback={
+            <p className="relative mt-6 text-xs text-zinc-400 dark:text-zinc-600">
+              You don&apos;t have permission to create agents. Ask an admin.
+            </p>
+          }
         >
-          <Plus size={14} />
-          Create your first agent
-        </button>
+          <button type="button" className="btn-primary relative mt-6 h-10 px-5">
+            <Plus size={14} />
+            Create your first agent
+          </button>
+        </Can>
       </section>
 
       {/* Templates */}

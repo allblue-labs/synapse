@@ -160,31 +160,22 @@ function pickString(obj: unknown, keys: readonly string[]): string | undefined {
 // Typed surface
 // ─────────────────────────────────────────────────────────────────────
 
-export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
+// RBAC types come from the shared contracts package — single source of truth
+// across API and Web. Re-exported here for consumer ergonomics.
+import type {
+  AuthSession as AuthSessionContract,
+  CurrentUser as CurrentUserContract,
+  Permission,
+  UserRole,
+} from '@synapse/contracts';
+
+export type {Permission, UserRole};
 
 /** Shape returned by POST /auth/login and /auth/register. */
-export interface AuthSession {
-  accessToken: string;
-  user: {
-    id: string;
-    email: string;
-    tenantId: string;
-    role: UserRole;
-  };
-}
+export type AuthSession = AuthSessionContract;
 
 /** Shape returned by GET /users/me. */
-export interface CurrentUser {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  tenant: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-}
+export type CurrentUser = CurrentUserContract;
 
 export interface RegisterPayload {
   email: string;

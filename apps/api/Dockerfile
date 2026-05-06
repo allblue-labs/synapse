@@ -24,8 +24,12 @@ COPY --from=contracts-build /app/packages/contracts/ packages/contracts/
 
 COPY apps/api/package.json apps/api/package-lock.json* apps/api/
 
+# `--install-links` forces npm to materialize file: deps as real copies inside
+# node_modules instead of symlinking to packages/contracts. Without this, the
+# runner stage (which only copies apps/api/node_modules) ends up with a
+# dangling symlink and require('@synapse/contracts') fails at runtime.
 WORKDIR /app/apps/api
-RUN npm ci --prefer-offline 2>/dev/null || npm install
+RUN npm ci --install-links --prefer-offline 2>/dev/null || npm install --install-links
 
 # ---- Stage 2: build the NestJS app ----
 FROM base AS build

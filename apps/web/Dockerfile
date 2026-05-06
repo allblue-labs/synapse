@@ -19,8 +19,9 @@ COPY --from=contracts-build /app/packages/contracts/ packages/contracts/
 
 COPY apps/web/package.json apps/web/package-lock.json* apps/web/
 
+# `--install-links` materializes file: deps as real copies (see API Dockerfile note).
 WORKDIR /app/apps/web
-RUN npm ci --prefer-offline 2>/dev/null || npm install
+RUN npm ci --install-links --prefer-offline 2>/dev/null || npm install --install-links
 
 # ---- Stage 2: Next.js build ----
 FROM base AS build

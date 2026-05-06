@@ -2,28 +2,35 @@
 FROM node:20-alpine AS base
 RUN apk upgrade --no-cache && apk add --no-cache libc6-compat
 
-# ---- Stage 1: install dependencies ----
+# ---- Stage 1a: build the local contracts package ----
+# Same approach as the API Dockerfile: produce dist/ explicitly rather than
+# relying on npm's `prepare` lifecycle for file: deps.
+FROM base AS contracts-build
+WORKDIR /app/packages/contracts
+COPY packages/contracts/package.json packages/contracts/tsconfig.json ./
+COPY packages/contracts/src/ ./src/
+RUN npm install --silent --no-audit --no-fund && npm run build
+
+# ---- Stage 1b: install Web dependencies ----
 FROM base AS deps
 WORKDIR /app
 
-# Local contracts package (file:../../packages/contracts) — must be present
-# before npm install resolves it.
-COPY packages/contracts/ packages/contracts/
+COPY --from=contracts-build /app/packages/contracts/ packages/contracts/
 
 COPY apps/web/package.json apps/web/package-lock.json* apps/web/
 
 WORKDIR /app/apps/web
 RUN npm ci --prefer-offline 2>/dev/null || npm install
 
-# ---- Stage 2: build ----
+# ---- Stage 2: Next.js build ----
 FROM base AS build
 WORKDIR /app
 
-COPY packages/ packages/
+COPY --from=contracts-build /app/packages/contracts/ packages/contracts/
 COPY apps/web/ apps/web/
 COPY --from=deps /app/apps/web/node_modules apps/web/node_modules
 
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:4000/v1
+ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/v1
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 

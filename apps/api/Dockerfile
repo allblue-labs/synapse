@@ -5,25 +5,33 @@ FROM node:20-alpine AS base
 RUN apk upgrade --no-cache && \
     apk add --no-cache openssl libssl3 libcrypto3 libc6-compat
 
-# ---- Stage 1: install dependencies ----
+# ---- Stage 1a: build the local contracts package ----
+# Required so consumers get a CJS dist/ they can `require()` at runtime.
+# Doing this in a dedicated stage avoids relying on npm's `prepare` lifecycle
+# for `file:` dependencies, which is inconsistent across npm versions.
+FROM base AS contracts-build
+WORKDIR /app/packages/contracts
+COPY packages/contracts/package.json packages/contracts/tsconfig.json ./
+COPY packages/contracts/src/ ./src/
+RUN npm install --silent --no-audit --no-fund && npm run build
+
+# ---- Stage 1b: install API dependencies ----
 FROM base AS deps
 WORKDIR /app
 
-# Copy local contracts package (file: dependency)
-COPY packages/contracts/ packages/contracts/
+# Use the *already-built* contracts package (with dist/) as the file: source.
+COPY --from=contracts-build /app/packages/contracts/ packages/contracts/
 
-# Copy API manifest and lock file
 COPY apps/api/package.json apps/api/package-lock.json* apps/api/
 
-# Install from apps/api (resolves file:../../packages/contracts)
 WORKDIR /app/apps/api
 RUN npm ci --prefer-offline 2>/dev/null || npm install
 
-# ---- Stage 2: build ----
+# ---- Stage 2: build the NestJS app ----
 FROM base AS build
 WORKDIR /app
 
-COPY packages/ packages/
+COPY --from=contracts-build /app/packages/contracts/ packages/contracts/
 COPY apps/api/ apps/api/
 COPY --from=deps /app/apps/api/node_modules apps/api/node_modules
 
@@ -45,6 +53,6 @@ COPY --from=build --chown=nestjs:nodejs /app/apps/api/prisma apps/api/prisma
 COPY --chown=nestjs:nodejs apps/api/package.json apps/api/package.json
 
 USER nestjs
-EXPOSE 3000
+EXPOSE 4000
 WORKDIR /app/apps/api
 CMD ["node", "dist/src/main.js"]

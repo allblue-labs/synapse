@@ -1,10 +1,16 @@
 'use client';
 
 import {useState, type FormEvent} from 'react';
-import {useRouter, useSearchParams} from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import {ArrowLeft, ArrowRight, CheckCircle2, Sparkles} from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Sparkles,
+} from 'lucide-react';
+
 import {SynapseBgDark} from '@/components/background/synapse-bg';
 import {api, ApiError} from '@/lib/api';
 import {setToken} from '@/lib/auth';
@@ -16,17 +22,28 @@ const FEATURES = [
   'Monitor every conversation with full audit trails',
 ];
 
-function safeNext(raw: string | null): string {
+function safeNext(raw?: string): string {
   if (!raw) return '/overview';
-  // Accept only relative paths to prevent open-redirects
-  if (!raw.startsWith('/') || raw.startsWith('//')) return '/overview';
+
+  if (!raw.startsWith('/') || raw.startsWith('//')) {
+    return '/overview';
+  }
+
   return raw;
 }
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams?: {
+    next?: string;
+  };
+};
+
+export default function LoginPage({
+  searchParams,
+}: LoginPageProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = safeNext(searchParams.get('next'));
+
+  const next = safeNext(searchParams?.next);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,11 +52,15 @@ export default function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+
     setError('');
     setLoading(true);
+
     try {
       const {accessToken} = await api.auth.login(email, password);
+
       setToken(accessToken);
+
       router.push(next);
     } catch (err) {
       if (err instanceof ApiError) {
@@ -68,7 +89,10 @@ export default function LoginPage() {
         <SynapseBgDark />
 
         {/* Logo */}
-        <Link href="/" className="relative z-10 inline-flex items-center gap-2.5 self-start">
+        <Link
+          href="/"
+          className="relative z-10 inline-flex items-center gap-2.5 self-start"
+        >
           <Image
             src="/logo.png"
             alt="Synapse"
@@ -77,7 +101,10 @@ export default function LoginPage() {
             className="rounded-lg ring-1 ring-white/10"
             priority
           />
-          <span className="text-base font-bold tracking-tight">Synapse</span>
+
+          <span className="text-base font-bold tracking-tight">
+            Synapse
+          </span>
         </Link>
 
         {/* Body */}
@@ -88,46 +115,47 @@ export default function LoginPage() {
           </div>
 
           <h2 className="mt-6 text-balance text-[2.25rem] font-bold leading-[1.1] tracking-tight">
-            Build conversations that<br />
-            <span className="text-gradient">drive revenue.</span>
+            Build conversations that
+            <br />
+            <span className="text-gradient">
+              drive revenue.
+            </span>
           </h2>
 
           <p className="mt-5 max-w-md text-[15px] leading-relaxed text-zinc-400">
-            Synapse is the orchestration platform for AI-powered messaging.
-            Connect channels, deploy agents, automate workflows.
+            Synapse helps teams orchestrate AI-powered
+            conversations, automate workflows, and turn
+            messages into operational actions.
           </p>
 
-          <ul className="mt-9 space-y-3.5">
-            {FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-3">
-                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-brand-400" />
-                <span className="text-[14px] leading-relaxed text-zinc-300">{f}</span>
-              </li>
+          <div className="mt-10 space-y-4">
+            {FEATURES.map((feature) => (
+              <div
+                key={feature}
+                className="flex items-start gap-3"
+              >
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
+                  <CheckCircle2 size={13} />
+                </div>
+
+                <p className="text-sm text-zinc-300">
+                  {feature}
+                </p>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
 
-        {/* Testimonial mini */}
-        <div className="relative z-10 rounded-2xl border border-white/10 bg-white/[0.03] p-5 backdrop-blur-sm">
-          <p className="text-sm leading-relaxed text-zinc-300">
-            &ldquo;We replaced two SaaS tools with one Synapse workspace. Our agents now respond in under a second.&rdquo;
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-xs font-bold">
-              R
-            </div>
-            <div className="text-xs">
-              <p className="font-semibold text-white">Renata Costa</p>
-              <p className="text-zinc-500">Head of Operations · Northstar Clinic</p>
-            </div>
-          </div>
+        {/* Footer */}
+        <div className="relative z-10 text-xs text-zinc-500">
+          © {new Date().getFullYear()} Synapse
         </div>
       </aside>
 
       {/* ══════════════════════════════════════════════════
-          RIGHT — form panel
+          RIGHT — auth form
       ══════════════════════════════════════════════════ */}
-      <main className="relative flex flex-1 items-center justify-center px-6 py-12">
+      <main className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-10">
 
         {/* Top-right: back to home */}
         <Link
@@ -142,8 +170,18 @@ export default function LoginPage() {
 
           {/* Mobile logo */}
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <Image src="/logo.png" alt="Synapse" width={32} height={32} className="rounded-lg ring-1 ring-black/5 dark:ring-white/10" priority />
-            <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Synapse</span>
+            <Image
+              src="/logo.png"
+              alt="Synapse"
+              width={32}
+              height={32}
+              className="rounded-lg ring-1 ring-black/5 dark:ring-white/10"
+              priority
+            />
+
+            <span className="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Synapse
+            </span>
           </div>
 
           {/* Header */}
@@ -151,13 +189,17 @@ export default function LoginPage() {
             <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
               Welcome back
             </h1>
+
             <p className="mt-2 text-[15px] text-zinc-500 dark:text-zinc-400">
               Sign in to continue to your workspace.
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-4"
+          >
 
             <div>
               <label
@@ -166,6 +208,7 @@ export default function LoginPage() {
               >
                 Work email
               </label>
+
               <input
                 id="email"
                 type="email"
@@ -187,6 +230,7 @@ export default function LoginPage() {
                 >
                   Password
                 </label>
+
                 <a
                   href="mailto:hello@synapse.ai"
                   className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
@@ -194,6 +238,7 @@ export default function LoginPage() {
                   Forgot?
                 </a>
               </div>
+
               <input
                 id="password"
                 type="password"
@@ -208,8 +253,13 @@ export default function LoginPage() {
 
             {error && (
               <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800/60 dark:bg-red-900/20">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">!</span>
-                <p className="text-sm leading-snug text-red-700 dark:text-red-400">{error}</p>
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                  !
+                </span>
+
+                <p className="text-sm leading-snug text-red-700 dark:text-red-400">
+                  {error}
+                </p>
               </div>
             )}
 
@@ -220,16 +270,37 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
                   </svg>
+
                   Signing in…
                 </>
               ) : (
                 <>
                   Sign in to Synapse
-                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+
+                  <ArrowRight
+                    size={14}
+                    className="transition-transform group-hover:translate-x-0.5"
+                  />
                 </>
               )}
             </button>
@@ -239,6 +310,7 @@ export default function LoginPage() {
           <div className="mt-10 border-t border-zinc-100 pt-6 dark:border-zinc-800">
             <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
               New to Synapse?{' '}
+
               <a
                 href="mailto:hello@synapse.ai"
                 className="font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
@@ -251,8 +323,21 @@ export default function LoginPage() {
           {/* Legal microcopy */}
           <p className="mt-8 text-center text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-600">
             By signing in, you agree to our{' '}
-            <a href="#" className="underline-offset-2 hover:underline">Terms</a> &{' '}
-            <a href="#" className="underline-offset-2 hover:underline">Privacy Policy</a>.
+
+            <a
+              href="#"
+              className="underline-offset-2 hover:underline"
+            >
+              Terms
+            </a>{' '}
+            &{' '}
+
+            <a
+              href="#"
+              className="underline-offset-2 hover:underline"
+            >
+              Privacy Policy
+            </a>.
           </p>
 
         </div>

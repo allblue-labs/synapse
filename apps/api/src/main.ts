@@ -1,7 +1,9 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { json, urlencoded } from 'express';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor';
@@ -9,11 +11,37 @@ import { RequestLoggingInterceptor } from './common/interceptors/request-logging
 import { JsonLoggerService } from './common/logging/json-logger.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   const config = app.get(ConfigService);
   const logger = app.get(JsonLoggerService);
 
+  const isProd = config.get<string>('NODE_ENV') === 'production';
+
   app.useLogger(logger);
+
+  // ── Trust proxy ───────────────────────────────────────────────────
+  // When deployed behind a load balancer / reverse proxy, honour the
+  // X-Forwarded-* headers so req.ip and req.protocol reflect the real
+  // client. `1` = trust the immediate proxy hop only; tighten if more
+  // hops are added.
+  app.set('trust proxy', 1);
+
+  // ── HTTP hardening (Helmet) ───────────────────────────────────────
+  // CSP is not set here because the API is a JSON-only service — no
+  // HTML is ever rendered. The frontend (Next) owns CSP for browser
+  // surfaces. We disable CSP explicitly so it doesn't interfere with
+  // tooling that hits the API directly (Swagger UI, curl, etc.).
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      strictTransportSecurity: isProd
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
+    }),
+  );
+  app.disable('x-powered-by');
+
   app.use(json({ limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb') }));
   app.use(urlencoded({ extended: true, limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb') }));
 
@@ -30,13 +58,13 @@ async function bootstrap() {
     .map((o) => o.trim())
     .filter(Boolean);
 
-  const isProd = config.get<string>('NODE_ENV') === 'production';
-  const corsOrigin: string[] | boolean =
-    originList.length > 0
-      ? originList
-      : isProd
-        ? false
-        : true;
+  let corsOrigin: string[] | boolean;
+  if (originList.length > 0) {
+    corsOrigin = originList;
+  } else {
+    // Dev: reflect the request origin. Prod: deny — fail closed.
+    corsOrigin = !isProd;
+  }
 
   app.enableCors({
     origin: corsOrigin,

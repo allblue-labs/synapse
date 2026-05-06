@@ -1,19 +1,23 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserRole } from '@prisma/client';
+import { AuditStatus, UserRole } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { AuditService, AuditAction } from '../../common/audit/audit.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { LoginLockoutService } from './login-lockout.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly lockout: LoginLockoutService,
+    private readonly audit: AuditService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, ip?: string) {
     const normalizedEmail = dto.email.toLowerCase().trim();
     const slug = dto.tenantSlug.toLowerCase().trim();
 
@@ -59,23 +63,78 @@ export class AuthService {
       return { tenant, user };
     });
 
+    await this.audit.record({
+      tenantId:    result.tenant.id,
+      actorUserId: result.user.id,
+      action:      AuditAction.AUTH_REGISTERED,
+      status:      AuditStatus.SUCCESS,
+      ipAddress:   ip,
+      metadata:    { tenantSlug: slug },
+    });
+
     return this.issueSession(result.user.id, result.user.email, result.tenant.id, UserRole.OWNER);
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ip: string) {
+    const email = dto.email.toLowerCase().trim();
+
+    // Gate 1 — distributed lockout (Redis). Reject before doing any
+    // cryptographic work to keep the server's CPU profile flat.
+    try {
+      await this.lockout.assertNotLocked(email, ip);
+    } catch (err) {
+      // Locked tuples generate a single auth.login.locked audit event.
+      await this.audit.record({
+        action:    AuditAction.AUTH_LOGIN_LOCKED,
+        status:    AuditStatus.FAILURE,
+        ipAddress: ip,
+        metadata:  { email },
+      });
+      throw err;
+    }
+
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase().trim() },
+      where: { email },
       include: { memberships: { orderBy: { createdAt: 'asc' }, take: 1 } }
     });
 
-    if (!user || !(await argon2.verify(user.passwordHash, dto.password))) {
+    const ok = !!user && (await argon2.verify(user.passwordHash, dto.password));
+
+    if (!ok) {
+      const {attempts, locked} = await this.lockout.recordFailure(email, ip);
+      await this.audit.record({
+        actorUserId: user?.id,
+        action:      AuditAction.AUTH_LOGIN_FAILED,
+        status:      AuditStatus.FAILURE,
+        ipAddress:   ip,
+        metadata:    { email, attempts, lockedNow: locked },
+      });
+      // Generic message — never leak which side (email vs password) failed.
       throw new UnauthorizedException('Invalid credentials.');
     }
 
     const membership = user.memberships[0];
     if (!membership) {
+      await this.audit.record({
+        actorUserId: user.id,
+        action:      AuditAction.AUTH_LOGIN_FAILED,
+        status:      AuditStatus.FAILURE,
+        ipAddress:   ip,
+        metadata:    { email, reason: 'no_tenant_membership' },
+      });
       throw new UnauthorizedException('User is not assigned to a tenant.');
     }
+
+    await this.lockout.recordSuccess(email, ip);
+
+    await this.audit.record({
+      tenantId:    membership.tenantId,
+      actorUserId: user.id,
+      action:      AuditAction.AUTH_LOGIN_SUCCEEDED,
+      status:      AuditStatus.SUCCESS,
+      ipAddress:   ip,
+      metadata:    { role: membership.role },
+    });
 
     return this.issueSession(user.id, user.email, membership.tenantId, membership.role);
   }

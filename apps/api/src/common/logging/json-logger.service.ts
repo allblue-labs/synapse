@@ -1,4 +1,5 @@
 import { Injectable, LoggerService } from '@nestjs/common';
+import { redact } from './redact';
 
 type LogLevel = 'log' | 'error' | 'warn' | 'debug' | 'verbose';
 
@@ -41,13 +42,17 @@ export class JsonLoggerService implements LoggerService {
   }
 
   write(payload: LogPayload) {
-    const entry = {
+    // Sanitise the payload before serialising — `redact` walks objects /
+    // arrays / errors recursively and scrubs keys that look like secrets,
+    // plus pattern-matches Bearer tokens and `password=...` strings inside
+    // free-form fields like `stack` and `message`.
+    const sanitised = redact({
       timestamp: new Date().toISOString(),
       service: 'synapse-api',
-      ...payload
-    };
+      ...payload,
+    });
 
-    const line = JSON.stringify(entry);
+    const line = JSON.stringify(sanitised);
     if (payload.level === 'error') {
       process.stderr.write(`${line}\n`);
       return;

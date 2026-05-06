@@ -8,6 +8,8 @@ export const envSchema = z.object({
   REDIS_URL: z.string().min(1),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('15m'),
+  JWT_ISSUER: z.string().default('synapse-api'),
+  JWT_AUDIENCE: z.string().default('synapse-web'),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_DEFAULT_MODEL: z.string().default('gpt-4.1-mini'),
   STRIPE_SECRET_KEY: z.string().optional(),

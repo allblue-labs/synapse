@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { LoginLockoutService } from './login-lockout.service';
 
 @Module({
   imports: [
@@ -15,13 +16,15 @@ import { JwtStrategy } from './jwt.strategy';
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: config.get<string>('JWT_EXPIRES_IN', '15m')
+          expiresIn: config.get<string>('JWT_EXPIRES_IN', '15m'),
+          issuer:    config.get<string>('JWT_ISSUER',    'synapse-api'),
+          audience:  config.get<string>('JWT_AUDIENCE',  'synapse-web')
         }
       })
     })
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, LoginLockoutService],
   exports: [AuthService]
 })
 export class AuthModule {}

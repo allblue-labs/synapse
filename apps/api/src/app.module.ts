@@ -5,6 +5,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { envSchema } from './config/env.schema';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { RedisModule } from './common/redis/redis.module';
+import { AuditModule } from './common/audit/audit.module';
 import { JwtAuthGuard, PermissionsGuard } from './common/authorization';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { AuthModule } from './modules/auth/auth.module';
@@ -47,6 +49,8 @@ import { RuntimeModule } from './core/runtime/runtime.module';
       }
     ]),
     PrismaModule,
+    RedisModule,
+    AuditModule,
     HealthModule,
     AuthModule,
     TenantsModule,

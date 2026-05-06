@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Ip, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/authorization';
 import { AuthService } from './auth.service';
@@ -12,13 +12,16 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  register(@Body() dto: RegisterDto, @Ip() ip: string) {
+    return this.authService.register(dto, ip);
   }
 
   @Public()
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Ip() ip: string) {
+    // `@Ip()` resolves to req.ip — Express derives this from
+    // X-Forwarded-For when `app.set('trust proxy', 1)` is enabled
+    // (configured in main.ts).
+    return this.authService.login(dto, ip);
   }
 }

@@ -84,7 +84,15 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter(logger));
   app.useGlobalInterceptors(new RequestIdInterceptor(), new RequestLoggingInterceptor(logger));
 
-  await app.listen(config.get<number>('PORT', 4000), '0.0.0.0');
+  const port = config.get<number>('PORT', 4000);
+  await app.listen(port, '0.0.0.0');
+
+  logger.write({
+    level: 'log',
+    message: 'http_server_started',
+    context: 'Bootstrap',
+    metadata: {port, host: '0.0.0.0'},
+  });
 }
 
 void bootstrap();

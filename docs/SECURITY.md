@@ -168,3 +168,83 @@ Not yet configured. Required before production:
 - Pending: e2e tests for rejected origins and role matrix coverage for portal creation.
 - Risks: allowlist fallback to CORS origins is convenient for development but production should set `BILLING_REDIRECT_ALLOWED_ORIGINS` explicitly.
 - Next recommended step: enforce explicit billing redirect origins in production startup validation.
+
+## 2026-05-07 Stage 1 Backend Refinement + Pulse Foundation Update
+
+- Changed: permission denials now record forbidden audit events; Pulse operational events redact sensitive metadata keys before persistence.
+- Completed: new Pulse operational tables are tenant-scoped; integration settings store `credentialsRef` only, not provider secrets.
+- Pending: e2e forbidden-action audit tests, production secret-reference backend, and payload size/schema limits for operational events.
+- Risks: operational event payloads are flexible JSON and need strict DTO/use-case validation before broad APIs are exposed.
+- Next recommended step: add DTO schemas and e2e tests for Pulse operational event writes.
+
+## 2026-05-07 Pulse Operational Lifecycle Wiring Update
+
+- Changed: Pulse create/validate/reject/retry actions now generate operational events from server-side use cases.
+- Completed: event payloads avoid raw message/provider payload persistence and include operational ids/status only.
+- Pending: payload schema enforcement for every event type and e2e forbidden-action audit tests.
+- Risks: event metadata must remain audit-safe as more transport/integration data is added.
+- Next recommended step: add event payload schema helpers before exposing timeline APIs.
+
+## 2026-05-07 Pulse Channel + Conversation Ingestion Update
+
+- Changed: provider/channel/participant context is resolved server-side into tenant-owned records.
+- Completed: repository tests assert tenant-leading unique keys for channel and conversation upserts.
+- Pending: direct `conversationId` ownership validation and DTO schemas for provider webhook ingestion.
+- Risks: accepting direct ids before ownership validation can become a cross-tenant risk if exposed outside trusted backend flows.
+- Next recommended step: validate direct `conversationId` by tenant or remove it from public ingestion contracts.
+
+## 2026-05-07 Pulse Direct Conversation Validation Update
+
+- Changed: direct `conversationId` is now looked up with tenant scope before use.
+- Completed: no entry, queue job, usage record, or operational event is created when the id is missing or belongs elsewhere.
+- Pending: e2e cross-tenant ingestion tests with persisted conversations.
+- Risks: repository-level tests still need database-backed confirmation.
+- Next recommended step: add HTTP e2e coverage for direct-id rejection.
+
+## 2026-05-07 Pulse Channel + Conversation Read API Update
+
+- Changed: read-only channel/conversation routes are protected by `pulse:read`.
+- Completed: detail lookups use `{ tenantId, id }`; list queries filter by tenant.
+- Pending: e2e tests with persisted cross-tenant data and pagination limits.
+- Risks: unbounded list endpoints can become noisy at scale.
+- Next recommended step: add pagination DTOs and e2e tenant leak tests.
+
+## 2026-05-07 Pulse Ticket + Timeline Read API Update
+
+- Changed: ticket reads are protected by `tickets:read`; conversation event reads are protected by `pulse:read`.
+- Completed: repositories filter by tenant for ticket and event reads.
+- Pending: e2e role/tenant tests and pagination limits.
+- Risks: event timelines must not expose raw provider payloads or secrets as richer payloads are added.
+- Next recommended step: add response shaping that returns audit-safe event summaries only.
+
+## 2026-05-07 Pulse Read Pagination Update
+
+- Changed: Pulse read endpoints now cap `pageSize` at 100 through DTO validation.
+- Completed: list/count queries remain tenant-scoped.
+- Pending: e2e validation tests for invalid query params and filter-specific leak tests.
+- Risks: validated pagination reduces blast radius but does not replace authorization/e2e tests.
+- Next recommended step: add e2e tests for pagination limits and cross-tenant reads.
+
+## 2026-05-07 Pulse Read Filtering Update
+
+- Changed: read filters use enum/date/string DTO validation before repository access.
+- Completed: repository tests assert tenant filters are preserved alongside resource filters.
+- Pending: HTTP e2e tests for invalid filter values and cross-tenant reads.
+- Risks: event type is a string filter and should remain constrained by known event types once event schemas are centralized.
+- Next recommended step: introduce a central Pulse event type catalog.
+
+## 2026-05-07 Pulse Read Contract Test Update
+
+- Changed: added AppSec-focused contract tests for Pulse read filters.
+- Completed: DTO tests reject invalid enum/date filters and controller tests verify tenant context comes from the server-side request path, not client query payloads.
+- Pending: HTTP e2e tests for global validation behavior and tenant isolation.
+- Risks: event-type strings remain flexible until a central catalog is added.
+- Next recommended step: add HTTP e2e coverage for invalid filters and cross-tenant read attempts.
+
+## 2026-05-07 Pulse HTTP Read E2E Harness Update
+
+- Changed: added request-level AppSec tests for filtered Pulse reads.
+- Completed: invalid query filters return 400 before use cases run; mismatched tenant headers return 401 before reads run; forbidden ticket reads return 403 and emit `auth.forbidden`.
+- Pending: database-backed cross-tenant leak tests.
+- Risks: local test auth is intentionally synthetic and only exists inside the spec.
+- Next recommended step: add two-tenant database fixtures for filtered read paths.

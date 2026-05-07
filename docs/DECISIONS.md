@@ -251,3 +251,179 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Misconfigured origins can block legitimate billing flows.
 
 **Next recommended step:** add checkout session retrieval/reconciliation and e2e redirect-origin tests.
+
+---
+
+## 2026-05-07 — Pulse operational events as the module timeline
+
+**Decision:** Pulse will use tenant-scoped operational events, tickets, playbooks, and knowledge context as the durable operational model instead of treating raw mirrored chats as the primary product model.
+
+**Reason:** Pulse is an operational communication/orchestration module, not a chatbot or channel mirror. The backend needs auditable state changes, workflow transitions, human reviews, and execution traces.
+
+**Consequence:** `PulseOperationalEvent` is the core timeline entity for important Pulse actions. Raw provider payloads and secrets must stay out of unrestricted operational persistence.
+
+**Status:** Completed for persistence schema, contracts, and repository foundation.
+
+**Risk:** Existing `PulseEntry` flows still need to emit the new operational events consistently.
+
+**Next recommended step:** refactor Pulse use cases to create/update conversations, tickets, and operational events during queue processing.
+
+---
+
+## 2026-05-07 — Runtime preparation is contract-only
+
+**Decision:** Stage 1 prepares execution lifecycle models and provider interfaces, but does not implement the future external Go Runtime, Kubernetes orchestration, local LLMs, or provider calls.
+
+**Reason:** Synapse remains the SaaS control plane for auth, tenancy, billing, audit, registry, usage, and governance. Runtime execution can be integrated later through explicit contracts.
+
+**Consequence:** `ExecutionRequest` stores tenant-aware lifecycle state and TypeScript contracts define request/response/provider shapes for future local, queue, or gRPC transports.
+
+**Status:** Completed for schema and contracts.
+
+**Risk:** Execution models are not yet connected to production workflows.
+
+**Next recommended step:** add an execution lifecycle service that records requested/queued/running/completed transitions without calling external runtime providers.
+
+---
+
+## 2026-05-07 — Pulse entry lifecycle emits operational state
+
+**Decision:** Existing Pulse entry use cases now create operational events, and validation creates the first operational ticket record.
+
+**Reason:** Stage 1 should evolve the current backend rather than replace it. Emitting events from current use cases creates the operational timeline while preserving the existing queue endpoint contract.
+
+**Consequence:** `PulseEntry` remains the queue-processing input, while `PulseOperationalEvent` and `PulseTicket` become durable operational outputs.
+
+**Status:** Completed for create, validate, reject, and retry event emission plus validation ticket creation.
+
+**Risk:** Ticket typing is still coarse until the generic Pulse flow engine maps intent to ticket types.
+
+**Next recommended step:** add channel/conversation ingestion contracts and move ticket type selection into a flow/intent mapping service.
+
+---
+
+## 2026-05-07 — Pulse ingestion resolves operational conversations
+
+**Decision:** Pulse entry creation resolves `PulseChannel` and `PulseConversation` from provider/channel/participant context when supplied, while keeping legacy `conversationId` input temporarily compatible.
+
+**Reason:** Pulse needs a minimal operational conversation model without becoming an infinite chat mirror. Resolving the operational conversation during entry ingestion creates stable state for tickets and events.
+
+**Consequence:** New callers should send provider/channel/participant context; old callers can continue using `conversationId` until a hardening/deprecation pass validates ownership or removes it.
+
+**Status:** Completed for repositories, DTO fields, and create-entry use-case wiring.
+
+**Risk:** Direct `conversationId` remains a tenant-ownership validation gap if exposed to untrusted callers.
+
+**Next recommended step:** add channel/conversation APIs and then require resolved context for new ingestion flows.
+
+---
+
+## 2026-05-07 — Direct Pulse conversation ids must be tenant-validated
+
+**Decision:** While direct `conversationId` remains temporarily supported, it must resolve through `PulseConversationRepository.findById(tenantId, id)` before entry creation.
+
+**Reason:** Direct ids are a compatibility bridge, not a trust boundary. The backend must prevent a caller from linking an entry to another tenant's conversation.
+
+**Consequence:** Invalid or cross-tenant ids fail before queueing, usage metering, and operational event writes.
+
+**Status:** Completed for create-entry ingestion.
+
+**Risk:** Existing integrations using stale conversation ids will now fail fast.
+
+**Next recommended step:** publish provider-context ingestion examples and deprecate direct ids.
+
+---
+
+## 2026-05-07 — Pulse operational reads start with channels and conversations
+
+**Decision:** Expose read-only Pulse channel and conversation APIs before write/admin channel management.
+
+**Reason:** Frontend and provider integrations need a stable inspection surface for resolved operational state, but channel setup and mutation require a separate RBAC/AppSec pass.
+
+**Consequence:** Initial endpoints are `pulse:read` only and return minimal tenant-scoped records. Pagination/filtering and admin mutation routes remain pending.
+
+**Status:** Completed for channel/conversation list and detail.
+
+**Risk:** Unpaginated list endpoints need refinement before high-volume use.
+
+**Next recommended step:** add ticket and operational event timeline read APIs.
+
+---
+
+## 2026-05-07 — Pulse tickets use ticket permissions
+
+**Decision:** Pulse ticket read APIs use `tickets:read`, while conversation timeline reads remain under `pulse:read`.
+
+**Reason:** Tickets are operational work items that will eventually have assignment, resolution, and review workflows. They need permission granularity separate from generic Pulse conversation inspection.
+
+**Consequence:** `GET /v1/pulse/tickets*` requires ticket permissions even though the routes live inside the Pulse module boundary.
+
+**Status:** Completed for read-only ticket and timeline APIs.
+
+**Risk:** Future ticket mutation routes must keep using `tickets:*` and not fall back to broad `pulse:*`.
+
+**Next recommended step:** add pagination/filtering and then ticket mutation APIs with `tickets:assign` / `tickets:resolve`.
+
+---
+
+## 2026-05-07 — Pulse read APIs return paged envelopes
+
+**Decision:** Pulse list/timeline read APIs return `{ data, total, page, pageSize }` rather than raw arrays.
+
+**Reason:** Operational tenants can accumulate many channels, conversations, tickets, and timeline events. Paged envelopes give frontend and manual QA a stable backend contract before high-volume usage.
+
+**Consequence:** Repository list methods use tenant-scoped `findMany` plus `count` and enforce a capped DTO page size.
+
+**Status:** Completed for baseline pagination.
+
+**Risk:** Filters are still needed to keep operator workflows efficient.
+
+**Next recommended step:** add status/type/provider/date filters.
+
+---
+
+## 2026-05-07 — Pulse read filters stay resource-specific
+
+**Decision:** Pulse read APIs use resource-specific DTOs instead of one large generic filter shape.
+
+**Reason:** Channels, conversations, tickets, and operational events have different operational dimensions and permission implications. Resource-specific filters keep validation strict and understandable.
+
+**Consequence:** Filter DTOs are separate for channel, conversation, ticket, and event timeline reads while sharing pagination through `PulseListDto`.
+
+**Status:** Completed for first-pass filters.
+
+**Risk:** Additional filters should be added deliberately with index/query review.
+
+**Next recommended step:** add HTTP e2e tests for filter validation and tenant isolation.
+
+---
+
+## 2026-05-07 — Pulse read filter tests stay close to contracts first
+
+**Decision:** Add DTO validation and controller forwarding tests before introducing a new HTTP e2e harness.
+
+**Reason:** The current API test setup is unit/spec based. These tests still lock the contract that invalid filter values are rejected by DTO validation and that controllers use the server tenant context when forwarding filters.
+
+**Consequence:** Pulse read filters have immediate backend coverage without introducing unrelated test infrastructure in the same slice.
+
+**Status:** Completed for unit-level contract coverage.
+
+**Risk:** Real HTTP request behavior, global validation-pipe wiring, and cross-tenant rejection still need e2e tests.
+
+**Next recommended step:** add a dedicated Nest HTTP e2e harness for Pulse read endpoints.
+
+---
+
+## 2026-05-07 — Pulse read HTTP tests use a local Nest harness
+
+**Decision:** Test Pulse read route behavior through a local Nest application with real global validation pipes, tenant guard, and permissions guard while stubbing use cases.
+
+**Reason:** This verifies HTTP serialization, DTO validation, tenant-header rejection, and forbidden audit behavior without requiring a production database fixture in the same slice.
+
+**Consequence:** Route-layer AppSec behavior is covered independently from repository tenant-scope tests.
+
+**Status:** Completed for Pulse read filters.
+
+**Risk:** Full request-to-database e2e coverage still depends on dedicated test database fixtures.
+
+**Next recommended step:** add database-backed two-tenant fixtures when the test DB lifecycle is ready.

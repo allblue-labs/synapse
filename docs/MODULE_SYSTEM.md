@@ -144,3 +144,83 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: module purchase portal/checkout rules for a-la-carte modules.
 - Risks: module marketplaces must not bypass platform billing portal controls.
 - Next recommended step: define module purchase lifecycle APIs under billing/registry contracts.
+
+## 2026-05-07 Stage 1 Backend Refinement + Pulse Foundation Update
+
+- Changed: module catalog now supports tier, visibility, rollout state, feature flag, and active/inactive metadata.
+- Completed: Pulse manifest declares Light tier, public visibility, GA rollout, and operational actions/events for tickets and flow transitions.
+- Pending: admin APIs for module rollout controls and feature-flag-aware module listing.
+- Risks: module metadata exists but admin management is not yet exposed.
+- Next recommended step: add module registry admin endpoints after RBAC/platform-admin separation is finalized.
+
+## 2026-05-07 Pulse Operational Lifecycle Wiring Update
+
+- Changed: Pulse module actions now have durable operational outputs through tickets and events.
+- Completed: current queue API remains compatible while the module becomes more operational internally.
+- Pending: guided-flow action contracts and module-owned ticket/timeline read actions.
+- Risks: Pulse module should continue using platform usage/audit/registry services instead of owning those concerns.
+- Next recommended step: add flow transition contracts around `pulse.flow.transition`.
+
+## 2026-05-07 Pulse Channel + Conversation Ingestion Update
+
+- Changed: Pulse module now resolves operational channel/conversation state during entry ingestion.
+- Completed: transport details remain module-owned while tenant, billing, usage, and audit remain platform-owned.
+- Pending: provider webhook adapters mapping into Pulse ingestion contracts.
+- Risks: channel abstractions must stay provider-neutral enough for Telegram and future transports.
+- Next recommended step: add provider mapping contracts for WhatsApp and Telegram inbound events.
+
+## 2026-05-07 Pulse Direct Conversation Validation Update
+
+- Changed: Pulse module compatibility path for direct conversation ids now validates tenant ownership.
+- Completed: module internals no longer trust direct ids blindly.
+- Pending: provider mapping contracts still need to become the preferred ingestion path.
+- Risks: keeping both direct and provider-context paths increases maintenance until deprecation.
+- Next recommended step: mark direct-id ingestion as compatibility-only in API docs.
+
+## 2026-05-07 Pulse Channel + Conversation Read API Update
+
+- Changed: Pulse exposes initial operational state reads without moving business logic into core.
+- Completed: channel/conversation APIs live inside `src/product-modules/pulse`.
+- Pending: ticket/timeline read APIs and provider mapping docs.
+- Risks: keep transport setup concerns isolated from core module registry logic.
+- Next recommended step: add Pulse ticket/timeline reads inside the product module boundary.
+
+## 2026-05-07 Pulse Ticket + Timeline Read API Update
+
+- Changed: Pulse module exposes ticket and operational event timeline reads inside the product-module boundary.
+- Completed: core remains uninvolved in Pulse-specific ticket/timeline logic.
+- Pending: playbook/flow transition APIs and ticket mutation workflows.
+- Risks: do not move Pulse ticket semantics into core orchestration.
+- Next recommended step: add flow transition use cases inside Pulse.
+
+## 2026-05-07 Pulse Read Pagination Update
+
+- Changed: Pulse module read APIs now use paged envelopes.
+- Completed: pagination remains inside the Pulse module repositories/use cases/controllers.
+- Pending: reusable filtering patterns for future modules.
+- Risks: avoid creating core-specific abstractions until another module needs the same pattern.
+- Next recommended step: add Pulse-specific filters first, then generalize only if repeated.
+
+## 2026-05-07 Pulse Read Filtering Update
+
+- Changed: Pulse-specific read filters were added inside the product module boundary.
+- Completed: no core abstraction was introduced prematurely.
+- Pending: shared filtering conventions for future modules if repeated.
+- Risks: over-generalizing now would couple future modules to Pulse concepts.
+- Next recommended step: keep next changes focused on Pulse flow transitions.
+
+## 2026-05-07 Pulse Read Contract Test Update
+
+- Changed: added module-local tests for Pulse read filter contracts.
+- Completed: validation and controller contract tests live inside the Pulse product-module tree.
+- Pending: module API examples and future flow-transition use cases.
+- Risks: shared test helpers should be introduced only after another product module needs them.
+- Next recommended step: add Pulse flow transition contracts after HTTP e2e coverage is planned.
+
+## 2026-05-07 Pulse HTTP Read E2E Harness Update
+
+- Changed: Pulse product-module tests now include a local HTTP harness.
+- Completed: the harness stays inside the Pulse module boundary and stubs module use cases.
+- Pending: reusable e2e helpers only if future modules need the same pattern.
+- Risks: avoid moving Pulse-specific test setup into core prematurely.
+- Next recommended step: proceed to Pulse ticket mutation contracts or database-backed read fixtures.

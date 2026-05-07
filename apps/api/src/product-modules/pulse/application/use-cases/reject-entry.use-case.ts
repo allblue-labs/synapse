@@ -4,12 +4,18 @@ import {
   PULSE_REPOSITORY,
   IPulseRepository,
 } from '../../domain/ports/pulse-repository.port';
+import {
+  IPulseOperationalEventRepository,
+  PULSE_OPERATIONAL_EVENT_REPOSITORY,
+} from '../../domain/ports/pulse-operational-event-repository.port';
 
 @Injectable()
 export class RejectEntryUseCase {
   constructor(
     @Inject(PULSE_REPOSITORY)
     private readonly repository: IPulseRepository,
+    @Inject(PULSE_OPERATIONAL_EVENT_REPOSITORY)
+    private readonly events: IPulseOperationalEventRepository,
   ) {}
 
   async execute(tenantId: string, id: string, reason?: string) {
@@ -26,9 +32,24 @@ export class RejectEntryUseCase {
       );
     }
 
-    return this.repository.update(tenantId, id, {
+    const updated = await this.repository.update(tenantId, id, {
       status: PulseStatus.FAILED,
       errorMessage: reason ?? 'Rejected by operator',
     });
+
+    await this.events.record({
+      tenantId,
+      eventType: 'pulse.entry.rejected',
+      conversationId: updated.conversationId ?? undefined,
+      payload: {
+        entryId: updated.id,
+        status: updated.status,
+      },
+      metadata: {
+        reason: reason ?? 'Rejected by operator',
+      },
+    });
+
+    return updated;
   }
 }

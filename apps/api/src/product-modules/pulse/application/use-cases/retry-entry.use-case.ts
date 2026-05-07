@@ -6,6 +6,10 @@ import {
   PULSE_REPOSITORY,
   IPulseRepository,
 } from '../../domain/ports/pulse-repository.port';
+import {
+  IPulseOperationalEventRepository,
+  PULSE_OPERATIONAL_EVENT_REPOSITORY,
+} from '../../domain/ports/pulse-operational-event-repository.port';
 import {PULSE_QUEUE, DEFAULT_JOB_OPTIONS} from '../../infrastructure/processors/pulse.processor';
 import {ProcessPulseJob} from '../../contracts/pulse.contracts';
 
@@ -16,6 +20,8 @@ export class RetryEntryUseCase {
     private readonly repository: IPulseRepository,
     @InjectQueue(PULSE_QUEUE)
     private readonly queue: Queue<ProcessPulseJob>,
+    @Inject(PULSE_OPERATIONAL_EVENT_REPOSITORY)
+    private readonly events: IPulseOperationalEventRepository,
   ) {}
 
   async execute(tenantId: string, id: string) {
@@ -36,6 +42,16 @@ export class RetryEntryUseCase {
     });
 
     await this.queue.add('process', {tenantId, entryId: id}, DEFAULT_JOB_OPTIONS);
+
+    await this.events.record({
+      tenantId,
+      eventType: 'pulse.entry.retry_requested',
+      conversationId: updated.conversationId ?? undefined,
+      payload: {
+        entryId: updated.id,
+        retryCount: updated.retryCount,
+      },
+    });
 
     return updated;
   }

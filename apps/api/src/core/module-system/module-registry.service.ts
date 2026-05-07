@@ -1,5 +1,12 @@
 import { ForbiddenException, Injectable, OnModuleInit } from '@nestjs/common';
-import { ModuleCatalogStatus, Prisma, TenantModuleStatus } from '@prisma/client';
+import {
+  ModuleCatalogStatus,
+  ModuleRolloutState,
+  ModuleTier,
+  ModuleVisibility,
+  Prisma,
+  TenantModuleStatus,
+} from '@prisma/client';
 import type { ModuleAction, ModuleEvent, RegisteredModule } from '@synapse/contracts';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
@@ -33,6 +40,8 @@ export class ModuleRegistryService implements OnModuleInit {
     const modules = await this.prisma.moduleCatalogItem.findMany({
       where: {
         status: ModuleCatalogStatus.PUBLIC,
+        active: true,
+        visibility: ModuleVisibility.PUBLIC,
       },
       include: {
         installations: {
@@ -56,7 +65,12 @@ export class ModuleRegistryService implements OnModuleInit {
     const module = await this.prisma.moduleCatalogItem.findUnique({
       where: { slug: name },
     });
-    if (!module || module.status !== ModuleCatalogStatus.PUBLIC) {
+    if (
+      !module ||
+      module.status !== ModuleCatalogStatus.PUBLIC ||
+      !module.active ||
+      module.visibility !== ModuleVisibility.PUBLIC
+    ) {
       return undefined;
     }
 
@@ -103,7 +117,12 @@ export class ModuleRegistryService implements OnModuleInit {
     const module = await this.prisma.moduleCatalogItem.findUnique({
       where: { slug: name },
     });
-    if (!module || module.status !== ModuleCatalogStatus.PUBLIC) {
+    if (
+      !module ||
+      module.status !== ModuleCatalogStatus.PUBLIC ||
+      !module.active ||
+      module.visibility !== ModuleVisibility.PUBLIC
+    ) {
       return undefined;
     }
 
@@ -149,6 +168,11 @@ export class ModuleRegistryService implements OnModuleInit {
         version: module.version,
         description: module.description,
         status: ModuleCatalogStatus.PUBLIC,
+        tier: (module.tier as ModuleTier | undefined) ?? ModuleTier.FREE,
+        visibility: (module.visibility as ModuleVisibility | undefined) ?? ModuleVisibility.PUBLIC,
+        rolloutState: (module.rolloutState as ModuleRolloutState | undefined) ?? ModuleRolloutState.GA,
+        featureFlag: module.featureFlag ?? null,
+        active: module.active ?? true,
         permissions: (module.permissions ?? []) as Prisma.InputJsonValue,
         actions: module.actions as unknown as Prisma.InputJsonValue,
         events: (module.events ?? []) as unknown as Prisma.InputJsonValue,
@@ -159,6 +183,11 @@ export class ModuleRegistryService implements OnModuleInit {
         version: module.version,
         description: module.description,
         status: ModuleCatalogStatus.PUBLIC,
+        tier: (module.tier as ModuleTier | undefined) ?? ModuleTier.FREE,
+        visibility: (module.visibility as ModuleVisibility | undefined) ?? ModuleVisibility.PUBLIC,
+        rolloutState: (module.rolloutState as ModuleRolloutState | undefined) ?? ModuleRolloutState.GA,
+        featureFlag: module.featureFlag ?? null,
+        active: module.active ?? true,
         permissions: (module.permissions ?? []) as Prisma.InputJsonValue,
         actions: module.actions as unknown as Prisma.InputJsonValue,
         events: (module.events ?? []) as unknown as Prisma.InputJsonValue,
@@ -176,6 +205,11 @@ export class ModuleRegistryService implements OnModuleInit {
       permissions: Prisma.JsonValue;
       actions: Prisma.JsonValue;
       events: Prisma.JsonValue;
+      tier: ModuleTier;
+      visibility: ModuleVisibility;
+      rolloutState: ModuleRolloutState;
+      featureFlag: string | null;
+      active: boolean;
       registeredAt: Date;
     },
     enabled: boolean,
@@ -185,6 +219,11 @@ export class ModuleRegistryService implements OnModuleInit {
       displayName: module.displayName,
       version: module.version,
       description: module.description,
+      tier: module.tier,
+      visibility: module.visibility,
+      rolloutState: module.rolloutState,
+      featureFlag: module.featureFlag,
+      active: module.active,
       permissions: module.permissions as string[],
       actions: module.actions as ModuleAction[],
       events: module.events as ModuleEvent[],

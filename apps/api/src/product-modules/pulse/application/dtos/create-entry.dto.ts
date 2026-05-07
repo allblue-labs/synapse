@@ -1,4 +1,5 @@
-import {IsOptional, IsString, IsUrl, MinLength} from 'class-validator';
+import {IsIn, IsOptional, IsString, IsUrl, MinLength} from 'class-validator';
+import {PulseChannelProvider} from '@prisma/client';
 
 export class CreateEntryDto {
   @IsString()
@@ -20,4 +21,20 @@ export class CreateEntryDto {
   @IsOptional()
   @IsString()
   conversationId?: string;
+
+  @IsOptional()
+  @IsIn([PulseChannelProvider.WHATSAPP, PulseChannelProvider.TELEGRAM])
+  provider?: PulseChannelProvider;
+
+  @IsOptional()
+  @IsString()
+  channelIdentifier?: string;
+
+  @IsOptional()
+  @IsString()
+  participantRef?: string;
+
+  @IsOptional()
+  @IsString()
+  participantLabel?: string;
 }

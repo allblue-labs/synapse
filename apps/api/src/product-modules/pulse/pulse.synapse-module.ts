@@ -7,7 +7,11 @@ export class PulseSynapseModule implements SynapseModule {
   name = 'pulse';
   displayName = 'Synapse Pulse';
   version = '0.1.0';
-  description = 'Operational communication queues, AI extraction, validation, and workflow actions.';
+  description = 'Operational conversation orchestration, tickets, guided flows, and workflow actions.';
+  tier = 'LIGHT' as const;
+  visibility = 'PUBLIC' as const;
+  rolloutState = 'GA' as const;
+  active = true;
   permissions = [
     'pulse:read',
     'pulse:write',
@@ -34,6 +38,18 @@ export class PulseSynapseModule implements SynapseModule {
       requiredPermissions: ['pulse:retry'],
       inputSchemaVersion: '2026-05-07',
     },
+    {
+      name: 'pulse.ticket.create',
+      description: 'Create a tenant-scoped operational ticket from a conversation state.',
+      requiredPermissions: ['tickets:write'],
+      inputSchemaVersion: '2026-05-07',
+    },
+    {
+      name: 'pulse.flow.transition',
+      description: 'Advance a guided operational flow after validation or customer input.',
+      requiredPermissions: ['pulse:write'],
+      inputSchemaVersion: '2026-05-07',
+    },
   ];
   events = [
     {
@@ -46,6 +62,21 @@ export class PulseSynapseModule implements SynapseModule {
       description: 'A Pulse entry requires operator validation.',
       payloadSchemaVersion: '2026-05-07',
     },
+    {
+      name: 'pulse.ticket.created',
+      description: 'A Pulse operational ticket was created.',
+      payloadSchemaVersion: '2026-05-07',
+    },
+    {
+      name: 'pulse.unsupported_message_type',
+      description: 'A transport message was gracefully rejected as unsupported.',
+      payloadSchemaVersion: '2026-05-07',
+    },
+    {
+      name: 'pulse.flow.transitioned',
+      description: 'A guided Pulse operational flow changed state.',
+      payloadSchemaVersion: '2026-05-07',
+    },
   ];
 
   register(core: SynapseCoreService) {
@@ -54,6 +85,10 @@ export class PulseSynapseModule implements SynapseModule {
       displayName: this.displayName,
       version: this.version,
       description: this.description,
+      tier: this.tier,
+      visibility: this.visibility,
+      rolloutState: this.rolloutState,
+      active: this.active,
       permissions: this.permissions,
       actions: this.actions,
       events: this.events,

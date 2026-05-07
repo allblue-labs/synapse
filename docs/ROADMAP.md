@@ -177,3 +177,84 @@ Last updated: 2026-05-07
 - Pending: checkout session retrieval/reconciliation, module purchase checkout, portal configuration controls, and e2e tests.
 - Risks: frontend integration must use environment-approved origins.
 - Next recommended step: add checkout session retrieval so success redirects can be reconciled deterministically.
+
+## 2026-05-07 Stage 1 Backend Refinement + Pulse Foundation Update
+
+- Changed: roadmap now has a concrete Pulse operational foundation layer before deeper workflow/runtime work.
+- Completed: Pulse core persistence models for channel, conversation, ticket, operational event, playbook, knowledge context, and skill; integration settings for calendar providers; execution lifecycle model for future runtime handoff.
+- Completed: module registry metadata now supports tier, visibility, rollout state, feature flag, and active/inactive status.
+- Pending: Pulse operational APIs, flow transition engine, unsupported-message event emission, usage/plan limit enforcement at module execution boundaries, and runtime adapter implementation in a later stage.
+- Risks: adding many tables creates migration/QA scope; keep upcoming work incremental and repository/use-case driven.
+- Next recommended step: wire Pulse entry processing into PulseConversation, PulseTicket, and PulseOperationalEvent.
+
+## 2026-05-07 Pulse Operational Lifecycle Wiring Update
+
+- Changed: Pulse queue lifecycle now begins writing operational timeline/ticket state.
+- Completed: operational event emission for create/validate/reject/retry and first ticket creation on validation.
+- Pending: channel/conversation creation, generic ticket type mapping, guided flow transitions, unsupported transport fallbacks, and HTTP APIs for ticket/timeline reads.
+- Risks: use-case side effects are now durable, so later refactors must preserve idempotency around retries and validation.
+- Next recommended step: add explicit Pulse conversation/channel repositories and DTOs.
+
+## 2026-05-07 Pulse Channel + Conversation Ingestion Update
+
+- Changed: Pulse ingestion now has explicit channel/conversation resolution.
+- Completed: tenant-scoped upsert repositories for PulseChannel and PulseConversation, DTO extensions, and use-case tests.
+- Pending: channel/conversation list/detail routes, admin configuration routes, unsupported message-type event flow, and provider webhook mapping.
+- Risks: ingestion remains backward compatible with optional raw conversation ids until a deprecation plan exists.
+- Next recommended step: expose read-only Pulse channel/conversation APIs protected by `pulse:read`.
+
+## 2026-05-07 Pulse Direct Conversation Validation Update
+
+- Changed: direct conversation id compatibility is now tenant-validated.
+- Completed: missing or cross-tenant direct ids fail before side effects.
+- Pending: deprecation plan for direct ids and read APIs for resolved conversations.
+- Risks: API consumers relying on unvalidated ids will now receive not-found errors.
+- Next recommended step: add Pulse channel/conversation read endpoints.
+
+## 2026-05-07 Pulse Channel + Conversation Read API Update
+
+- Changed: Pulse operational state now has initial read API coverage.
+- Completed: read-only channels and conversations routes with route-permission metadata tests.
+- Pending: pagination, filters, ticket/timeline routes, and frontend contract examples.
+- Risks: minimal endpoints should not be treated as final admin UX contracts.
+- Next recommended step: add ticket and operational event timeline reads.
+
+## 2026-05-07 Pulse Ticket + Timeline Read API Update
+
+- Changed: Pulse read API coverage now includes tickets and operational timelines.
+- Completed: tenant-scoped ticket list/detail and event timeline routes for conversations/tickets.
+- Pending: pagination, filters, ticket assignment/resolve actions, and frontend contract examples.
+- Risks: read APIs are useful for QA but still need pagination before scale.
+- Next recommended step: implement Pulse read pagination/filter DTOs.
+
+## 2026-05-07 Pulse Read Pagination Update
+
+- Changed: Pulse read APIs now have baseline pagination.
+- Completed: channel/conversation/ticket/event repositories and routes accept `page` and `pageSize`.
+- Pending: status/type/provider/date filters and generated API examples.
+- Risks: pagination without filters is only the first production-safety step.
+- Next recommended step: add read filters for operational review workflows.
+
+## 2026-05-07 Pulse Read Filtering Update
+
+- Changed: Pulse read endpoints now support first-pass operational filters.
+- Completed: provider/status/state/type/event/date filtering in DTOs and repositories.
+- Pending: e2e tests, response examples, and frontend-owner integration.
+- Risks: filters are useful but not yet indexed beyond existing schema indexes for every combination.
+- Next recommended step: add e2e tests and inspect query plans once real data exists.
+
+## 2026-05-07 Pulse Read Contract Test Update
+
+- Changed: moved the Pulse read-filter track from implementation-only into tested backend contracts.
+- Completed: DTO validation tests and controller forwarding tests cover the current filter surface.
+- Pending: HTTP e2e harness, cross-tenant request fixtures, and generated response examples.
+- Risks: without HTTP e2e, global validation-pipe behavior remains verified indirectly.
+- Next recommended step: introduce Pulse read HTTP e2e tests before adding ticket mutation APIs.
+
+## 2026-05-07 Pulse HTTP Read E2E Harness Update
+
+- Changed: Pulse read filters now have request-level coverage.
+- Completed: local Nest HTTP harness covers global validation pipes, tenant guard rejection, permission guard rejection, and audit logging for forbidden reads.
+- Pending: database-backed request tests and response examples.
+- Risks: use-case stubbing keeps the tests fast but leaves persistence integration for a later test database slice.
+- Next recommended step: decide between test database fixtures and `tickets:assign` / `tickets:resolve` backend mutations.

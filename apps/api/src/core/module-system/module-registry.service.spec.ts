@@ -1,4 +1,10 @@
-import { ModuleCatalogStatus, TenantModuleStatus } from '@prisma/client';
+import {
+  ModuleCatalogStatus,
+  ModuleRolloutState,
+  ModuleTier,
+  ModuleVisibility,
+  TenantModuleStatus,
+} from '@prisma/client';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { BillingService } from '../../modules/billing/billing.service';
@@ -11,6 +17,10 @@ const registeredPulse = {
   displayName: 'Synapse Pulse',
   version: '0.1.0',
   description: 'Operational communication queues, AI extraction, validation, and workflow actions.',
+  tier: ModuleTier.LIGHT,
+  visibility: ModuleVisibility.PUBLIC,
+  rolloutState: ModuleRolloutState.GA,
+  active: true,
   permissions: ['pulse:read', 'pulse:write'],
   actions: [
     {
@@ -39,6 +49,11 @@ function createCatalogRecord(overrides: Record<string, unknown> = {}) {
     version: '0.1.0',
     description: 'Operational communication queues, AI extraction, validation, and workflow actions.',
     status: ModuleCatalogStatus.PUBLIC,
+    tier: ModuleTier.LIGHT,
+    visibility: ModuleVisibility.PUBLIC,
+    rolloutState: ModuleRolloutState.GA,
+    featureFlag: null,
+    active: true,
     permissions: ['pulse:read', 'pulse:write'],
     actions: registeredPulse.actions,
     events: registeredPulse.events,
@@ -109,10 +124,18 @@ describe('ModuleRegistryService', () => {
           slug: 'pulse',
           displayName: 'Synapse Pulse',
           status: ModuleCatalogStatus.PUBLIC,
+          tier: ModuleTier.LIGHT,
+          visibility: ModuleVisibility.PUBLIC,
+          rolloutState: ModuleRolloutState.GA,
+          active: true,
         }),
         update: expect.objectContaining({
           displayName: 'Synapse Pulse',
           status: ModuleCatalogStatus.PUBLIC,
+          tier: ModuleTier.LIGHT,
+          visibility: ModuleVisibility.PUBLIC,
+          rolloutState: ModuleRolloutState.GA,
+          active: true,
         }),
       }),
     );
@@ -130,7 +153,11 @@ describe('ModuleRegistryService', () => {
     const modules = await service.list('tenant_a');
 
     expect(prisma.moduleCatalogItem.findMany).toHaveBeenCalledWith({
-      where: { status: ModuleCatalogStatus.PUBLIC },
+      where: {
+        status: ModuleCatalogStatus.PUBLIC,
+        active: true,
+        visibility: ModuleVisibility.PUBLIC,
+      },
       include: {
         installations: {
           where: { tenantId: 'tenant_a' },
@@ -143,6 +170,10 @@ describe('ModuleRegistryService', () => {
       expect.objectContaining({
         name: 'pulse',
         displayName: 'Synapse Pulse',
+        tier: ModuleTier.LIGHT,
+        visibility: ModuleVisibility.PUBLIC,
+        rolloutState: ModuleRolloutState.GA,
+        active: true,
         enabled: true,
       }),
     ]);

@@ -1,11 +1,24 @@
-import {Inject, Injectable} from '@nestjs/common';
+import {Inject, Injectable, NotFoundException} from '@nestjs/common';
 import {InjectQueue} from '@nestjs/bullmq';
 import {Queue} from 'bullmq';
+import {PulseChannelProvider} from '@prisma/client';
 import {UsageMeteringService, UsageMetricType} from '../../../../modules/usage/usage-metering.service';
 import {
   PULSE_REPOSITORY,
   IPulseRepository,
 } from '../../domain/ports/pulse-repository.port';
+import {
+  IPulseOperationalEventRepository,
+  PULSE_OPERATIONAL_EVENT_REPOSITORY,
+} from '../../domain/ports/pulse-operational-event-repository.port';
+import {
+  IPulseChannelRepository,
+  PULSE_CHANNEL_REPOSITORY,
+} from '../../domain/ports/pulse-channel-repository.port';
+import {
+  IPulseConversationRepository,
+  PULSE_CONVERSATION_REPOSITORY,
+} from '../../domain/ports/pulse-conversation-repository.port';
 import {PULSE_QUEUE, DEFAULT_JOB_OPTIONS} from '../../infrastructure/processors/pulse.processor';
 import {ProcessPulseJob} from '../../contracts/pulse.contracts';
 
@@ -16,6 +29,10 @@ export interface CreateEntryInput {
   originalMessage?: string;
   mediaUrl?: string;
   conversationId?: string;
+  provider?: PulseChannelProvider;
+  channelIdentifier?: string;
+  participantRef?: string;
+  participantLabel?: string;
 }
 
 @Injectable()
@@ -26,10 +43,20 @@ export class CreateEntryUseCase {
     @InjectQueue(PULSE_QUEUE)
     private readonly queue: Queue<ProcessPulseJob>,
     private readonly usage: UsageMeteringService,
+    @Inject(PULSE_OPERATIONAL_EVENT_REPOSITORY)
+    private readonly events: IPulseOperationalEventRepository,
+    @Inject(PULSE_CHANNEL_REPOSITORY)
+    private readonly channels: IPulseChannelRepository,
+    @Inject(PULSE_CONVERSATION_REPOSITORY)
+    private readonly conversations: IPulseConversationRepository,
   ) {}
 
   async execute(input: CreateEntryInput) {
-    const entry = await this.repository.create(input);
+    const conversationId = await this.resolveConversationId(input);
+    const entry = await this.repository.create({
+      ...input,
+      conversationId,
+    });
 
     await this.queue.add(
       'process',
@@ -48,9 +75,84 @@ export class CreateEntryUseCase {
       idempotencyKey: `pulse-entry-created:${entry.id}`,
       metadata: {
         hasMedia: !!input.mediaUrl,
+        provider: input.provider,
+      },
+    });
+
+    await this.events.record({
+      tenantId: input.tenantId,
+      eventType: 'pulse.entry.received',
+      conversationId: entry.conversationId ?? undefined,
+      payload: {
+        entryId: entry.id,
+        hasMedia: !!input.mediaUrl,
+      },
+      metadata: {
+        source: 'pulse.queue',
       },
     });
 
     return entry;
+  }
+
+  private async resolveConversationId(input: CreateEntryInput) {
+    if (input.conversationId) {
+      const conversation = await this.conversations.findById(
+        input.tenantId,
+        input.conversationId,
+      );
+      if (!conversation) {
+        throw new NotFoundException(`Pulse conversation ${input.conversationId} not found`);
+      }
+
+      await this.events.record({
+        tenantId: input.tenantId,
+        eventType: 'pulse.conversation.linked',
+        conversationId: conversation.id,
+        payload: {
+          conversationId: conversation.id,
+          source: 'direct_id',
+        },
+      });
+
+      return conversation.id;
+    }
+
+    if (!input.provider || !input.channelIdentifier) {
+      return undefined;
+    }
+
+    const channel = await this.channels.upsert({
+      tenantId: input.tenantId,
+      provider: input.provider,
+      identifier: input.channelIdentifier,
+      metadata: {
+        source: 'pulse.entry',
+      },
+    });
+
+    const conversation = await this.conversations.resolve({
+      tenantId: input.tenantId,
+      channelId: channel.id,
+      participantRef: input.participantRef ?? input.contactPhone,
+      participantLabel: input.participantLabel ?? input.contactName,
+      metadata: {
+        source: 'pulse.entry',
+      },
+    });
+
+    await this.events.record({
+      tenantId: input.tenantId,
+      eventType: 'pulse.conversation.resolved',
+      channelId: channel.id,
+      conversationId: conversation.id,
+      payload: {
+        provider: input.provider,
+        channelIdentifier: input.channelIdentifier,
+        participantRef: input.participantRef ?? input.contactPhone,
+      },
+    });
+
+    return conversation.id;
   }
 }

@@ -8,11 +8,23 @@ import {UsageModule} from '../../modules/usage/usage.module';
 import {PulseController} from './pulse.controller';
 import {ListQueueUseCase} from './application/use-cases/list-queue.use-case';
 import {GetEntryUseCase} from './application/use-cases/get-entry.use-case';
+import {ListChannelsUseCase} from './application/use-cases/list-channels.use-case';
+import {GetChannelUseCase} from './application/use-cases/get-channel.use-case';
+import {ListConversationsUseCase} from './application/use-cases/list-conversations.use-case';
+import {GetConversationUseCase} from './application/use-cases/get-conversation.use-case';
+import {ListTicketsUseCase} from './application/use-cases/list-tickets.use-case';
+import {GetTicketUseCase} from './application/use-cases/get-ticket.use-case';
+import {ListConversationEventsUseCase} from './application/use-cases/list-conversation-events.use-case';
+import {ListTicketEventsUseCase} from './application/use-cases/list-ticket-events.use-case';
 import {CreateEntryUseCase} from './application/use-cases/create-entry.use-case';
 import {ValidateEntryUseCase} from './application/use-cases/validate-entry.use-case';
 import {RejectEntryUseCase} from './application/use-cases/reject-entry.use-case';
 import {RetryEntryUseCase} from './application/use-cases/retry-entry.use-case';
 import {PulseRepository} from './infrastructure/repositories/pulse.repository';
+import {PulseOperationalEventRepository} from './infrastructure/repositories/pulse-operational-event.repository';
+import {PulseTicketRepository} from './infrastructure/repositories/pulse-ticket.repository';
+import {PulseChannelRepository} from './infrastructure/repositories/pulse-channel.repository';
+import {PulseConversationRepository} from './infrastructure/repositories/pulse-conversation.repository';
 import {AiExtractorAdapter} from './infrastructure/adapters/ai-extractor.adapter';
 import {AudioTranscriberAdapter} from './infrastructure/adapters/audio-transcriber.adapter';
 import {
@@ -20,12 +32,24 @@ import {
   PULSE_QUEUE,
 } from './infrastructure/processors/pulse.processor';
 import {PULSE_REPOSITORY} from './domain/ports/pulse-repository.port';
+import {PULSE_OPERATIONAL_EVENT_REPOSITORY} from './domain/ports/pulse-operational-event-repository.port';
+import {PULSE_TICKET_REPOSITORY} from './domain/ports/pulse-ticket-repository.port';
+import {PULSE_CHANNEL_REPOSITORY} from './domain/ports/pulse-channel-repository.port';
+import {PULSE_CONVERSATION_REPOSITORY} from './domain/ports/pulse-conversation-repository.port';
 import {AI_EXTRACTOR} from './domain/ports/ai-extractor.port';
 import {AUDIO_TRANSCRIBER} from './domain/ports/audio-transcriber.port';
 
 const USE_CASES = [
   ListQueueUseCase,
   GetEntryUseCase,
+  ListChannelsUseCase,
+  GetChannelUseCase,
+  ListConversationsUseCase,
+  GetConversationUseCase,
+  ListTicketsUseCase,
+  GetTicketUseCase,
+  ListConversationEventsUseCase,
+  ListTicketEventsUseCase,
   CreateEntryUseCase,
   ValidateEntryUseCase,
   RejectEntryUseCase,
@@ -46,6 +70,10 @@ const USE_CASES = [
     ...USE_CASES,
     PulseProcessor,
     {provide: PULSE_REPOSITORY, useClass: PulseRepository},
+    {provide: PULSE_OPERATIONAL_EVENT_REPOSITORY, useClass: PulseOperationalEventRepository},
+    {provide: PULSE_TICKET_REPOSITORY, useClass: PulseTicketRepository},
+    {provide: PULSE_CHANNEL_REPOSITORY, useClass: PulseChannelRepository},
+    {provide: PULSE_CONVERSATION_REPOSITORY, useClass: PulseConversationRepository},
     {provide: AI_EXTRACTOR, useClass: AiExtractorAdapter},
     {provide: AUDIO_TRANSCRIBER, useClass: AudioTranscriberAdapter},
   ],

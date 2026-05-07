@@ -2,6 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@
 import { Reflector } from '@nestjs/core';
 import { Permission, roleHasAllPermissions, UserRole } from '@synapse/contracts';
 import { AuthenticatedUser } from '../types/authenticated-user';
+import { AuditAction, AuditService } from '../audit/audit.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { PERMISSIONS_KEY } from './permissions.decorator';
 
@@ -22,9 +23,12 @@ import { PERMISSIONS_KEY } from './permissions.decorator';
  */
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly audit: AuditService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     // Public routes were already let through by JwtAuthGuard — but if a public
     // route also somehow declared @Permissions we still want to skip.
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -53,6 +57,16 @@ export class PermissionsGuard implements CanActivate {
 
     const granted = roleHasAllPermissions(user.role as UserRole, required);
     if (!granted) {
+      await this.audit.record({
+        tenantId: user.tenantId,
+        actorUserId: user.sub,
+        action: AuditAction.AUTH_FORBIDDEN,
+        resourceType: 'RoutePermission',
+        metadata: {
+          required,
+          role: user.role,
+        },
+      });
       throw new ForbiddenException(
         `Missing required permission(s): ${required.join(', ')}`,
       );

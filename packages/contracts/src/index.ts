@@ -6,6 +6,12 @@ export type TenantStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING_SETUP';
 // ─────────────────────────────────────────────────────────────────────
 
 export type UserRole = 'OWNER' | 'ADMIN' | 'OPERATOR' | 'VIEWER';
+export type SynapseRole =
+  | 'platform_admin'
+  | 'tenant_owner'
+  | 'tenant_admin'
+  | 'tenant_operator'
+  | 'tenant_viewer';
 
 export const USER_ROLES = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER'] as const;
 
@@ -48,6 +54,21 @@ export type Permission =
   | 'modules:read'
   | 'modules:enable'
   | 'modules:disable'
+  | 'modules:manage'
+  // Tickets
+  | 'tickets:read'
+  | 'tickets:write'
+  | 'tickets:assign'
+  | 'tickets:resolve'
+  // Integrations
+  | 'integrations:read'
+  | 'integrations:manage'
+  // Audit
+  | 'audit:read'
+  // Runtime execution governance
+  | 'runtime:executions:read'
+  | 'runtime:executions:create'
+  | 'runtime:executions:cancel'
   // Billing
   | 'billing:read'
   | 'billing:manage';
@@ -59,7 +80,11 @@ export const ALL_PERMISSIONS: ReadonlyArray<Permission> = [
   'conversations:read', 'conversations:respond',
   'channels:read', 'channels:connect', 'channels:disconnect',
   'pulse:read', 'pulse:write', 'pulse:validate', 'pulse:reject', 'pulse:retry',
-  'modules:read', 'modules:enable', 'modules:disable',
+  'modules:read', 'modules:enable', 'modules:disable', 'modules:manage',
+  'tickets:read', 'tickets:write', 'tickets:assign', 'tickets:resolve',
+  'integrations:read', 'integrations:manage',
+  'audit:read',
+  'runtime:executions:read', 'runtime:executions:create', 'runtime:executions:cancel',
   'billing:read', 'billing:manage',
 ] as const;
 
@@ -86,6 +111,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<UserRole, ReadonlyArray<Permissio
     'channels:read', 'channels:connect',
     'pulse:read', 'pulse:write', 'pulse:validate', 'pulse:reject', 'pulse:retry',
     'modules:read',
+    'tickets:read', 'tickets:write', 'tickets:assign', 'tickets:resolve',
+    'integrations:read',
+    'runtime:executions:read',
     'billing:read',
   ],
 
@@ -97,6 +125,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<UserRole, ReadonlyArray<Permissio
     'channels:read',
     'pulse:read',
     'modules:read',
+    'tickets:read',
+    'integrations:read',
+    'runtime:executions:read',
     'billing:read',
   ],
 });
@@ -134,6 +165,49 @@ export type UsageMetricType =
   | 'STORAGE'
   | 'MESSAGE'
   | 'AUTOMATION_EXECUTION';
+export type ModuleTier = 'FREE' | 'LIGHT' | 'PRO' | 'PREMIUM';
+export type ModuleVisibility = 'PUBLIC' | 'PRIVATE' | 'HIDDEN';
+export type ModuleRolloutState = 'DRAFT' | 'PILOT' | 'GA' | 'DEPRECATED';
+export type PulseChannelProvider = 'WHATSAPP' | 'TELEGRAM';
+export type PulseChannelStatus = 'ACTIVE' | 'DISCONNECTED' | 'NEEDS_ATTENTION' | 'DISABLED';
+export type PulseConversationState =
+  | 'NEW'
+  | 'IN_FLOW'
+  | 'WAITING_CUSTOMER'
+  | 'WAITING_OPERATOR'
+  | 'RESOLVED'
+  | 'CANCELLED';
+export type PulseOperationalStatus = 'ACTIVE' | 'NEEDS_REVIEW' | 'ESCALATED' | 'CLOSED';
+export type PulseTicketType =
+  | 'SUPPORT'
+  | 'SALES'
+  | 'SCHEDULING'
+  | 'MARKETING'
+  | 'OPERATOR_REVIEW'
+  | 'KNOWLEDGE_REQUEST';
+export type PulseTicketStatus =
+  | 'OPEN'
+  | 'PENDING_REVIEW'
+  | 'WAITING_CUSTOMER'
+  | 'RESOLVED'
+  | 'CANCELLED';
+export type PulseActorType = 'SYSTEM' | 'USER' | 'CUSTOMER' | 'AI' | 'INTEGRATION';
+export type PulseSkillType = 'SCHEDULER' | 'SALES' | 'SUPPORT' | 'KNOWLEDGE' | 'MARKETING' | 'OPERATOR';
+export type PulseKnowledgeContextType =
+  | 'FAQ'
+  | 'BUSINESS_DESCRIPTION'
+  | 'OPERATIONAL_INSTRUCTION'
+  | 'PRODUCT_SERVICE'
+  | 'CAMPAIGN_PROMOTION';
+export type IntegrationProvider = 'GOOGLE_CALENDAR' | 'OUTLOOK_CALENDAR' | 'CALENDLY';
+export type ExecutionStatus =
+  | 'REQUESTED'
+  | 'QUEUED'
+  | 'RUNNING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | 'TIMED_OUT';
 
 export type TenantSummary = {
   id: string;
@@ -380,6 +454,11 @@ export type SynapseModuleManifest = {
   displayName: string;
   version: string;
   description: string;
+  tier?: ModuleTier;
+  visibility?: ModuleVisibility;
+  rolloutState?: ModuleRolloutState;
+  featureFlag?: string | null;
+  active?: boolean;
   actions: ModuleAction[];
   events?: ModuleEvent[];
   permissions?: string[];
@@ -388,6 +467,124 @@ export type SynapseModuleManifest = {
 export type RegisteredModule = SynapseModuleManifest & {
   enabled: boolean;
   registeredAt: string;
+};
+
+export type PulseChannelSummary = {
+  id: string;
+  tenantId: string;
+  provider: PulseChannelProvider;
+  identifier: string;
+  status: PulseChannelStatus;
+  limits: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+
+export type PulseConversationSummary = {
+  id: string;
+  tenantId: string;
+  channelId: string;
+  participantRef: string;
+  participantLabel?: string | null;
+  state: PulseConversationState;
+  operationalStatus: PulseOperationalStatus;
+  confidence?: number | null;
+  lastActivityAt?: string | null;
+};
+
+export type PulseTicketSummary = {
+  id: string;
+  tenantId: string;
+  conversationId?: string | null;
+  type: PulseTicketType;
+  status: PulseTicketStatus;
+  title: string;
+  summary?: string | null;
+  priority: number;
+  confidence?: number | null;
+  assignedUserId?: string | null;
+};
+
+export type PulseOperationalEventRecord = {
+  id: string;
+  tenantId: string;
+  eventType: string;
+  actorType: PulseActorType;
+  actorUserId?: string | null;
+  channelId?: string | null;
+  conversationId?: string | null;
+  ticketId?: string | null;
+  payload: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  occurredAt: string;
+};
+
+export type SchedulingProvider = Extract<
+  IntegrationProvider,
+  'GOOGLE_CALENDAR' | 'OUTLOOK_CALENDAR' | 'CALENDLY'
+>;
+
+export type SchedulingAvailabilityRequest = {
+  tenantId: string;
+  provider: SchedulingProvider;
+  integrationId: string;
+  windowStart: string;
+  windowEnd: string;
+  durationMinutes: number;
+  timezone: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type SchedulingAvailabilitySlot = {
+  startsAt: string;
+  endsAt: string;
+  providerRef?: string;
+};
+
+export type SchedulingBookingRequest = SchedulingAvailabilityRequest & {
+  slotStartsAt: string;
+  participant: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+};
+
+export type SchedulingBookingResponse = {
+  bookingId: string;
+  provider: SchedulingProvider;
+  providerRef?: string;
+  startsAt: string;
+  endsAt: string;
+  status: 'CONFIRMED' | 'PENDING' | 'FAILED';
+};
+
+export type TenantExecutionContext = {
+  tenantId: string;
+  moduleSlug: string;
+  actorUserId?: string;
+  permissions?: Permission[];
+  requestId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ExecutionRequestContract = {
+  id: string;
+  context: TenantExecutionContext;
+  requestType: string;
+  idempotencyKey?: string;
+  input: Record<string, unknown>;
+  requestedAt: string;
+};
+
+export type ExecutionResponseContract = {
+  id: string;
+  tenantId: string;
+  moduleSlug: string;
+  status: ExecutionStatus;
+  output?: Record<string, unknown>;
+  errorMessage?: string;
+  startedAt?: string;
+  completedAt?: string;
 };
 
 export type LlmTaskType = 'conversation_reply' | 'lead_extraction' | 'intent_classification' | 'workflow_reasoning';

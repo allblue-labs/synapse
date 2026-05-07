@@ -108,3 +108,83 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: OWNER/ADMIN/OPERATOR/VIEWER e2e matrix for portal creation.
 - Risks: customer portal allows billing self-service actions, so access must remain billing-management only.
 - Next recommended step: include portal creation in billing route e2e coverage.
+
+## 2026-05-07 Stage 1 Backend Refinement + Pulse Foundation Update
+
+- Changed: permission catalog now prepares granular permissions for modules, tickets, integrations, audit reads, and runtime execution governance.
+- Completed: existing tenant roles remain supported while contracts document future platform/tenant role names; forbidden permission denials are audited.
+- Pending: deliberate database/JWT role migration from current enum names to platform/tenant role names.
+- Risks: changing persisted role names without a migration plan would break existing memberships and JWT assumptions.
+- Next recommended step: create a role migration plan and e2e matrix before changing Prisma `UserRole` values.
+
+## 2026-05-07 Pulse Operational Lifecycle Wiring Update
+
+- Changed: existing Pulse route permissions now guard durable operational ticket/event side effects.
+- Completed: validation side effects remain behind `pulse:validate`; create side effects remain behind `pulse:write`; reject/retry side effects remain behind their existing permissions.
+- Pending: dedicated ticket read/write APIs must use `tickets:*` permissions when exposed.
+- Risks: adding ticket APIs under `pulse:*` would weaken the permission model.
+- Next recommended step: use `tickets:read`, `tickets:write`, `tickets:assign`, and `tickets:resolve` on upcoming ticket routes.
+
+## 2026-05-07 Pulse Channel + Conversation Ingestion Update
+
+- Changed: channel/conversation resolution currently runs behind `pulse:write` through entry creation.
+- Completed: no new public route permissions were added.
+- Pending: future channel/conversation read routes should use `pulse:read`; configuration routes should use integration/module management permissions.
+- Risks: provider/channel setup should not be granted to broad operator roles without review.
+- Next recommended step: define route metadata before exposing channel management APIs.
+
+## 2026-05-07 Pulse Direct Conversation Validation Update
+
+- Changed: no RBAC surface changed; tenant validation was hardened inside the `pulse:write` path.
+- Completed: direct conversation ids now require tenant ownership.
+- Pending: e2e role matrix for create-entry ingestion.
+- Risks: route permission tests do not prove persisted cross-tenant rejection.
+- Next recommended step: add e2e tests combining role and tenant rejection.
+
+## 2026-05-07 Pulse Channel + Conversation Read API Update
+
+- Changed: channel/conversation read routes use `pulse:read`.
+- Completed: controller metadata tests cover the new methods.
+- Pending: e2e role matrix for channel/conversation reads.
+- Risks: channel management mutations must not reuse `pulse:read`.
+- Next recommended step: use `integrations:manage` or a dedicated permission for future channel configuration writes.
+
+## 2026-05-07 Pulse Ticket + Timeline Read API Update
+
+- Changed: ticket list/detail/timeline routes require `tickets:read`; conversation timeline requires `pulse:read`.
+- Completed: controller metadata tests cover the new routes.
+- Pending: e2e OWNER/ADMIN/OPERATOR/VIEWER role matrix for ticket reads.
+- Risks: ticket mutation permissions must remain more granular than ticket reads.
+- Next recommended step: define `tickets:assign` and `tickets:resolve` route behavior before mutation endpoints.
+
+## 2026-05-07 Pulse Read Pagination Update
+
+- Changed: no permission surface changed; existing read permissions now cover paginated responses.
+- Completed: validation applies before repository reads.
+- Pending: e2e role tests for paginated reads.
+- Risks: filters added later must not create alternate unprotected routes.
+- Next recommended step: keep all read filter variants on the existing protected endpoints.
+
+## 2026-05-07 Pulse Read Filtering Update
+
+- Changed: no permission surface changed; filters are applied on existing protected routes.
+- Completed: channel/conversation filters remain under `pulse:read`; ticket filters remain under `tickets:read`.
+- Pending: e2e role tests with filtered reads.
+- Risks: future admin-only filters should not be added to tenant-user routes without review.
+- Next recommended step: add role-matrix e2e coverage for filtered reads.
+
+## 2026-05-07 Pulse Read Contract Test Update
+
+- Changed: expanded Pulse controller tests around filtered read routes while preserving existing permission metadata checks.
+- Completed: filter forwarding tests cover `pulse:read` channel/conversation/timeline paths and `tickets:read` ticket/timeline paths.
+- Pending: HTTP role-matrix tests for OWNER/ADMIN/OPERATOR/VIEWER.
+- Risks: metadata tests do not execute guards; guard execution still needs e2e coverage.
+- Next recommended step: add role-matrix e2e coverage for filtered Pulse reads.
+
+## 2026-05-07 Pulse HTTP Read E2E Harness Update
+
+- Changed: filtered read routes now have HTTP-level permission guard coverage.
+- Completed: forbidden ticket reads are rejected and audited through the real `PermissionsGuard`.
+- Pending: complete OWNER/ADMIN/OPERATOR/VIEWER matrix for every filtered read route.
+- Risks: the current forbidden case uses an invalid role to prove guard failure; role matrix behavior still needs explicit cases.
+- Next recommended step: add role-matrix HTTP tests for Pulse reads.

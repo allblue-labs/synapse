@@ -14,6 +14,7 @@ export const AuditAction = {
   AUTH_LOGIN_LOCKED:    'auth.login.locked',
   AUTH_LOGOUT:          'auth.logout',
   AUTH_REGISTERED:      'auth.registered',
+  AUTH_FORBIDDEN:        'auth.forbidden',
   // Reserved for future use; documented up-front so callers don't drift.
   USER_INVITED:         'users.invited',
   USER_ROLE_CHANGED:    'users.role.changed',

@@ -123,3 +123,83 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: multi-tenant e2e tests for portal creation and checkout reconciliation.
 - Risks: portal access depends on accurate tenant-owned customer ids.
 - Next recommended step: add tests with two tenants and distinct Stripe customer ids.
+
+## 2026-05-07 Stage 1 Backend Refinement + Pulse Foundation Update
+
+- Changed: Pulse operational foundation tables all include `tenantId` and tenant-leading indexes/unique constraints.
+- Completed: Pulse channels, conversations, tickets, events, playbooks, knowledge contexts, skills, integration settings, and execution requests are tenant-owned.
+- Pending: repository/use-case tests for every new tenant-owned model beyond operational events.
+- Risks: flexible cross-entity references like ticket/conversation ids must always be resolved through tenant-scoped queries.
+- Next recommended step: add repositories that use `tenantId` in every read/write path for Pulse conversations and tickets.
+
+## 2026-05-07 Pulse Operational Lifecycle Wiring Update
+
+- Changed: Pulse lifecycle side effects use tenant-scoped operational event and ticket repositories.
+- Completed: ticket creation and event reads/writes include `tenantId` in repository tests.
+- Pending: tenant-scoped repositories for PulseChannel and PulseConversation.
+- Risks: legacy `conversationId` remains a string on `PulseEntry`; future relation wiring must validate tenant ownership.
+- Next recommended step: add conversation repository methods that resolve ids by tenant before linking entries/tickets/events.
+
+## 2026-05-07 Pulse Channel + Conversation Ingestion Update
+
+- Changed: entry ingestion can now resolve channels by tenant/provider/identifier and conversations by tenant/channel/participant.
+- Completed: `PulseChannelRepository` and `PulseConversationRepository` tests lock tenant-scoped upsert keys.
+- Pending: tenant-scoped read/list repositories and direct id validation for legacy `conversationId`.
+- Risks: mixed legacy and resolved conversation paths must be unified before public provider webhooks are enabled.
+- Next recommended step: add `findById(tenantId, id)` for PulseConversation and use it to validate direct ids.
+
+## 2026-05-07 Pulse Direct Conversation Validation Update
+
+- Changed: `PulseConversationRepository.findById` enforces `{ tenantId, id }` lookup for direct ids.
+- Completed: create-entry use case refuses unowned conversation ids before side effects.
+- Pending: database-backed two-tenant tests.
+- Risks: future ticket/event linking must use the same tenant-scoped lookup pattern.
+- Next recommended step: reuse tenant-scoped find methods in upcoming read APIs.
+
+## 2026-05-07 Pulse Channel + Conversation Read API Update
+
+- Changed: Pulse channel and conversation list/detail reads now use tenant-scoped repositories.
+- Completed: `findById` and `list` methods include tenant filters for both entities.
+- Pending: database-backed cross-tenant read tests.
+- Risks: future include/expand options must keep tenant filters on related records.
+- Next recommended step: add ticket/event read repositories with the same tenant-first pattern.
+
+## 2026-05-07 Pulse Ticket + Timeline Read API Update
+
+- Changed: Pulse ticket and operational event reads now use tenant-scoped repository methods.
+- Completed: `PulseTicketRepository.findById/list`, `PulseOperationalEventRepository.listForConversation/listForTicket`.
+- Pending: database-backed cross-tenant read tests.
+- Risks: future timeline expansion must verify related ticket/conversation ownership by tenant.
+- Next recommended step: add e2e tests with two tenants and overlapping ticket/event ids.
+
+## 2026-05-07 Pulse Read Pagination Update
+
+- Changed: paged reads use tenant-scoped `where` clauses for both data and count queries.
+- Completed: repository tests assert tenant filters on paginated reads.
+- Pending: database-backed two-tenant pagination tests.
+- Risks: future filters must be merged into tenant-scoped queries, not replace them.
+- Next recommended step: add helper builders for tenant-scoped filter objects.
+
+## 2026-05-07 Pulse Read Filtering Update
+
+- Changed: filter builders keep `tenantId` as the base predicate for channel, conversation, ticket, and event reads.
+- Completed: tests assert tenant-plus-filter query shape.
+- Pending: database-backed two-tenant filter tests.
+- Risks: future include/expand behavior must apply tenant scope to related records too.
+- Next recommended step: add e2e tests before adding expanded response payloads.
+
+## 2026-05-07 Pulse Read Contract Test Update
+
+- Changed: controller filter tests now verify filtered Pulse reads are executed with the server tenant id.
+- Completed: channel, conversation, ticket, conversation-event, and ticket-event controller paths forward filters with the tenant id supplied by backend context.
+- Pending: request-level tests with two tenants and overlapping ids.
+- Risks: controller tests do not replace database-backed tenant isolation tests for real HTTP requests.
+- Next recommended step: build e2e fixtures for cross-tenant filtered reads.
+
+## 2026-05-07 Pulse HTTP Read E2E Harness Update
+
+- Changed: HTTP tests now verify tenant guard behavior for filtered Pulse reads.
+- Completed: mismatched `x-tenant-id` is rejected before channel reads execute.
+- Pending: database-backed tests with two tenants and overlapping Pulse ids.
+- Risks: guard-level tenant rejection is covered, but persistence-layer leak checks still need integrated fixtures.
+- Next recommended step: add database-backed cross-tenant filtered read tests.

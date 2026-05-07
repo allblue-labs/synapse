@@ -21,6 +21,10 @@ enum UserRole {
   VIEWER
 }
 
+enum PlatformRole {
+  PLATFORM_ADMIN
+}
+
 enum AgentStatus {
   DRAFT
   ACTIVE
@@ -121,6 +125,135 @@ enum TenantModuleStatus {
   DISABLED
 }
 
+enum ModuleTier {
+  FREE
+  LIGHT
+  PRO
+  PREMIUM
+}
+
+enum ModuleVisibility {
+  PUBLIC
+  PRIVATE
+  HIDDEN
+}
+
+enum ModuleRolloutState {
+  DRAFT
+  PILOT
+  GA
+  DEPRECATED
+}
+
+enum PulseChannelProvider {
+  WHATSAPP
+  TELEGRAM
+}
+
+enum PulseChannelStatus {
+  ACTIVE
+  DISCONNECTED
+  NEEDS_ATTENTION
+  DISABLED
+}
+
+enum PulseConversationState {
+  NEW
+  IN_FLOW
+  WAITING_CUSTOMER
+  WAITING_OPERATOR
+  RESOLVED
+  CANCELLED
+}
+
+enum PulseOperationalStatus {
+  ACTIVE
+  NEEDS_REVIEW
+  ESCALATED
+  CLOSED
+}
+
+enum PulseTicketType {
+  SUPPORT
+  SALES
+  SCHEDULING
+  MARKETING
+  OPERATOR_REVIEW
+  KNOWLEDGE_REQUEST
+}
+
+enum PulseTicketStatus {
+  OPEN
+  PENDING_REVIEW
+  WAITING_CUSTOMER
+  RESOLVED
+  CANCELLED
+}
+
+enum PulseActorType {
+  SYSTEM
+  USER
+  CUSTOMER
+  AI
+  INTEGRATION
+}
+
+enum PulsePlaybookStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum PulseKnowledgeContextType {
+  FAQ
+  BUSINESS_DESCRIPTION
+  OPERATIONAL_INSTRUCTION
+  PRODUCT_SERVICE
+  CAMPAIGN_PROMOTION
+}
+
+enum PulseKnowledgeContextStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum PulseSkillType {
+  SCHEDULER
+  SALES
+  SUPPORT
+  KNOWLEDGE
+  MARKETING
+  OPERATOR
+}
+
+enum PulseSkillStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum IntegrationProvider {
+  GOOGLE_CALENDAR
+  OUTLOOK_CALENDAR
+  CALENDLY
+}
+
+enum IntegrationStatus {
+  ACTIVE
+  DISCONNECTED
+  NEEDS_ATTENTION
+  DISABLED
+}
+
+enum ExecutionStatus {
+  REQUESTED
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  TIMED_OUT
+}
+
 model Tenant {
   id             String          @id @default(cuid())
   name           String
@@ -136,6 +269,15 @@ model Tenant {
   knowledgeItems   KnowledgeItem[]
   billingAccount   BillingAccount?
   pulseEntries      PulseEntry[]
+  pulseChannels     PulseChannel[]
+  pulseConversations PulseConversation[]
+  pulseTickets      PulseTicket[]
+  pulseOperationalEvents PulseOperationalEvent[]
+  pulsePlaybooks    PulsePlaybook[]
+  pulseKnowledgeContexts PulseKnowledgeContext[]
+  pulseSkills       PulseSkill[]
+  integrationSettings IntegrationSetting[]
+  executionRequests ExecutionRequest[]
   auditEvents       AuditEvent[]
   moduleInstallations TenantModuleInstallation[]
   modulePurchases      ModulePurchase[]
@@ -416,6 +558,11 @@ model ModuleCatalogItem {
   version      String
   description  String
   status       ModuleCatalogStatus @default(DRAFT)
+  tier         ModuleTier          @default(FREE)
+  visibility   ModuleVisibility    @default(PRIVATE)
+  rolloutState ModuleRolloutState  @default(DRAFT)
+  featureFlag  String?
+  active       Boolean             @default(false)
   permissions  Json                @default("[]")
   actions      Json                @default("[]")
   events       Json                @default("[]")
@@ -429,6 +576,8 @@ model ModuleCatalogItem {
   purchases         ModulePurchase[]
 
   @@index([status, displayName])
+  @@index([tier, visibility, rolloutState])
+  @@index([active, visibility])
   @@map("module_catalog_items")
 }
 
@@ -591,4 +740,199 @@ model PulseEntry {
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
   @@map("pulse_entries")
+}
+
+model PulseChannel {
+  id         String             @id @default(cuid())
+  tenantId   String
+  provider   PulseChannelProvider
+  identifier String
+  status     PulseChannelStatus @default(DISCONNECTED)
+  limits     Json               @default("{}")
+  metadata   Json               @default("{}")
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations PulseConversation[]
+  events        PulseOperationalEvent[]
+
+  @@unique([tenantId, provider, identifier])
+  @@index([tenantId, provider, status])
+  @@map("pulse_channels")
+}
+
+model PulseConversation {
+  id                String                  @id @default(cuid())
+  tenantId          String
+  channelId         String
+  participantRef    String
+  participantLabel  String?
+  state             PulseConversationState  @default(NEW)
+  operationalStatus PulseOperationalStatus  @default(ACTIVE)
+  confidence        Float?
+  lastActivityAt    DateTime?
+  metadata          Json                    @default("{}")
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  tenant  Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel PulseChannel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  tickets PulseTicket[]
+  events  PulseOperationalEvent[]
+
+  @@unique([tenantId, channelId, participantRef])
+  @@index([tenantId, operationalStatus, lastActivityAt])
+  @@index([tenantId, state])
+  @@map("pulse_conversations")
+}
+
+model PulseTicket {
+  id             String            @id @default(cuid())
+  tenantId       String
+  conversationId String?
+  type           PulseTicketType
+  status         PulseTicketStatus @default(OPEN)
+  title          String
+  summary        String?
+  priority       Int               @default(0)
+  confidence     Float?
+  assignedUserId String?
+  metadata       Json              @default("{}")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  resolvedAt     DateTime?
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation PulseConversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  events       PulseOperationalEvent[]
+
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, type, status])
+  @@map("pulse_tickets")
+}
+
+model PulseOperationalEvent {
+  id             String         @id @default(cuid())
+  tenantId       String
+  eventType      String
+  actorType      PulseActorType @default(SYSTEM)
+  actorUserId    String?
+  channelId      String?
+  conversationId String?
+  ticketId       String?
+  payload        Json           @default("{}")
+  metadata       Json           @default("{}")
+  occurredAt     DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel      PulseChannel?      @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  conversation PulseConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  ticket       PulseTicket?       @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, eventType, occurredAt])
+  @@index([tenantId, conversationId, occurredAt])
+  @@index([tenantId, ticketId, occurredAt])
+  @@map("pulse_operational_events")
+}
+
+model PulsePlaybook {
+  id          String              @id @default(cuid())
+  tenantId    String
+  key         String
+  name        String
+  status      PulsePlaybookStatus @default(DRAFT)
+  skill       PulseSkillType?
+  flow        Json                @default("{}")
+  metadata    Json                @default("{}")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status, skill])
+  @@map("pulse_playbooks")
+}
+
+model PulseKnowledgeContext {
+  id        String                      @id @default(cuid())
+  tenantId  String
+  type      PulseKnowledgeContextType
+  title     String
+  content   String
+  status    PulseKnowledgeContextStatus @default(ACTIVE)
+  metadata  Json                        @default("{}")
+  createdAt DateTime                    @default(now())
+  updatedAt DateTime                    @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, type, status])
+  @@index([tenantId, updatedAt])
+  @@map("pulse_knowledge_contexts")
+}
+
+model PulseSkill {
+  id        String           @id @default(cuid())
+  tenantId  String
+  type      PulseSkillType
+  status    PulseSkillStatus @default(ACTIVE)
+  config    Json             @default("{}")
+  metadata  Json             @default("{}")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type])
+  @@index([tenantId, status])
+  @@map("pulse_skills")
+}
+
+model IntegrationSetting {
+  id             String              @id @default(cuid())
+  tenantId       String
+  provider       IntegrationProvider
+  status         IntegrationStatus   @default(DISCONNECTED)
+  displayName    String
+  externalRef    String?
+  settings       Json                @default("{}")
+  credentialsRef String?
+  metadata       Json                @default("{}")
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider, externalRef])
+  @@index([tenantId, provider, status])
+  @@map("integration_settings")
+}
+
+model ExecutionRequest {
+  id             String          @id @default(cuid())
+  tenantId       String
+  moduleSlug     String
+  requestType    String
+  status         ExecutionStatus @default(REQUESTED)
+  idempotencyKey String?
+  context        Json            @default("{}")
+  input          Json            @default("{}")
+  output         Json?
+  errorMessage   String?
+  requestedAt    DateTime        @default(now())
+  queuedAt       DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  updatedAt      DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, moduleSlug, status])
+  @@index([tenantId, requestType, requestedAt])
+  @@map("execution_requests")
 }

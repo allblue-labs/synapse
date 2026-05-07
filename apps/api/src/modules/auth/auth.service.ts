@@ -55,7 +55,7 @@ export class AuthService {
           status: 'ACTIVE',
           billingAccount: {
             create: {
-              planKey: 'starter'
+              planKey: 'light'
             }
           }
         }

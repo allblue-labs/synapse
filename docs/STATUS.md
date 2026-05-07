@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-05-05
+Last updated: 2026-05-07
 
 ## What Is Implemented
 
@@ -17,8 +17,8 @@ Last updated: 2026-05-05
 - Prompt builder and structured response parser
 - Task dispatch via `TaskEngineService` (local executor)
 - Core module system with registry, enable/disable lifecycle
-- Messaging registered as first product module (`SynapseModule`)
-- **ClinicFlowModule**: REST endpoints (`/v1/clinic-flow/queue`, `/errors`, `/retry`), `ClinicFlowEntry` Prisma model with status FSM, confidence score, extracted data, audit logs
+- Synapse Pulse registered as first product module with slug `pulse`
+- **PulseModule**: REST endpoints (`/v1/pulse/queue`, `/errors`, `/retry`), `PulseEntry` Prisma model with status FSM, confidence score, extracted data, queue processor, and tenant-scoped repository writes
 - Runtime architecture with Pain client placeholder
 - Docker Compose for Postgres 16, Redis 7, API, Web
 
@@ -34,18 +34,14 @@ Last updated: 2026-05-05
   - `/overview` — dashboard landing (no charts, module cards, quick actions)
   - `/login` — auth page with Synapse background
   - `/modules` — module grid
-  - `/modules/messaging` — messaging module page
-  - `/modules/messaging/clinic-flow` — ClinicFlow overview with pipeline diagram
-  - `/modules/messaging/clinic-flow/queue` — scheduling queue table with status tabs, detail sheet, approve/reject/edit actions
-  - `/modules/messaging/clinic-flow/errors` — failed entries with retry actions
-  - `/modules/messaging/clinic-flow/settings` — confidence threshold, auto-approve toggle, calendar webhook
+  - Frontend routes still reflect the previous messaging-oriented UX and need frontend-owner alignment to Pulse.
 - Middleware: JWT cookie check, redirect to `/login` if unauthenticated
 - API client (`lib/api.ts`) with cookie-based JWT bearer injection
 - Standalone Docker build mode (`output: 'standalone'`)
 
 ## What Is Partially Done
 
-- ClinicFlow backend: endpoints exist but BullMQ worker processor is not yet connected (queue jobs are enqueued but not consumed by a ClinicFlow-specific processor)
+- Pulse backend: endpoints and BullMQ processor are wired, but AI/audio adapters are still placeholder implementations and operational workflow actions are not implemented
 - LLM routing: only OpenAI; cost/latency/privacy routing not active
 - Queue workers: producers exist, but `message-processing` and `ai-response` processors are stubs
 - Pain runtime: stubbed `StubPainClient` — no real Kubernetes reconciliation
@@ -54,10 +50,11 @@ Last updated: 2026-05-05
 
 ## What Is Missing
 
-- ClinicFlow audio → transcription pipeline (Whisper / cloud STT integration)
-- ClinicFlow calendar webhook dispatcher (Google Calendar / CalDAV)
-- BullMQ worker processors for `ai-response` and `clinic-flow` queues
-- Stripe billing integration (plans: Starter, Pro, Credits)
+- Pulse production audio → transcription pipeline (Whisper / cloud STT integration)
+- Pulse operational action executors and workflow-run metering
+- BullMQ worker processors for `message-processing` and `ai-response` queues
+- Stripe billing integration with plans Light, Pro, Premium and admin-controlled feature flags
+- Operational usage billing for AI calls, audio transcription, workflow runs, storage, messages, and automation executions
 - Production webhook HMAC validation for Discord and WhatsApp
 - Metrics/tracing export (Prometheus, OpenTelemetry)
 - Kubernetes worker strategy for Pain integration
@@ -71,3 +68,60 @@ Last updated: 2026-05-05
 | Cross-tenant data leak | `TenantPrismaService` wraps all queries; guards on all routes |
 | Webhook replay attacks | `x-request-id` logged; HMAC validation required before production |
 | JWT expiry | 15m expiry configured; refresh token flow not yet implemented |
+
+## 2026-05-07 Backend Update
+
+- Changed: renamed the first product module backend surface from the retired messaging-oriented shape to Synapse Pulse (`pulse`), including route prefix, permissions, queue name, registry manifest, Prisma model/enum, and migration.
+- Completed: Pulse is now under `apps/api/src/product-modules/pulse`; module registry advertises `pulse`; repository writes are tenant-scoped.
+- Pending: generated Prisma client/migrations must be applied in the target database; frontend routes remain owned by Claude Opus and need contract alignment.
+- Risks: existing databases require the rename migration before deploying the new code; old clients using previous route/permission names will fail.
+- Next recommended step: run migration/generation and then add backend contract tests for Pulse RBAC and tenant isolation.
+
+## 2026-05-07 Naming Update
+
+- Changed: module name and slug are now Pulse / `pulse` across backend code, Prisma schema, permissions, queue naming, contracts, and docs.
+- Completed: business rules, queue flow, validation flow, tenant isolation behavior, and extraction logic remain unchanged.
+- Pending: frontend-owner contract alignment to `/v1/pulse` and `pulse:*`.
+- Risks: any external consumer still using the interim route or permission names will fail authorization or routing.
+- Next recommended step: add Pulse route/RBAC contract tests before adding billing or usage gates.
+
+## 2026-05-07 RBAC + Route Protection Update
+
+- Changed: added backend tests for `PermissionsGuard`, `TenantGuard`, and Pulse controller route-permission metadata; narrowed Jest transforms to TypeScript specs only.
+- Completed: Pulse route prefix and `pulse:*` route metadata are locked by tests; operator/viewer permission behavior and tenant header mismatch handling are covered.
+- Pending: full HTTP e2e tests with JWTs and persisted users are still needed before production hardening.
+- Risks: metadata/unit tests do not exercise Passport JWT validation or database-backed membership loading.
+- Next recommended step: implement Pulse tenant-isolation repository tests, then move into persisted module registry/store backend work.
+
+## 2026-05-07 Pulse Tenant Isolation Test Update
+
+- Changed: added `PulseRepository` tests for tenant-scoped read, list, update, update miss, and create paths.
+- Completed: Pulse persistence boundary now verifies `tenantId` is included in repository reads and writes.
+- Pending: database-backed integration tests remain needed after test database setup is standardized.
+- Risks: mocked Prisma tests prove query shape, not actual PostgreSQL constraints or migration behavior.
+- Next recommended step: start persisted module registry/store backend models and service tests.
+
+## 2026-05-07 Module Registry Store Update
+
+- Changed: added persisted module catalog and tenant module installation models, migrations, and service behavior.
+- Completed: Pulse manifest is seeded into `module_catalog_items`; tenant enable/disable state is stored in `tenant_module_installations`; runtime state and audit events are applied on enable/disable; service tests cover seeding, listing, enabling, and disabled-module rejection.
+- Completed: tenant-facing list/enable/disable operations are restricted to `PUBLIC` catalog modules.
+- Pending: module marketplace purchase records, plan entitlement gates, commercial activation flags, and HTTP e2e tests.
+- Risks: module registry persistence is implemented, but commercial activation rules are not enforced yet.
+- Next recommended step: implement billing/entitlement models that connect Light/Pro/Premium plans, module purchases, and operational usage gates.
+
+## 2026-05-07 Billing Core Update
+
+- Changed: added billing plans, feature flags, plan/module entitlements, module purchases, and billing admin/read APIs.
+- Completed: Light/Pro/Premium plans seed at startup; Light commercial flag is enabled, Pro/Premium flags are disabled; plan activation checks required public module counts; Pulse enablement is gated by active purchase or active commercial plan entitlement.
+- Pending: Stripe customer/subscription lifecycle, module purchase checkout/webhooks, operational usage meters, and HTTP e2e tests.
+- Risks: billing core gates module enablement, but payment state is not yet synchronized from Stripe.
+- Next recommended step: implement operational usage metering event schema/service before wiring AI/transcription billing boundaries.
+
+## 2026-05-07 Operational Usage Metering Update
+
+- Changed: added tenant-scoped append-only usage events and a usage summary API.
+- Completed: usage metric categories exist for AI calls, audio transcription, workflow runs, storage, messages, and automation executions; Pulse entry creation, Pulse AI extraction, Pulse audio transcription, message creation, and workflow starts record usage events; usage recording is idempotent when a key is supplied.
+- Pending: storage byte accounting, automation execution coverage outside Pulse entry creation, billing-period rating/pricing, Stripe usage reporting, and e2e tests.
+- Risks: metering exists, but costs are not yet rated or pushed to Stripe.
+- Next recommended step: add pricing/rating and billing-period aggregation for usage events.

@@ -14,12 +14,13 @@ import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { UsageModule } from './modules/usage/usage.module';
 import { HealthModule } from './modules/health/health.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { CoreIntelligenceModule } from './core/intelligence/core-intelligence.module';
 import { CoreOrchestrationModule } from './core/orchestration/core-orchestration.module';
 import { ModuleSystemModule } from './core/module-system/module-system.module';
-import { MessagingModule } from './product-modules/messaging/messaging.module';
+import { PulseModule } from './product-modules/pulse/pulse.module';
 import { RuntimeModule } from './core/runtime/runtime.module';
 
 @Module({
@@ -60,8 +61,9 @@ import { RuntimeModule } from './core/runtime/runtime.module';
     CoreOrchestrationModule,
     RuntimeModule,
     ModuleSystemModule,
-    MessagingModule,
+    PulseModule,
     BillingModule,
+    UsageModule,
     QueueModule
   ],
   providers: [

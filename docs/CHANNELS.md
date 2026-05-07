@@ -1,6 +1,6 @@
 # Messaging Module Channel Integrations
 
-Channels belong to the messaging module. They are transport adapters and must not own AI behavior or core workflows.
+Channels are backend platform transport adapters used by product modules such as Pulse. They must not own AI behavior or core workflows.
 
 ## Adapter Contract
 

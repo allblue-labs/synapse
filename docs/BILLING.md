@@ -1,0 +1,71 @@
+# Billing
+
+Last updated: 2026-05-07
+
+Synapse billing is platform-level. Modules are purchased or enabled through marketplace and entitlement rules; modules must not own subscription lifecycle logic.
+
+## Current State
+
+- `BillingAccount` exists in Prisma.
+- Billing plans, commercial feature flags, module entitlements, and module purchases exist in Prisma.
+- Stripe customer/subscription lifecycle is not wired.
+- Commercial plans are Light, Pro, and Premium.
+- Plans are admin-controlled through feature flags and should only become commercially active when enough public modules exist to satisfy entitlements.
+- Operational usage billing is required for AI calls, audio transcription, workflow runs, storage, messages, and automation executions.
+
+## 2026-05-07 Backend Update
+
+- Changed: roadmap and docs now reflect Light/Pro/Premium and operational usage categories.
+- Completed: no billing runtime behavior changed in this implementation.
+- Pending: Stripe backend integration, entitlement checks, module purchases, usage meters, and billing-period aggregation.
+- Risks: Pulse queue processing can incur AI/transcription costs before meters and limits exist.
+- Next recommended step: implement the billing core schema for plans, feature flags, entitlements, and usage meter events before production AI workloads.
+
+## 2026-05-07 Naming Update
+
+- Changed: billing risk references now use Pulse as the first module.
+- Completed: no billing business logic changed.
+- Pending: Pulse usage events still need billing meter integration.
+- Risks: AI/transcription costs remain unmetered until usage billing lands.
+- Next recommended step: define usage event names for Pulse processing stages.
+
+## 2026-05-07 RBAC + Route Protection Update
+
+- Changed: no billing runtime behavior changed; Pulse route protections are now tested before entitlement gates are added.
+- Completed: RBAC baseline reduces risk when billing gates are introduced at Pulse queue and AI boundaries.
+- Pending: entitlement checks and usage meters still need implementation.
+- Risks: billing enforcement without tested route permissions can create bypasses or false denials.
+- Next recommended step: after module registry persistence, add entitlement checks around Pulse entry creation and processing.
+
+## 2026-05-07 Pulse Tenant Isolation Test Update
+
+- Changed: no billing behavior changed; tenant-boundary tests reduce risk before usage billing records are added.
+- Completed: Pulse repository query-shape tests can inform future usage-meter repository tests.
+- Pending: usage meter writes must include tenant, module slug, usage type, quantity, and billing period context.
+- Risks: usage events without tenant scoping would create billing leakage.
+- Next recommended step: include tenant-isolation tests with the upcoming usage metering repositories.
+
+## 2026-05-07 Module Registry Store Update
+
+- Changed: module enablement is now durable, preparing the backend for marketplace purchases and entitlement enforcement.
+- Completed: no billing enforcement yet, but the registry now has tenant/module state for billing gates to consult.
+- Completed: only `PUBLIC` module records are tenant-visible/activatable, which prepares for commercial activation flags.
+- Pending: Light/Pro/Premium plan records, admin feature flags, module purchase records, Stripe lifecycle, and operational usage meters.
+- Risks: paid module enablement is not yet blocked by subscription or purchase state.
+- Next recommended step: implement billing core schema and an entitlement service before exposing module enablement commercially.
+
+## 2026-05-07 Billing Core Update
+
+- Changed: implemented billing core schema and service behavior for plans, feature flags, plan/module entitlements, and a-la-carte module purchases.
+- Completed: Light/Pro/Premium plans seed automatically; commercial activation checks feature flags and public module counts; Pulse is included in Light; module enablement is blocked without entitlement or active purchase; billing read/admin endpoints exist.
+- Pending: Stripe lifecycle, checkout, webhooks, usage meters, billing-period aggregation, invoices, and customer portal.
+- Risks: plan flags are local admin state until an admin workflow and audit review process exist.
+- Next recommended step: implement operational usage meters before enabling production AI/transcription workloads.
+
+## 2026-05-07 Operational Usage Metering Update
+
+- Changed: added append-only operational usage events and summary API.
+- Completed: meters exist for AI calls, audio transcription, workflow runs, storage, messages, and automation executions; first instrumentation records Pulse/message/workflow usage.
+- Pending: storage byte instrumentation, rating/pricing tables, billing-period rollups, Stripe usage reporting, invoice reconciliation, and dashboards.
+- Risks: raw event collection can diverge from invoice totals until aggregation/reconciliation exists.
+- Next recommended step: implement usage pricing and billing-period aggregation.

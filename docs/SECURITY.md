@@ -70,3 +70,60 @@ Not yet configured. Required before production:
 | Discord/WhatsApp webhook validation missing | Adapters throw 503 if called; not exposed in prod | Phase 3 |
 | JWT stored in `Lax` cookie (not `HttpOnly`) | Required for client-side API auth header injection | Phase 5 BFF |
 | No refresh token | 15m expiry; re-login required | Phase 5 |
+
+## 2026-05-07 Backend Update
+
+- Changed: Pulse routes now require `pulse:*` permissions and the Pulse repository writes through tenant-scoped update/readback boundaries.
+- Completed: retired old backend permission/resource names from active code and shared permission contracts.
+- Pending: add automated negative tests for cross-tenant Pulse read/write attempts and forbidden roles.
+- Risks: Prisma delegates can still be called directly in future code; tenant-owned writes must keep repository boundaries.
+- Next recommended step: add AppSec tests for `/v1/pulse/queue`, `/v1/pulse/entries`, validation, reject, and retry paths.
+
+## 2026-05-07 Naming Update
+
+- Changed: security contracts now use `pulse:*` permissions.
+- Completed: guard behavior and tenant-scoped write protections are unchanged.
+- Pending: forbidden-role and cross-tenant negative tests for Pulse.
+- Risks: stale client permissions will produce 403s.
+- Next recommended step: test every Pulse endpoint against `OWNER`, `ADMIN`, `OPERATOR`, and `VIEWER`.
+
+## 2026-05-07 RBAC + Route Protection Update
+
+- Changed: added security tests for `PermissionsGuard`, `TenantGuard`, and Pulse route permission metadata.
+- Completed: public-route bypass, auth-only route allow, Pulse operator allow, viewer mutation reject, missing-role reject, tenant context requirement, and `x-tenant-id` mismatch rejection are covered.
+- Pending: authenticated HTTP e2e tests with real JWTs and database users.
+- Risks: guard unit tests can miss global app guard ordering or strategy configuration regressions.
+- Next recommended step: add e2e tests for Pulse endpoints after test database wiring is standardized.
+
+## 2026-05-07 Pulse Tenant Isolation Test Update
+
+- Changed: added tests that assert Pulse repository updates include both `id` and `tenantId`, and tenant misses throw `NotFoundException`.
+- Completed: query-shape coverage now guards against obvious cross-tenant persistence regressions.
+- Pending: end-to-end cross-tenant attack tests with real persisted data.
+- Risks: direct `PrismaService` usage outside repositories could bypass these protections.
+- Next recommended step: add a static check or lint rule for direct tenant-owned Prisma delegate access.
+
+## 2026-05-07 Module Registry Store Update
+
+- Changed: module enable/disable now persists tenant-scoped state and records audit events.
+- Completed: `modules.enabled` and `modules.disabled` audit actions were added; module enablement is no longer only in memory.
+- Completed: tenant-facing registry operations are restricted to `PUBLIC` catalog items.
+- Pending: authorization e2e tests for module registry endpoints and entitlement checks before enabling paid modules.
+- Risks: admins can enable Pulse without billing entitlement enforcement until billing core lands.
+- Next recommended step: require entitlement checks in `ModuleRegistryService.enable` once billing models exist.
+
+## 2026-05-07 Billing Core Update
+
+- Changed: module enablement now calls billing entitlement checks before tenant installation state is written.
+- Completed: billing admin route metadata requires `billing:manage`; billing read routes require `billing:read`; feature flag updates write audit events.
+- Pending: HTTP e2e authorization tests for billing routes and Stripe webhook signature validation.
+- Risks: feature flag mutation is powerful and must remain limited to `OWNER` because `ADMIN` intentionally lacks `billing:manage`.
+- Next recommended step: add signed Stripe webhook handling and e2e tests for billing route roles.
+
+## 2026-05-07 Operational Usage Metering Update
+
+- Changed: usage summary route is protected by `billing:read`; usage writes are server-side only through `UsageMeteringService`.
+- Completed: usage events are tenant-scoped and idempotency keys are unique per tenant.
+- Pending: e2e tests for usage summary authorization and abuse-resistant rate/volume limits.
+- Risks: incorrect instrumentation can overcount or undercount billable events.
+- Next recommended step: add reconciliation checks before Stripe usage reporting.

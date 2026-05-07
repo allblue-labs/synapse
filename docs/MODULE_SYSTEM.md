@@ -38,7 +38,7 @@ Shared manifest/action/event shapes live in `packages/contracts`.
 
 ## Current Modules
 
-- `messaging`: channel messaging, conversations, normalization, lead capture, and conversation state.
+- `pulse`: Synapse Pulse, the first extractable product module for operational communication queues, AI extraction, validation, and workflow actions.
 
 ## Boundary Rule
 
@@ -47,3 +47,60 @@ Messaging, incidents, inventory, and workforce must not enter core. If core need
 ## Runtime Coordination
 
 When modules are enabled or disabled, Synapse updates a tenant runtime spec. Today this is stored in memory and sent to a stub Pain client. Later the same flow will apply specs to Pain Runtime Operator.
+
+## 2026-05-07 Backend Update
+
+- Changed: module registry now registers `PulseSynapseModule` directly instead of a generic messaging product module.
+- Completed: Pulse manifest exposes slug `pulse`, `pulse:*` permissions, and initial action/event metadata.
+- Pending: persistent module marketplace/store records, tenant module purchases, entitlement gates, and runtime specs backed by storage.
+- Risks: in-memory enablement is not production durable; module commercial activation must wait for enough public modules to satisfy plan entitlements.
+- Next recommended step: design the persisted module registry/store schema before adding billing entitlement enforcement.
+
+## 2026-05-07 Naming Update
+
+- Changed: first module manifest is Pulse / `pulse`.
+- Completed: action and event names use `pulse.entry.*`.
+- Pending: persisted module registry schema still needs to store slug, display name, permissions, actions, and commercial state.
+- Risks: registry slug changes are breaking until persisted aliases or migrations exist.
+- Next recommended step: add a module-registry test asserting Pulse appears exactly once with slug `pulse`.
+
+## 2026-05-07 RBAC + Route Protection Update
+
+- Changed: Pulse module route metadata is now tested against the `pulse:*` permission contract.
+- Completed: module API boundary is safer for future registry, entitlement, and marketplace work.
+- Pending: module registry still needs persisted records and tests asserting Pulse manifest registration.
+- Risks: in-memory registry behavior is still not durable across process restarts.
+- Next recommended step: implement persisted module registry/store models and service tests.
+
+## 2026-05-07 Pulse Tenant Isolation Test Update
+
+- Changed: Pulse module persistence boundary now has tenant-scoping tests.
+- Completed: the first product module has baseline isolation coverage before registry persistence begins.
+- Pending: persisted module install records must follow the same tenant-scoped repository pattern.
+- Risks: module registry enablement is still in memory and not auditable.
+- Next recommended step: design Prisma models for module catalog, tenant module state, and audit events for enable/disable.
+
+## 2026-05-07 Module Registry Store Update
+
+- Changed: module registry now persists catalog and tenant installation state.
+- Completed: `module_catalog_items` stores Pulse manifest metadata; `tenant_module_installations` stores tenant enable/disable state; registry service tests cover seed/list/enable behavior.
+- Completed: tenant-facing registry list/enable/disable paths only operate on `PUBLIC` module records.
+- Pending: module marketplace purchase records, admin feature flags, module categories, and public module availability rules.
+- Risks: persisted registry exists, but runtime rehydration and billing entitlement enforcement are not complete.
+- Next recommended step: implement billing core and entitlement gates around module enablement.
+
+## 2026-05-07 Billing Core Update
+
+- Changed: module enablement now depends on billing entitlement or active module purchase.
+- Completed: Pulse gets a default Light plan entitlement after catalog seeding; non-entitled tenants cannot enable modules through the registry service.
+- Pending: marketplace purchase APIs and Stripe-backed purchase state.
+- Risks: plan/module entitlements are backend-managed but not yet exposed through a full admin UI contract.
+- Next recommended step: add operational usage metering primitives and then marketplace purchase lifecycle.
+
+## 2026-05-07 Operational Usage Metering Update
+
+- Changed: modules can now record operational usage through platform-owned usage metering.
+- Completed: Pulse records automation execution, audio transcription, and AI extraction events without owning billing logic.
+- Pending: module-level usage contracts for future modules and pricing/rating integration.
+- Risks: modules must not bypass the shared usage metering service.
+- Next recommended step: define standard usage event naming/idempotency rules for module authors.

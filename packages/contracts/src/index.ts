@@ -38,12 +38,12 @@ export type Permission =
   | 'channels:read'
   | 'channels:connect'
   | 'channels:disconnect'
-  // ClinicFlow (product-module)
-  | 'clinic-flow:read'
-  | 'clinic-flow:write'
-  | 'clinic-flow:validate'
-  | 'clinic-flow:reject'
-  | 'clinic-flow:retry'
+  // Pulse (product-module)
+  | 'pulse:read'
+  | 'pulse:write'
+  | 'pulse:validate'
+  | 'pulse:reject'
+  | 'pulse:retry'
   // Module registry
   | 'modules:read'
   | 'modules:enable'
@@ -58,7 +58,7 @@ export const ALL_PERMISSIONS: ReadonlyArray<Permission> = [
   'agents:read', 'agents:write', 'agents:delete', 'agents:deploy',
   'conversations:read', 'conversations:respond',
   'channels:read', 'channels:connect', 'channels:disconnect',
-  'clinic-flow:read', 'clinic-flow:write', 'clinic-flow:validate', 'clinic-flow:reject', 'clinic-flow:retry',
+  'pulse:read', 'pulse:write', 'pulse:validate', 'pulse:reject', 'pulse:retry',
   'modules:read', 'modules:enable', 'modules:disable',
   'billing:read', 'billing:manage',
 ] as const;
@@ -84,7 +84,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<UserRole, ReadonlyArray<Permissio
     'agents:read', 'agents:write', 'agents:deploy',
     'conversations:read', 'conversations:respond',
     'channels:read', 'channels:connect',
-    'clinic-flow:read', 'clinic-flow:write', 'clinic-flow:validate', 'clinic-flow:reject', 'clinic-flow:retry',
+    'pulse:read', 'pulse:write', 'pulse:validate', 'pulse:reject', 'pulse:retry',
     'modules:read',
     'billing:read',
   ],
@@ -95,7 +95,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<UserRole, ReadonlyArray<Permissio
     'agents:read',
     'conversations:read',
     'channels:read',
-    'clinic-flow:read',
+    'pulse:read',
     'modules:read',
     'billing:read',
   ],
@@ -126,6 +126,14 @@ export type ChannelStatus = 'ACTIVE' | 'DISCONNECTED' | 'NEEDS_ATTENTION';
 export type MessageDirection = 'INBOUND' | 'OUTBOUND' | 'SYSTEM';
 export type MessageAuthorType = 'CONTACT' | 'AGENT' | 'HUMAN' | 'SYSTEM';
 export type BillingStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'UNPAID' | 'INCOMPLETE';
+export type BillingPlanKey = 'light' | 'pro' | 'premium';
+export type UsageMetricType =
+  | 'AI_CALL'
+  | 'AUDIO_TRANSCRIPTION'
+  | 'WORKFLOW_RUN'
+  | 'STORAGE'
+  | 'MESSAGE'
+  | 'AUTOMATION_EXECUTION';
 
 export type TenantSummary = {
   id: string;
@@ -234,9 +242,16 @@ export type CurrentUser = {
 export type BillingAccountSummary = {
   tenantId: string;
   status: BillingStatus;
-  planKey: string;
+  planKey: BillingPlanKey;
   currentPeriodEnd?: string | null;
   entitlements: Record<string, unknown>;
+};
+
+export type UsageSummaryItem = {
+  metricType: UsageMetricType;
+  unit: string;
+  quantity: string;
+  events: number;
 };
 
 export type LeadExtraction = {

@@ -11,7 +11,7 @@ export class RuntimeService {
   getRuntimeSpec(tenantId: string): TenantRuntimeSpec {
     return this.specs.get(tenantId) ?? {
       tenantId,
-      plan: 'starter',
+      plan: 'light',
       modules: []
     };
   }

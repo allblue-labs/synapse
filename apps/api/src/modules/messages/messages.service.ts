@@ -1,11 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { UsageMeteringService, UsageMetricType } from '../usage/usage-metering.service';
 import { CreateMessageDto } from './dto/create-message.dto';
 
 @Injectable()
 export class MessagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly usage: UsageMeteringService,
+  ) {}
 
   async create(tenantId: string, dto: CreateMessageDto) {
     const conversation = await this.prisma.conversation.findFirst({
@@ -15,7 +19,7 @@ export class MessagesService {
       throw new BadRequestException('Conversation does not belong to this tenant.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const message = await this.prisma.$transaction(async (tx) => {
       const message = await tx.message.create({
         data: {
           tenantId,
@@ -37,5 +41,21 @@ export class MessagesService {
 
       return message;
     });
+
+    await this.usage.record({
+      tenantId,
+      metricType: UsageMetricType.MESSAGE,
+      quantity: 1,
+      unit: 'message',
+      resourceType: 'Message',
+      resourceId: message.id,
+      idempotencyKey: `message:${message.id}`,
+      metadata: {
+        direction: message.direction,
+        authorType: message.authorType,
+      },
+    });
+
+    return message;
   }
 }

@@ -15,7 +15,7 @@ export const PERMISSIONS_KEY = 'authorization:requiredPermissions';
  *   @Post()
  *   create(...) { ... }
  *
- *   @Permissions('clinic-flow:read', 'clinic-flow:validate')
+ *   @Permissions('pulse:read', 'pulse:validate')
  *   @Post('queue/:id/validate')
  *   validate(...) { ... }
  */

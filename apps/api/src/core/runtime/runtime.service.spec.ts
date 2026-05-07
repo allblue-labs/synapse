@@ -13,7 +13,7 @@ describe('RuntimeService', () => {
 
     expect(spec).toEqual({
       tenantId: 'tenant_1',
-      plan: 'starter',
+      plan: 'light',
       modules: [
         {
           name: 'messaging',

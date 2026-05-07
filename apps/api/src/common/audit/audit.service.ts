@@ -24,6 +24,9 @@ export const AuditAction = {
   AGENT_DELETED:        'agents.deleted',
   CHANNEL_CONNECTED:    'channels.connected',
   CHANNEL_DISCONNECTED: 'channels.disconnected',
+  MODULE_ENABLED:       'modules.enabled',
+  MODULE_DISABLED:      'modules.disabled',
+  BILLING_FEATURE_FLAG_UPDATED: 'billing.feature_flag.updated',
 } as const;
 
 export type AuditActionName = typeof AuditAction[keyof typeof AuditAction] | (string & {});

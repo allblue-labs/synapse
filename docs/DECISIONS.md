@@ -60,8 +60,114 @@
 
 ---
 
-## 2026-05-05 — ClinicFlow as a feature inside Messaging module
+## 2026-05-07 — Pulse as the first extractable product module
 
-**Decision:** ClinicFlow lives at `product-modules/messaging/clinic-flow/`. Its routes are `/v1/clinic-flow/...`. The `ClinicFlowModule` is imported by `MessagingModule`.
+**Decision:** Synapse Pulse lives at `apps/api/src/product-modules/pulse/`, uses slug `pulse`, exposes `/v1/pulse/...`, and is registered directly in the core module registry as the first product module.
 
-**Reason:** ClinicFlow is a vertical feature within messaging, not a standalone core module. Keeping it inside Messaging ensures it uses shared channel infrastructure and respects the core/modules boundary.
+**Reason:** Synapse itself is not a chatbot or messaging product. Pulse is an extractable operational communication module, while channels, conversations, messages, queues, orchestration, audit, billing, RBAC, and tenant safety remain backend platform primitives.
+
+**Consequence:** No backend route, permission, registry manifest, Prisma model, or queue should use the retired product naming. Existing databases must apply the Pulse rename migration before running the renamed code.
+
+**Status:** Completed for backend naming and registry. Pending backend tests for route protection, tenant isolation, and migration validation.
+
+**Risk:** Frontend and any external clients using previous route names require explicit contract coordination.
+
+**Next recommended step:** add contract tests around `/v1/pulse/*` permissions and tenant boundaries.
+
+---
+
+## 2026-05-07 — Product module renamed to Pulse
+
+**Decision:** The first product module is named Synapse Pulse and uses slug `pulse`.
+
+**Reason:** Only the module name changed; the defined rules and business logic remain the same.
+
+**Consequence:** Backend contracts use `/v1/pulse`, `pulse:*` permissions, `PulseModule`, `PulseEntry`, `PulseStatus`, and `pulse-processing`.
+
+**Status:** Completed in backend code, Prisma schema, shared permissions, registry manifest, and docs.
+
+**Risk:** Clients using interim names must update before integration.
+
+**Next recommended step:** lock the Pulse contract with route and RBAC tests.
+
+---
+
+## 2026-05-07 — RBAC tests lock Pulse permissions
+
+**Decision:** Lock Pulse route protection with focused backend tests around metadata and guard behavior before building the next backend stage.
+
+**Reason:** Pulse is the first product module and its route/permission contract is the integration boundary for frontend, module registry, billing gates, and usage metering.
+
+**Consequence:** Changes to `/v1/pulse` metadata or `pulse:*` permission mapping now fail tests.
+
+**Status:** Completed for unit-level guard and controller metadata coverage.
+
+**Risk:** These tests do not replace full authenticated HTTP e2e coverage.
+
+**Next recommended step:** add tenant-isolation repository tests and then persist module registry state.
+
+---
+
+## 2026-05-07 — Repository query-shape tests for tenant boundaries
+
+**Decision:** Add mocked Prisma query-shape tests for Pulse repository tenant scoping before adding new persistence-heavy module registry work.
+
+**Reason:** Pulse is tenant-owned operational data; repository queries must keep `tenantId` visible and testable.
+
+**Consequence:** Future changes that remove tenant scope from Pulse read/write paths should fail tests.
+
+**Status:** Completed for Pulse repository unit coverage.
+
+**Risk:** Mocked tests do not validate PostgreSQL behavior or migrations.
+
+**Next recommended step:** build persisted module registry/store models with tenant-scoped installation records.
+
+---
+
+## 2026-05-07 — Persisted module registry and tenant installations
+
+**Decision:** Persist module catalog entries and tenant-specific module installation state in PostgreSQL.
+
+**Reason:** In-memory registry state is not production durable and cannot support module marketplace, auditability, entitlements, or tenant-specific enablement.
+
+**Consequence:** Pulse is seeded into `module_catalog_items`; tenant enable/disable writes `tenant_module_installations`, applies runtime state, and records audit events.
+
+Tenant-facing registry operations only list and activate `PUBLIC` modules.
+
+**Status:** Completed for initial registry/store persistence and service tests.
+
+**Risk:** Billing entitlement checks are not yet enforced at enablement time.
+
+**Next recommended step:** implement billing core plans, feature flags, module purchase records, and entitlement checks.
+
+---
+
+## 2026-05-07 — Billing core gates module enablement
+
+**Decision:** Add platform-level billing plans, commercial feature flags, plan/module entitlements, and module purchases before operational usage metering.
+
+**Reason:** Module enablement must not become commercially meaningful without subscription or purchase entitlement checks.
+
+**Consequence:** `ModuleRegistryService.enable` now requires `BillingService.canEnableModule`; plans only become commercially active when their feature flag is enabled and enough public modules exist.
+
+**Status:** Completed for local billing core and backend tests.
+
+**Risk:** Stripe lifecycle is not wired yet, so billing status remains local application state.
+
+**Next recommended step:** add operational usage metering and then Stripe lifecycle integration.
+
+---
+
+## 2026-05-07 — Append-only operational usage events
+
+**Decision:** Record operational usage as tenant-scoped append-only events with metric type, quantity, unit, billing period, resource attribution, and optional idempotency key.
+
+**Reason:** AI, transcription, workflow, storage, message, and automation costs need auditable raw events before pricing, aggregation, and Stripe reporting.
+
+**Consequence:** Usage recording is separated from rating and invoice reporting. Instrumented code writes usage events; billing aggregation will consume them later.
+
+**Status:** Completed for schema, service, summary API, and initial Pulse/message/workflow instrumentation.
+
+**Risk:** Raw events are not yet priced or reconciled with Stripe.
+
+**Next recommended step:** add usage pricing/rating tables and billing-period aggregation.

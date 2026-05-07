@@ -76,6 +76,39 @@ enum BillingStatus {
   INCOMPLETE
 }
 
+enum BillingPlanStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+}
+
+enum ModulePurchaseStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+}
+
+enum UsageMetricType {
+  AI_CALL
+  AUDIO_TRANSCRIPTION
+  WORKFLOW_RUN
+  STORAGE
+  MESSAGE
+  AUTOMATION_EXECUTION
+}
+
+enum ModuleCatalogStatus {
+  DRAFT
+  PUBLIC
+  PRIVATE
+  DISABLED
+}
+
+enum TenantModuleStatus {
+  ENABLED
+  DISABLED
+}
+
 model Tenant {
   id             String          @id @default(cuid())
   name           String
@@ -90,8 +123,11 @@ model Tenant {
   channels       ChannelAccount[]
   knowledgeItems   KnowledgeItem[]
   billingAccount   BillingAccount?
-  clinicFlowEntries ClinicFlowEntry[]
+  pulseEntries      PulseEntry[]
   auditEvents       AuditEvent[]
+  moduleInstallations TenantModuleInstallation[]
+  modulePurchases      ModulePurchase[]
+  usageEvents          UsageEvent[]
 
   @@index([status])
 }
@@ -263,15 +299,152 @@ model BillingAccount {
   stripeCustomerId     String?       @unique
   stripeSubscriptionId String?       @unique
   status               BillingStatus @default(INCOMPLETE)
-  planKey              String        @default("starter")
+  planKey              String        @default("light")
   currentPeriodEnd     DateTime?
   entitlements         Json          @default("{}")
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
   tenant               Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  plan BillingPlan @relation(fields: [planKey], references: [key], onDelete: Restrict)
+
+  @@index([planKey, status])
 }
 
-enum ClinicFlowStatus {
+model BillingPlan {
+  id                     String            @id @default(cuid())
+  key                    String            @unique
+  displayName            String
+  status                 BillingPlanStatus @default(DRAFT)
+  commercialFeatureFlag  String?
+  requiredPublicModules  Int               @default(0)
+  entitlements           Json              @default("{}")
+  metadata               Json              @default("{}")
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+
+  billingAccounts    BillingAccount[]
+  moduleEntitlements BillingPlanModuleEntitlement[]
+
+  @@index([status, displayName])
+  @@map("billing_plans")
+}
+
+model BillingPlanModuleEntitlement {
+  id        String   @id @default(cuid())
+  planId    String
+  moduleId  String
+  included  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  plan   BillingPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  module ModuleCatalogItem @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, moduleId])
+  @@index([moduleId, included])
+  @@map("billing_plan_module_entitlements")
+}
+
+model BillingFeatureFlag {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  enabled   Boolean  @default(false)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, key])
+  @@map("billing_feature_flags")
+}
+
+model ModulePurchase {
+  id                   String               @id @default(cuid())
+  tenantId             String
+  moduleId             String
+  status               ModulePurchaseStatus @default(ACTIVE)
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  module ModuleCatalogItem @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleId])
+  @@index([tenantId, status])
+  @@index([moduleId, status])
+  @@map("module_purchases")
+}
+
+model ModuleCatalogItem {
+  id           String              @id @default(cuid())
+  slug         String              @unique
+  displayName  String
+  version      String
+  description  String
+  status       ModuleCatalogStatus @default(DRAFT)
+  permissions  Json                @default("[]")
+  actions      Json                @default("[]")
+  events       Json                @default("[]")
+  metadata     Json                @default("{}")
+  registeredAt DateTime            @default(now())
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  installations TenantModuleInstallation[]
+  planEntitlements BillingPlanModuleEntitlement[]
+  purchases         ModulePurchase[]
+
+  @@index([status, displayName])
+  @@map("module_catalog_items")
+}
+
+model TenantModuleInstallation {
+  id         String             @id @default(cuid())
+  tenantId   String
+  moduleId   String
+  status     TenantModuleStatus @default(DISABLED)
+  config     Json               @default("{}")
+  enabledAt  DateTime?
+  disabledAt DateTime?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  tenant Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  module ModuleCatalogItem @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleId])
+  @@index([tenantId, status])
+  @@index([moduleId, status])
+  @@map("tenant_module_installations")
+}
+
+model UsageEvent {
+  id              String          @id @default(cuid())
+  tenantId        String
+  moduleSlug      String?
+  metricType      UsageMetricType
+  quantity        Decimal         @db.Decimal(18, 6)
+  unit            String
+  resourceType    String?
+  resourceId      String?
+  idempotencyKey  String?
+  billingPeriod   String
+  metadata        Json            @default("{}")
+  occurredAt      DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, billingPeriod, metricType])
+  @@index([tenantId, moduleSlug, occurredAt])
+  @@map("usage_events")
+}
+
+enum PulseStatus {
   PROCESSING
   PENDING_VALIDATION
   READY_TO_CONFIRM
@@ -279,12 +452,12 @@ enum ClinicFlowStatus {
   FAILED
 }
 
-model ClinicFlowEntry {
+model PulseEntry {
   id             String           @id @default(cuid())
   tenantId       String
   tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conversationId String?
-  status         ClinicFlowStatus @default(PROCESSING)
+  status         PulseStatus @default(PROCESSING)
 
   originalMessage String   @default("")
   transcription   String?
@@ -306,5 +479,5 @@ model ClinicFlowEntry {
 
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
-  @@map("clinic_flow_entries")
+  @@map("pulse_entries")
 }

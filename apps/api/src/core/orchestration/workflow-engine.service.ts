@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { UsageMeteringService, UsageMetricType } from '../../modules/usage/usage-metering.service';
 
 @Injectable()
 export class WorkflowEngineService {
-  startWorkflow(input: { tenantId: string; moduleName: string; workflowName: string; state?: Record<string, unknown> }) {
-    return {
+  constructor(private readonly usage: UsageMeteringService) {}
+
+  async startWorkflow(input: { tenantId: string; moduleName: string; workflowName: string; state?: Record<string, unknown> }) {
+    const workflow = {
       workflowId: `${input.moduleName}:${input.workflowName}:${Date.now()}`,
       tenantId: input.tenantId,
       moduleName: input.moduleName,
@@ -11,5 +14,19 @@ export class WorkflowEngineService {
       status: 'STARTED',
       state: input.state ?? {}
     };
+
+    await this.usage.record({
+      tenantId: input.tenantId,
+      moduleSlug: input.moduleName,
+      metricType: UsageMetricType.WORKFLOW_RUN,
+      quantity: 1,
+      unit: 'run',
+      resourceType: 'Workflow',
+      resourceId: workflow.workflowId,
+      idempotencyKey: `workflow:${workflow.workflowId}`,
+      metadata: { workflowName: input.workflowName },
+    });
+
+    return workflow;
   }
 }

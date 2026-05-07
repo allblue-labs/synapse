@@ -93,10 +93,13 @@ services:
       - path: ../../.env
         required: false
     ports:
-      - "5000:3000"
+      - "5000:4000"
     healthcheck:
       # The Nest app uses a global '/v1' prefix, so the route is /v1/health.
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/v1/health || exit 1"]
+      # Use 127.0.0.1 (not 'localhost') because the API binds IPv4-only via
+      # `app.listen(PORT, '0.0.0.0')` — busybox wget would otherwise try ::1
+      # first, hit ECONNREFUSED, and never fall back to v4.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/v1/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 8

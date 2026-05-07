@@ -46,7 +46,6 @@ RUN npm run build
 # ---- Stage 3: production runner ----
 FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV=production
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nestjs

@@ -5,7 +5,6 @@ import {Providers} from '@/components/providers/providers';
 import {
   asLocale,
   asLocalePreference,
-  DEFAULT_LOCALE,
   LOCALE_COOKIE,
   resolveSystemLocale,
 } from '@/lib/i18n/types';

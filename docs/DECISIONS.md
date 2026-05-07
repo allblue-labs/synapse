@@ -235,3 +235,19 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Missing Stripe price configuration blocks checkout by design.
 
 **Next recommended step:** add customer portal sessions and checkout/session retrieval reconciliation.
+
+---
+
+## 2026-05-07 — Billing redirects are origin-allowlisted
+
+**Decision:** Checkout success/cancel URLs and portal return URLs must match `BILLING_REDIRECT_ALLOWED_ORIGINS` before Synapse creates a Stripe hosted session.
+
+**Reason:** Hosted billing flows redirect the user back to Synapse-controlled browser surfaces. The backend must prevent arbitrary redirect origins even though frontend owns the UX.
+
+**Consequence:** Billing hosted-session APIs fail closed when the redirect origin is not configured. Portal sessions are only created for the tenant-owned Stripe customer id stored on `BillingAccount`.
+
+**Status:** Completed for subscription checkout and customer portal session creation.
+
+**Risk:** Misconfigured origins can block legitimate billing flows.
+
+**Next recommended step:** add checkout session retrieval/reconciliation and e2e redirect-origin tests.

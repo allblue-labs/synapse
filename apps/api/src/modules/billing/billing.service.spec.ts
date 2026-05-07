@@ -56,6 +56,9 @@ function createService() {
       if (key === 'STRIPE_BASE_URL') return 'https://stripe.test';
       if (key === 'STRIPE_API_VERSION') return '2026-02-25.preview';
       if (key === 'STRIPE_PRICE_LIGHT') return 'price_light_env';
+      if (key === 'BILLING_REDIRECT_ALLOWED_ORIGINS') {
+        return 'http://localhost:5001,http://127.0.0.1:5001';
+      }
       return undefined;
     }),
   };
@@ -483,6 +486,87 @@ describe('BillingService', () => {
       successUrl: 'http://localhost:5001/billing/success',
       cancelUrl: 'http://localhost:5001/billing/cancel',
     })).rejects.toThrow('Billing plan is not commercially active.');
+  });
+
+  it('rejects checkout redirect URLs outside allowed billing origins', async () => {
+    const { service } = createService();
+
+    await expect(service.createSubscriptionCheckoutSession({
+      tenantId: 'tenant_a',
+      actorEmail: 'owner@example.com',
+      planKey: 'light',
+      successUrl: 'https://evil.example/billing/success',
+      cancelUrl: 'http://localhost:5001/billing/cancel',
+    })).rejects.toThrow('Billing redirect URL origin is not allowed.');
+  });
+
+  it('creates Stripe customer portal sessions for tenant-owned customers', async () => {
+    const { service, prisma, audit } = createService();
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      text: jest.fn().mockResolvedValue(JSON.stringify({
+        id: 'bps_123',
+        url: 'https://billing.stripe.test/session',
+      })),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    prisma.billingAccount.findUnique.mockResolvedValue({
+      tenantId: 'tenant_a',
+      stripeCustomerId: 'cus_123',
+    });
+
+    await expect(service.createPortalSession({
+      tenantId: 'tenant_a',
+      actorUserId: 'user_1',
+      returnUrl: 'http://localhost:5001/billing',
+    })).resolves.toEqual({
+      id: 'bps_123',
+      url: 'https://billing.stripe.test/session',
+      stripeCustomerId: 'cus_123',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://stripe.test/v1/billing_portal/sessions',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer sk_test',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }),
+      }),
+    );
+    const body = fetchMock.mock.calls[0][1].body as URLSearchParams;
+    expect(body.get('customer')).toBe('cus_123');
+    expect(body.get('return_url')).toBe('http://localhost:5001/billing');
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.BILLING_STRIPE_PORTAL_CREATED,
+        tenantId: 'tenant_a',
+        resourceId: 'bps_123',
+      }),
+    );
+  });
+
+  it('rejects portal sessions when the tenant has no Stripe customer', async () => {
+    const { service, prisma } = createService();
+    prisma.billingAccount.findUnique.mockResolvedValue({
+      tenantId: 'tenant_a',
+      stripeCustomerId: null,
+    });
+
+    await expect(service.createPortalSession({
+      tenantId: 'tenant_a',
+      returnUrl: 'http://localhost:5001/billing',
+    })).rejects.toThrow('Billing account does not have a Stripe customer.');
+  });
+
+  it('rejects portal return URLs outside allowed billing origins', async () => {
+    const { service } = createService();
+
+    await expect(service.createPortalSession({
+      tenantId: 'tenant_a',
+      returnUrl: 'https://evil.example/billing',
+    })).rejects.toThrow('Billing redirect URL origin is not allowed.');
   });
 
   it('processes signed subscription webhooks and reconciles billing account state', async () => {

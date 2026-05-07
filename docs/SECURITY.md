@@ -160,3 +160,11 @@ Not yet configured. Required before production:
 - Pending: e2e authorization tests, customer portal authorization tests, and production secret/price configuration checks.
 - Risks: success/cancel URLs are accepted as backend contract inputs and must remain allowlisted before public production rollout.
 - Next recommended step: add URL allowlisting for checkout redirects and customer portal return URLs.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: billing redirect URLs are now origin-checked for checkout and portal session creation.
+- Completed: portal session creation is restricted to `billing:manage`, requires a tenant-owned Stripe customer id, and records audit events.
+- Pending: e2e tests for rejected origins and role matrix coverage for portal creation.
+- Risks: allowlist fallback to CORS origins is convenient for development but production should set `BILLING_REDIRECT_ALLOWED_ORIGINS` explicitly.
+- Next recommended step: enforce explicit billing redirect origins in production startup validation.

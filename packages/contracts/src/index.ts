@@ -260,6 +260,16 @@ export type BillingCheckoutSession = {
   planKey: BillingPlanKey;
 };
 
+export type CreateBillingPortalSessionRequest = {
+  returnUrl: string;
+};
+
+export type BillingPortalSession = {
+  id: string;
+  url: string;
+  stripeCustomerId: string;
+};
+
 export type UsageSummaryItem = {
   metricType: UsageMetricType;
   unit: string;

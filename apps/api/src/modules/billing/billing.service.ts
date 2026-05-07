@@ -16,7 +16,7 @@ import {
   StripeWebhookEventStatus,
 } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
-import { BillingCheckoutSession, BillingPlanKey } from '@synapse/contracts';
+import { BillingCheckoutSession, BillingPlanKey, BillingPortalSession } from '@synapse/contracts';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
 
@@ -37,11 +37,22 @@ type CreateSubscriptionCheckoutSessionInput = {
   cancelUrl: string;
 };
 
+type CreatePortalSessionInput = {
+  tenantId: string;
+  actorUserId?: string;
+  returnUrl: string;
+};
+
 type StripeCustomerResponse = {
   id?: string;
 };
 
 type StripeCheckoutSessionResponse = {
+  id?: string;
+  url?: string | null;
+};
+
+type StripePortalSessionResponse = {
   id?: string;
   url?: string | null;
 };
@@ -125,6 +136,9 @@ export class BillingService implements OnModuleInit {
   async createSubscriptionCheckoutSession(
     input: CreateSubscriptionCheckoutSessionInput,
   ): Promise<BillingCheckoutSession> {
+    this.assertAllowedBillingRedirectUrl(input.successUrl);
+    this.assertAllowedBillingRedirectUrl(input.cancelUrl);
+
     const plan = await this.prisma.billingPlan.findUnique({
       where: { key: input.planKey },
     });
@@ -184,6 +198,42 @@ export class BillingService implements OnModuleInit {
       url: session.url,
       stripeCustomerId,
       planKey: input.planKey,
+    };
+  }
+
+  async createPortalSession(input: CreatePortalSessionInput): Promise<BillingPortalSession> {
+    this.assertAllowedBillingRedirectUrl(input.returnUrl);
+
+    const account = await this.prisma.billingAccount.findUnique({
+      where: { tenantId: input.tenantId },
+    });
+    if (!account) {
+      throw new NotFoundException('Billing account was not found for tenant.');
+    }
+    if (!account.stripeCustomerId) {
+      throw new BadRequestException('Billing account does not have a Stripe customer.');
+    }
+
+    const session = await this.createStripePortalSession({
+      stripeCustomerId: account.stripeCustomerId,
+      returnUrl: input.returnUrl,
+    });
+
+    await this.audit.record({
+      tenantId: input.tenantId,
+      actorUserId: input.actorUserId,
+      action: AuditAction.BILLING_STRIPE_PORTAL_CREATED,
+      resourceType: 'StripePortalSession',
+      resourceId: session.id,
+      metadata: {
+        stripeCustomerId: account.stripeCustomerId,
+      },
+    });
+
+    return {
+      id: session.id,
+      url: session.url,
+      stripeCustomerId: account.stripeCustomerId,
     };
   }
 
@@ -443,6 +493,32 @@ export class BillingService implements OnModuleInit {
     return this.config.get<string>(`STRIPE_PRICE_${plan.key.toUpperCase()}`) || undefined;
   }
 
+  private assertAllowedBillingRedirectUrl(value: string) {
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new BadRequestException('Billing redirect URL is invalid.');
+    }
+
+    const allowedOrigins = this.billingRedirectAllowedOrigins();
+    if (!allowedOrigins.has(parsed.origin)) {
+      throw new ForbiddenException('Billing redirect URL origin is not allowed.');
+    }
+  }
+
+  private billingRedirectAllowedOrigins() {
+    const configured = this.config.get<string>('BILLING_REDIRECT_ALLOWED_ORIGINS');
+    const fallback = this.config.get<string>('CORS_ORIGINS') ?? '';
+    const raw = configured ?? fallback;
+    const origins = raw
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+
+    return new Set(origins);
+  }
+
   private async provisionStripeCustomer(input: {
     tenantId: string;
     actorUserId?: string;
@@ -522,6 +598,28 @@ export class BillingService implements OnModuleInit {
 
     if (!response.id || !response.url) {
       throw new ServiceUnavailableException('Stripe checkout session returned no redirect URL.');
+    }
+
+    return {
+      id: response.id,
+      url: response.url,
+    };
+  }
+
+  private async createStripePortalSession(input: {
+    stripeCustomerId: string;
+    returnUrl: string;
+  }) {
+    const response = await this.stripeFormRequest<StripePortalSessionResponse>(
+      '/v1/billing_portal/sessions',
+      {
+        customer: input.stripeCustomerId,
+        return_url: input.returnUrl,
+      },
+    );
+
+    if (!response.id || !response.url) {
+      throw new ServiceUnavailableException('Stripe portal session returned no redirect URL.');
     }
 
     return {

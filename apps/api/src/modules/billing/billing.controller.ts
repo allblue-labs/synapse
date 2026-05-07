@@ -35,6 +35,11 @@ class CreateCheckoutSessionDto {
   cancelUrl!: string;
 }
 
+class CreatePortalSessionDto {
+  @IsUrl({ require_tld: false })
+  returnUrl!: string;
+}
+
 @Controller('billing')
 export class BillingController {
   constructor(private readonly billing: BillingService) {}
@@ -79,6 +84,20 @@ export class BillingController {
       planKey: dto.planKey,
       successUrl: dto.successUrl,
       cancelUrl: dto.cancelUrl,
+    });
+  }
+
+  @Permissions('billing:manage')
+  @Post('portal/session')
+  createPortalSession(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreatePortalSessionDto,
+  ) {
+    return this.billing.createPortalSession({
+      tenantId,
+      actorUserId: user.sub,
+      returnUrl: dto.returnUrl,
     });
   }
 

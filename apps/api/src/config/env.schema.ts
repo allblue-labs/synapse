@@ -19,6 +19,7 @@ export const envSchema = z.object({
   STRIPE_PRICE_LIGHT: z.string().optional(),
   STRIPE_PRICE_PRO: z.string().optional(),
   STRIPE_PRICE_PREMIUM: z.string().optional(),
+  BILLING_REDIRECT_ALLOWED_ORIGINS: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().default('1mb')

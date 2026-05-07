@@ -29,6 +29,7 @@ export const AuditAction = {
   BILLING_FEATURE_FLAG_UPDATED: 'billing.feature_flag.updated',
   BILLING_STRIPE_CUSTOMER_CREATED: 'billing.stripe_customer.created',
   BILLING_STRIPE_CHECKOUT_CREATED: 'billing.stripe_checkout.created',
+  BILLING_STRIPE_PORTAL_CREATED: 'billing.stripe_portal.created',
   BILLING_STRIPE_WEBHOOK_PROCESSED: 'billing.stripe_webhook.processed',
 } as const;
 

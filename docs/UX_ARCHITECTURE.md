@@ -12,6 +12,7 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Module registry slug/display: `pulse` / `Synapse Pulse`.
 - Stripe webhook callback: `POST /v1/billing/stripe/webhook` is provider-facing only and has no frontend UX contract.
 - Subscription checkout contract: `POST /v1/billing/checkout/subscription` accepts `planKey`, `successUrl`, and `cancelUrl`; returns a Stripe Checkout Session id and URL.
+- Customer portal contract: `POST /v1/billing/portal/session` accepts `returnUrl`; returns a Stripe Billing Portal Session id and URL.
 
 ## 2026-05-07 Backend Update
 
@@ -101,3 +102,11 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: frontend-owner integration, customer portal contract, redirect URL allowlisting, and billing status display contracts.
 - Risks: checkout redirects are external navigation and should be integrated deliberately by the frontend owner.
 - Next recommended step: document customer portal contract after backend implementation.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: added backend customer portal session contract and redirect-origin allowlist requirements.
+- Completed: frontend integration can request a portal URL for tenants with Stripe customer ids; no frontend UX was changed.
+- Pending: frontend-owner integration and success/cancel/return URL coordination per environment.
+- Risks: frontend-provided redirect URLs must use configured allowed origins.
+- Next recommended step: document checkout-session retrieval contract after backend implementation.

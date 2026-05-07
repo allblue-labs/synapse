@@ -14,6 +14,7 @@ describe('BillingController route protection metadata', () => {
     ['account', ['billing:read']],
     ['plans', ['billing:read']],
     ['createSubscriptionCheckout', ['billing:manage']],
+    ['createPortalSession', ['billing:manage']],
     ['setFeatureFlag', ['billing:manage']],
   ] as const)('%s declares required permissions', (methodName, expected) => {
     const handler = BillingController.prototype[methodName];

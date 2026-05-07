@@ -157,3 +157,11 @@ Last updated: 2026-05-07
 - Pending: customer portal, checkout session retrieval/reconciliation, module purchase checkout, retry jobs, and HTTP e2e tests with signed Stripe callbacks.
 - Risks: checkout is unusable until real Stripe price ids are configured in plan metadata or `STRIPE_PRICE_LIGHT`, `STRIPE_PRICE_PRO`, and `STRIPE_PRICE_PREMIUM`.
 - Next recommended step: implement customer portal session creation and checkout session reconciliation.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: added `POST /v1/billing/portal/session` and redirect-origin allowlisting for checkout and portal URLs.
+- Completed: portal sessions require `billing:manage`, a tenant-owned Stripe customer id, server-side Stripe credentials, and an allowed return URL origin.
+- Pending: checkout session retrieval, portal configuration management, module purchase checkout, and HTTP e2e tests.
+- Risks: `BILLING_REDIRECT_ALLOWED_ORIGINS` must be configured correctly per environment or billing redirects will be blocked.
+- Next recommended step: implement checkout/session retrieval and reconciliation for completed checkout flows.

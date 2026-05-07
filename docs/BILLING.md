@@ -8,7 +8,7 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 
 - `BillingAccount` exists in Prisma.
 - Billing plans, commercial feature flags, module entitlements, and module purchases exist in Prisma.
-- Stripe customer/subscription lifecycle can be reconciled from signed Stripe webhooks; customer creation and subscription checkout are wired; customer portal flows are not wired yet.
+- Stripe customer/subscription lifecycle can be reconciled from signed Stripe webhooks; customer creation, subscription checkout, and customer portal session creation are wired.
 - Commercial plans are Light, Pro, and Premium.
 - Plans are admin-controlled through feature flags and should only become commercially active when enough public modules exist to satisfy entitlements.
 - Operational usage billing is required for AI calls, audio transcription, workflow runs, storage, messages, and automation executions.
@@ -101,3 +101,11 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: customer portal, checkout retrieval, module purchase checkout, retry jobs, and live-mode validation.
 - Risks: price ids are intentionally required; missing plan metadata/env price ids return service unavailable instead of using fake pricing.
 - Next recommended step: implement customer portal sessions and redirect URL allowlisting.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: added customer portal session API and billing redirect origin checks.
+- Completed: `POST /v1/billing/portal/session` creates a Stripe Billing Portal Session for the tenant-owned customer and returns `{ id, url, stripeCustomerId }`.
+- Pending: checkout session retrieval, portal configuration management, module purchase checkout, and production live-mode validation.
+- Risks: portal session creation requires an existing Stripe customer, so tenants must complete checkout provisioning first.
+- Next recommended step: implement checkout session retrieval and reconciliation.

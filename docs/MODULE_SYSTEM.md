@@ -136,3 +136,11 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: a-la-carte module purchase checkout and marketplace entitlement reconciliation.
 - Risks: future paid modules must use platform purchase contracts instead of direct Stripe coupling.
 - Next recommended step: design module purchase checkout around `module_purchases` and registry entitlements.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: billing portal access remains platform-owned and outside product modules.
+- Completed: modules remain isolated from customer portal and subscription self-service behavior.
+- Pending: module purchase portal/checkout rules for a-la-carte modules.
+- Risks: module marketplaces must not bypass platform billing portal controls.
+- Next recommended step: define module purchase lifecycle APIs under billing/registry contracts.

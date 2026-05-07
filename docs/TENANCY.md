@@ -115,3 +115,11 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: multi-tenant e2e tests with two customers, customer portal tenant checks, and checkout session retrieval checks.
 - Risks: a reused Stripe customer id must always come from the tenant billing account, never from client input.
 - Next recommended step: add e2e tests proving tenants cannot create checkout sessions against another tenant customer.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: portal sessions are created only from the authenticated tenant's `BillingAccount.stripeCustomerId`.
+- Completed: no client-provided Stripe customer id is accepted for portal sessions.
+- Pending: multi-tenant e2e tests for portal creation and checkout reconciliation.
+- Risks: portal access depends on accurate tenant-owned customer ids.
+- Next recommended step: add tests with two tenants and distinct Stripe customer ids.

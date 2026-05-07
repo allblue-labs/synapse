@@ -55,6 +55,7 @@ Last updated: 2026-05-07
 ## Phase 6 — Billing (Stripe + Usage)
 
 - [x] Stripe Customer provisioning through subscription checkout
+- [x] Stripe Customer Portal session creation
 - [ ] Stripe Subscription creation on register
 - [ ] Plan keys: `light`, `pro`, `premium`
 - [ ] Admin-controlled feature flags for commercial plan activation
@@ -168,3 +169,11 @@ Last updated: 2026-05-07
 - Pending: customer portal sessions, direct subscription-on-register policy decision, module purchase checkout, retry jobs, and e2e tests.
 - Risks: plan price mapping must be configured by admins/ops before commercial checkout can work.
 - Next recommended step: add customer portal session creation for existing Stripe customers.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: Phase 6 now includes backend-created Stripe Customer Portal sessions and billing redirect allowlisting.
+- Completed: portal sessions are tenant-owned and checkout/portal redirect URLs are origin-checked before any Stripe call.
+- Pending: checkout session retrieval/reconciliation, module purchase checkout, portal configuration controls, and e2e tests.
+- Risks: frontend integration must use environment-approved origins.
+- Next recommended step: add checkout session retrieval so success redirects can be reconciled deterministically.

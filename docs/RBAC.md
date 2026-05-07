@@ -100,3 +100,11 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: OWNER/ADMIN/OPERATOR/VIEWER e2e matrix for checkout creation.
 - Risks: checkout creation is a financial write and remains OWNER-only under the current permission matrix.
 - Next recommended step: include checkout creation in billing route e2e coverage.
+
+## 2026-05-07 Stripe Portal + Redirect Allowlist Update
+
+- Changed: `POST /v1/billing/portal/session` requires `billing:manage`.
+- Completed: controller metadata tests cover portal route protection.
+- Pending: OWNER/ADMIN/OPERATOR/VIEWER e2e matrix for portal creation.
+- Risks: customer portal allows billing self-service actions, so access must remain billing-management only.
+- Next recommended step: include portal creation in billing route e2e coverage.

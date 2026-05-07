@@ -103,13 +103,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-synapse:5432/${POSTGRES_DB}?schema=public
       REDIS_URL:    redis://redis-synapse:6379
     ports:
-      - "${API_HOST_PORT}:4000"
+      - "${API_HOST_PORT}:3000"
     healthcheck:
       # The Nest app uses a global '/v1' prefix → /v1/health.
       # Use 127.0.0.1 (not 'localhost') because the API binds IPv4-only
       # via `app.listen(PORT, '0.0.0.0')` — busybox wget would otherwise
       # try ::1 first, hit ECONNREFUSED, and never fall back to v4.
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/v1/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/v1/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 8

@@ -1,6 +1,6 @@
 import { PATH_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
-import { PERMISSIONS_KEY } from '../../common/authorization';
+import { IS_PUBLIC_KEY, PERMISSIONS_KEY } from '../../common/authorization';
 import { BillingController } from './billing.controller';
 
 describe('BillingController route protection metadata', () => {
@@ -13,6 +13,7 @@ describe('BillingController route protection metadata', () => {
   it.each([
     ['account', ['billing:read']],
     ['plans', ['billing:read']],
+    ['createSubscriptionCheckout', ['billing:manage']],
     ['setFeatureFlag', ['billing:manage']],
   ] as const)('%s declares required permissions', (methodName, expected) => {
     const handler = BillingController.prototype[methodName];
@@ -20,5 +21,13 @@ describe('BillingController route protection metadata', () => {
     expect(
       reflector.getAllAndOverride(PERMISSIONS_KEY, [handler, BillingController]),
     ).toEqual(expected);
+  });
+
+  it('exposes the Stripe webhook without session or tenant guards', () => {
+    const handler = BillingController.prototype.stripeWebhook;
+
+    expect(
+      reflector.getAllAndOverride(IS_PUBLIC_KEY, [handler, BillingController]),
+    ).toBe(true);
   });
 });

@@ -171,3 +171,67 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Raw events are not yet priced or reconciled with Stripe.
 
 **Next recommended step:** add usage pricing/rating tables and billing-period aggregation.
+
+---
+
+## 2026-05-07 — Admin-managed usage rate cards
+
+**Decision:** Usage rating uses admin-managed active rate cards instead of hardcoded prices.
+
+**Reason:** Production billing prices are commercial policy, not module logic. Missing rates should be visible as unrated lines rather than silently using made-up defaults.
+
+**Consequence:** Rated summaries snapshot aggregate quantities and amounts when active rates exist; unrated lines remain explicit for finance/admin review.
+
+**Status:** Completed for local rating and aggregate snapshots.
+
+**Risk:** Stripe usage reporting and invoice reconciliation are still pending.
+
+**Next recommended step:** report rated aggregates to Stripe and reconcile webhook outcomes.
+
+---
+
+## 2026-05-07 — Stripe meter reporting from rated aggregates
+
+**Decision:** Report usage to Stripe from rated aggregate snapshots, not raw events.
+
+**Reason:** Aggregates provide one tenant/period/metric/unit source of truth and make reporting idempotent with stable identifiers.
+
+**Consequence:** Each aggregate has one Stripe report record with `SENT`, `FAILED`, or `SKIPPED` state. Lines are skipped rather than guessed when customer ids, meter mappings, ratings, or integer Stripe values are missing.
+
+**Status:** Completed for outbound reporting and local reconciliation records.
+
+**Risk:** Stripe webhooks and subscription lifecycle reconciliation are still pending.
+
+**Next recommended step:** add signed Stripe webhook handling.
+
+---
+
+## 2026-05-07 — Signed Stripe webhook ledger
+
+**Decision:** Stripe webhook intake is a public backend route that captures the raw request body, verifies the `Stripe-Signature` header with `STRIPE_WEBHOOK_SECRET`, and stores every accepted event id in `stripe_webhook_events`.
+
+**Reason:** Stripe cannot call authenticated tenant routes, but financial lifecycle updates must still be replay-resistant, auditable, and reconciled into tenant-owned billing accounts.
+
+**Consequence:** Duplicate Stripe event ids return success without reprocessing. Subscription and invoice lifecycle events update `BillingAccount`; unsupported events are recorded as ignored instead of discarded silently.
+
+**Status:** Completed for subscription and invoice status reconciliation.
+
+**Risk:** Events must be matchable through tenant metadata or an already linked Stripe customer/subscription id.
+
+**Next recommended step:** add customer provisioning and checkout session creation so Stripe metadata is consistently set at the source.
+
+---
+
+## 2026-05-07 — Stripe checkout creates the tenant ownership link
+
+**Decision:** Subscription checkout is created server-side from `BillingService`, after confirming the plan is commercially active and has a real Stripe price id.
+
+**Reason:** Checkout must not invent pricing or trust frontend plan/customer data. The backend is the authority for tenant id, actor, plan activation, and Stripe metadata.
+
+**Consequence:** Checkout sessions stamp `tenantId` and `synapse_plan_key` on both Checkout Session metadata and `subscription_data.metadata`; webhooks can reconcile lifecycle events back to one tenant billing account.
+
+**Status:** Completed for subscription Checkout Session creation.
+
+**Risk:** Missing Stripe price configuration blocks checkout by design.
+
+**Next recommended step:** add customer portal sessions and checkout/session retrieval reconciliation.

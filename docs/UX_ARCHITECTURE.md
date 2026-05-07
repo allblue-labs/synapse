@@ -10,6 +10,8 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pulse queue routes: `GET /queue`, `GET /queue/:id`, `POST /entries`, `POST /queue/:id/validate`, `POST /queue/:id/reject`, `POST /queue/:id/retry`, `GET /errors`.
 - Required permissions: `pulse:read`, `pulse:write`, `pulse:validate`, `pulse:reject`, `pulse:retry`.
 - Module registry slug/display: `pulse` / `Synapse Pulse`.
+- Stripe webhook callback: `POST /v1/billing/stripe/webhook` is provider-facing only and has no frontend UX contract.
+- Subscription checkout contract: `POST /v1/billing/checkout/subscription` accepts `planKey`, `successUrl`, and `cancelUrl`; returns a Stripe Checkout Session id and URL.
 
 ## 2026-05-07 Backend Update
 
@@ -67,3 +69,35 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: frontend-owner integration and richer billing-period/invoice views.
 - Risks: usage summaries are raw operational quantities, not rated prices.
 - Next recommended step: document usage summary examples alongside billing API contracts.
+
+## 2026-05-07 Usage Rating Update
+
+- Changed: backend exposes `GET /v1/usage/rated-summary`, `GET /v1/usage/rates`, and `POST /v1/usage/rates`.
+- Completed: rated summary response includes total amount cents and per-line rated/unrated status.
+- Pending: frontend-owner integration and admin rate management UX.
+- Risks: rated summaries are local estimates until Stripe reporting/reconciliation lands.
+- Next recommended step: document rated usage response examples for frontend integration.
+
+## 2026-05-07 Stripe Usage Reporting Update
+
+- Changed: backend exposes `GET /v1/usage/stripe-meters`, `POST /v1/usage/stripe-meters`, and `POST /v1/usage/stripe-report`.
+- Completed: frontend/admin consumers can inspect meter mappings and trigger reporting through backend contracts; no frontend UI was changed.
+- Pending: admin workflow design, webhook reconciliation views, and Stripe customer portal integration.
+- Risks: report statuses are operational billing state and should be shown carefully once frontend work begins.
+- Next recommended step: document Stripe reporting response examples for admin integration.
+
+## 2026-05-07 Stripe Webhook Reconciliation Update
+
+- Changed: added a provider-facing Stripe webhook endpoint; no frontend pages, components, or interactions were changed.
+- Completed: backend can reconcile subscription and invoice state for future billing/account UX surfaces.
+- Pending: frontend-owner decisions for how to display billing status, webhook failures, checkout, and customer portal links after backend contracts exist.
+- Risks: webhook event ledger details are operational/admin data and should not be exposed to tenant users without a reviewed contract.
+- Next recommended step: document billing account status response examples after checkout/customer provisioning is implemented.
+
+## 2026-05-07 Stripe Checkout Provisioning Update
+
+- Changed: added a backend checkout creation contract; no frontend pages, components, or interactions were changed.
+- Completed: frontend integration can request a subscription Checkout Session URL for a commercially active plan once price ids are configured.
+- Pending: frontend-owner integration, customer portal contract, redirect URL allowlisting, and billing status display contracts.
+- Risks: checkout redirects are external navigation and should be integrated deliberately by the frontend owner.
+- Next recommended step: document customer portal contract after backend implementation.

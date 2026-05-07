@@ -8,7 +8,7 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 
 - `BillingAccount` exists in Prisma.
 - Billing plans, commercial feature flags, module entitlements, and module purchases exist in Prisma.
-- Stripe customer/subscription lifecycle is not wired.
+- Stripe customer/subscription lifecycle can be reconciled from signed Stripe webhooks; customer creation and subscription checkout are wired; customer portal flows are not wired yet.
 - Commercial plans are Light, Pro, and Premium.
 - Plans are admin-controlled through feature flags and should only become commercially active when enough public modules exist to satisfy entitlements.
 - Operational usage billing is required for AI calls, audio transcription, workflow runs, storage, messages, and automation executions.
@@ -69,3 +69,35 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: storage byte instrumentation, rating/pricing tables, billing-period rollups, Stripe usage reporting, invoice reconciliation, and dashboards.
 - Risks: raw event collection can diverge from invoice totals until aggregation/reconciliation exists.
 - Next recommended step: implement usage pricing and billing-period aggregation.
+
+## 2026-05-07 Usage Rating Update
+
+- Changed: added usage rate cards and billing-period aggregate snapshots.
+- Completed: admin-managed rates price usage by metric/unit/currency; rated summaries calculate total amount cents and preserve unrated lines when rates are missing.
+- Pending: Stripe meter reporting, invoice finalization, rate-change audit events, and reconciliation workflows.
+- Risks: local rated aggregates are not invoices until Stripe reporting and reconciliation are complete.
+- Next recommended step: implement Stripe usage reporting from rated aggregate lines.
+
+## 2026-05-07 Stripe Usage Reporting Update
+
+- Changed: added Stripe meter mappings and reporting from rated aggregate lines.
+- Completed: Stripe meter events use configured event names, tenant Stripe customer ids, integer values, timestamps, and stable identifiers; report state is stored locally for reconciliation.
+- Pending: signed webhook reconciliation, Stripe customer/subscription creation, checkout/customer portal, and retry scheduling.
+- Risks: Stripe meter event processing is asynchronous, so local `SENT` means accepted by the API, not necessarily reflected on an invoice yet.
+- Next recommended step: implement webhook reconciliation for subscriptions, invoices, and meter event failures.
+
+## 2026-05-07 Stripe Webhook Reconciliation Update
+
+- Changed: added signed Stripe webhook processing under `POST /v1/billing/stripe/webhook` and persisted webhook processing state in `stripe_webhook_events`.
+- Completed: signature verification, timestamp tolerance, duplicate event handling, audit recording, subscription lifecycle reconciliation, invoice paid reconciliation, and invoice payment-failed reconciliation.
+- Pending: checkout session creation, customer portal, module purchase payments, webhook retry jobs, and meter event failure reconciliation beyond local report state.
+- Risks: failed reconciliation is recorded but not automatically retried yet; missing Stripe metadata can leave subscription events unmatched.
+- Next recommended step: implement Stripe customer and checkout session provisioning with required tenant metadata.
+
+## 2026-05-07 Stripe Checkout Provisioning Update
+
+- Changed: added subscription checkout backend API and Stripe customer provisioning.
+- Completed: `POST /v1/billing/checkout/subscription` creates a Stripe customer when needed, stores `stripeCustomerId`, creates a subscription Checkout Session, and returns `{ id, url, stripeCustomerId, planKey }`.
+- Pending: customer portal, checkout retrieval, module purchase checkout, retry jobs, and live-mode validation.
+- Risks: price ids are intentionally required; missing plan metadata/env price ids return service unavailable instead of using fake pricing.
+- Next recommended step: implement customer portal sessions and redirect URL allowlisting.

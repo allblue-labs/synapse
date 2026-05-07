@@ -247,11 +247,58 @@ export type BillingAccountSummary = {
   entitlements: Record<string, unknown>;
 };
 
+export type CreateBillingCheckoutSessionRequest = {
+  planKey: BillingPlanKey;
+  successUrl: string;
+  cancelUrl: string;
+};
+
+export type BillingCheckoutSession = {
+  id: string;
+  url: string;
+  stripeCustomerId: string;
+  planKey: BillingPlanKey;
+};
+
 export type UsageSummaryItem = {
   metricType: UsageMetricType;
   unit: string;
   quantity: string;
   events: number;
+};
+
+export type RatedUsageSummaryItem = UsageSummaryItem & {
+  unitPriceCents: string | null;
+  amountCents: string | null;
+  rated: boolean;
+};
+
+export type RatedUsageSummary = {
+  tenantId: string;
+  billingPeriod: string;
+  currency: string;
+  totalAmountCents: string;
+  lines: RatedUsageSummaryItem[];
+};
+
+export type StripeUsageReportStatus = 'SENT' | 'FAILED' | 'SKIPPED';
+
+export type StripeUsageReportItem = {
+  aggregateId: string;
+  status: StripeUsageReportStatus;
+  stripeEventName?: string | null;
+  stripeIdentifier?: string | null;
+  stripeCustomerId?: string | null;
+  value?: number | null;
+  errorMessage?: string | null;
+  reportedAt?: string | null;
+};
+
+export type StripeUsageReportSummary = {
+  tenantId: string;
+  billingPeriod: string;
+  currency: string;
+  reports: StripeUsageReportItem[];
 };
 
 export type LeadExtraction = {

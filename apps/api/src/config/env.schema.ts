@@ -14,6 +14,11 @@ export const envSchema = z.object({
   OPENAI_DEFAULT_MODEL: z.string().default('gpt-4.1-mini'),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_API_VERSION: z.string().default('2026-02-25.preview'),
+  STRIPE_BASE_URL: z.string().url().default('https://api.stripe.com'),
+  STRIPE_PRICE_LIGHT: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().optional(),
+  STRIPE_PRICE_PREMIUM: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().default('1mb')

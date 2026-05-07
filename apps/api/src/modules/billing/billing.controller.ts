@@ -1,6 +1,19 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { IsBoolean } from 'class-validator';
-import { Permissions } from '../../common/authorization';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
+import { IsBoolean, IsIn, IsUrl } from 'class-validator';
+import { Request } from 'express';
+import { BillingPlanKey } from '@synapse/contracts';
+import { Permissions, Public } from '../../common/authorization';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
@@ -9,6 +22,17 @@ import { BillingService } from './billing.service';
 class SetFeatureFlagDto {
   @IsBoolean()
   enabled!: boolean;
+}
+
+class CreateCheckoutSessionDto {
+  @IsIn(['light', 'pro', 'premium'])
+  planKey!: BillingPlanKey;
+
+  @IsUrl({ require_tld: false })
+  successUrl!: string;
+
+  @IsUrl({ require_tld: false })
+  cancelUrl!: string;
 }
 
 @Controller('billing')
@@ -25,6 +49,37 @@ export class BillingController {
   @Get('plans')
   plans() {
     return this.billing.listPlans();
+  }
+
+  @Public()
+  @Post('stripe/webhook')
+  @HttpCode(HttpStatus.OK)
+  stripeWebhook(
+    @Req() req: Request & { rawBody?: Buffer },
+    @Headers('stripe-signature') signature?: string,
+  ) {
+    if (!req.rawBody) {
+      throw new BadRequestException('Stripe webhook raw body is required.');
+    }
+
+    return this.billing.processStripeWebhook(req.rawBody, signature);
+  }
+
+  @Permissions('billing:manage')
+  @Post('checkout/subscription')
+  createSubscriptionCheckout(
+    @TenantId() tenantId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateCheckoutSessionDto,
+  ) {
+    return this.billing.createSubscriptionCheckoutSession({
+      tenantId,
+      actorUserId: user.sub,
+      actorEmail: user.email,
+      planKey: dto.planKey,
+      successUrl: dto.successUrl,
+      cancelUrl: dto.cancelUrl,
+    });
   }
 
   @Permissions('billing:manage')

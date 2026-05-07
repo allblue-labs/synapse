@@ -46,14 +46,14 @@ Last updated: 2026-05-07
 - Queue workers: producers exist, but `message-processing` and `ai-response` processors are stubs
 - Pain runtime: stubbed `StubPainClient` — no real Kubernetes reconciliation
 - Webhook validation: Telegram has basic validation; Discord + WhatsApp throw `ServiceUnavailable`
-- Billing: `BillingAccount` schema exists; Stripe webhooks and subscription lifecycle not wired
+- Billing: `BillingAccount` schema exists; signed Stripe webhook reconciliation is wired for subscription and invoice status events, but customer creation, checkout, portal, and retry jobs are still pending
 
 ## What Is Missing
 
 - Pulse production audio → transcription pipeline (Whisper / cloud STT integration)
 - Pulse operational action executors and workflow-run metering
 - BullMQ worker processors for `message-processing` and `ai-response` queues
-- Stripe billing integration with plans Light, Pro, Premium and admin-controlled feature flags
+- Stripe billing checkout/customer portal integration for plans Light, Pro, Premium and admin-controlled feature flags
 - Operational usage billing for AI calls, audio transcription, workflow runs, storage, messages, and automation executions
 - Production webhook HMAC validation for Discord and WhatsApp
 - Metrics/tracing export (Prometheus, OpenTelemetry)
@@ -125,3 +125,35 @@ Last updated: 2026-05-07
 - Pending: storage byte accounting, automation execution coverage outside Pulse entry creation, billing-period rating/pricing, Stripe usage reporting, and e2e tests.
 - Risks: metering exists, but costs are not yet rated or pushed to Stripe.
 - Next recommended step: add pricing/rating and billing-period aggregation for usage events.
+
+## 2026-05-07 Usage Rating Update
+
+- Changed: added admin-managed usage rate cards and tenant billing-period aggregate snapshots.
+- Completed: usage rates support metric/unit/currency pricing; `GET /v1/usage/rated-summary` calculates and stores rated period aggregates; unrated usage remains explicit instead of using fake prices; usage rates are protected by `billing:manage`.
+- Pending: Stripe usage reporting, invoice reconciliation, rated aggregate review workflows, and e2e authorization tests.
+- Risks: inactive/missing rates leave lines unrated, so finance review is required before invoices are finalized.
+- Next recommended step: implement Stripe usage reporting from rated aggregates.
+
+## 2026-05-07 Stripe Usage Reporting Update
+
+- Changed: added Stripe meter mappings and per-aggregate Stripe report records.
+- Completed: rated aggregate lines can be reported to Stripe meter events through `/v2/billing/meter_events`; reports persist `SENT`, `FAILED`, or `SKIPPED` state; missing customer ids, unrated lines, missing meter mappings, and non-positive/non-integer values are not sent.
+- Pending: Stripe webhook reconciliation, customer/subscription creation, checkout/customer portal, and production retry scheduling.
+- Risks: Stripe reporting requires configured meters and customer ids; Stripe processes meter events asynchronously.
+- Next recommended step: implement Stripe webhook signature validation and lifecycle reconciliation.
+
+## 2026-05-07 Stripe Webhook Reconciliation Update
+
+- Changed: added a signed `POST /v1/billing/stripe/webhook` backend endpoint, raw-body capture, and an idempotent `stripe_webhook_events` ledger.
+- Completed: Stripe webhook signatures are verified with `STRIPE_WEBHOOK_SECRET`; duplicate events are ignored; subscription events reconcile customer id, subscription id, plan key, status, and period end; invoice paid/failed events reconcile billing status.
+- Pending: Stripe customer creation, checkout/customer portal flows, module purchase checkout, retry scheduling for failed webhook reconciliation, and database-backed webhook e2e tests.
+- Risks: webhook reconciliation depends on Stripe metadata containing `tenantId` and `synapse_plan_key`, or on existing customer/subscription ids already tied to a tenant billing account.
+- Next recommended step: implement Stripe customer/subscription provisioning and checkout session creation.
+
+## 2026-05-07 Stripe Checkout Provisioning Update
+
+- Changed: added backend subscription checkout creation with Stripe customer provisioning under `POST /v1/billing/checkout/subscription`.
+- Completed: checkout requires `billing:manage`, commercially active plans, configured Stripe price ids, tenant-owned billing accounts, and Stripe metadata for webhook reconciliation.
+- Pending: customer portal, checkout session retrieval/reconciliation, module purchase checkout, retry jobs, and HTTP e2e tests with signed Stripe callbacks.
+- Risks: checkout is unusable until real Stripe price ids are configured in plan metadata or `STRIPE_PRICE_LIGHT`, `STRIPE_PRICE_PRO`, and `STRIPE_PRICE_PREMIUM`.
+- Next recommended step: implement customer portal session creation and checkout session reconciliation.

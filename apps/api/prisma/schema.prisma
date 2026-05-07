@@ -97,6 +97,18 @@ enum UsageMetricType {
   AUTOMATION_EXECUTION
 }
 
+enum UsageStripeReportStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum StripeWebhookEventStatus {
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
 enum ModuleCatalogStatus {
   DRAFT
   PUBLIC
@@ -128,6 +140,8 @@ model Tenant {
   moduleInstallations TenantModuleInstallation[]
   modulePurchases      ModulePurchase[]
   usageEvents          UsageEvent[]
+  usageAggregates      UsagePeriodAggregate[]
+  usageStripeReports   UsageStripeReport[]
 
   @@index([status])
 }
@@ -358,6 +372,23 @@ model BillingFeatureFlag {
   @@map("billing_feature_flags")
 }
 
+model StripeWebhookEvent {
+  id             String                   @id @default(cuid())
+  stripeEventId  String                   @unique
+  eventType      String
+  status         StripeWebhookEventStatus
+  errorMessage   String?
+  payload        Json
+  receivedAt     DateTime                 @default(now())
+  processedAt    DateTime?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@index([eventType, receivedAt])
+  @@index([status, receivedAt])
+  @@map("stripe_webhook_events")
+}
+
 model ModulePurchase {
   id                   String               @id @default(cuid())
   tenantId             String
@@ -442,6 +473,86 @@ model UsageEvent {
   @@index([tenantId, billingPeriod, metricType])
   @@index([tenantId, moduleSlug, occurredAt])
   @@map("usage_events")
+}
+
+model UsageRate {
+  id             String          @id @default(cuid())
+  metricType     UsageMetricType
+  unit           String
+  unitPriceCents Decimal         @db.Decimal(18, 6)
+  currency       String          @default("usd")
+  active         Boolean         @default(false)
+  metadata       Json            @default("{}")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([metricType, unit, currency])
+  @@index([active, metricType])
+  @@map("usage_rates")
+}
+
+model UsageStripeMeter {
+  id              String          @id @default(cuid())
+  metricType      UsageMetricType
+  unit            String
+  currency        String          @default("usd")
+  stripeEventName String
+  valueMultiplier Decimal         @default(1) @db.Decimal(18, 6)
+  active          Boolean         @default(false)
+  metadata        Json            @default("{}")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([metricType, unit, currency])
+  @@index([active, metricType])
+  @@map("usage_stripe_meters")
+}
+
+model UsagePeriodAggregate {
+  id            String          @id @default(cuid())
+  tenantId      String
+  billingPeriod String
+  metricType    UsageMetricType
+  unit          String
+  quantity      Decimal         @db.Decimal(18, 6)
+  events        Int
+  currency      String          @default("usd")
+  unitPriceCents Decimal?       @db.Decimal(18, 6)
+  amountCents   Decimal?        @db.Decimal(18, 6)
+  rated         Boolean         @default(false)
+  calculatedAt  DateTime        @default(now())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stripeReports UsageStripeReport[]
+
+  @@unique([tenantId, billingPeriod, metricType, unit, currency])
+  @@index([tenantId, billingPeriod])
+  @@map("usage_period_aggregates")
+}
+
+model UsageStripeReport {
+  id                String                  @id @default(cuid())
+  tenantId          String
+  aggregateId       String
+  status            UsageStripeReportStatus
+  stripeEventName   String?
+  stripeIdentifier  String?
+  stripeCustomerId  String?
+  value             Int?
+  errorMessage      String?
+  reportedAt        DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  aggregate UsagePeriodAggregate @relation(fields: [aggregateId], references: [id], onDelete: Cascade)
+
+  @@unique([aggregateId])
+  @@unique([stripeIdentifier])
+  @@index([tenantId, status, createdAt])
+  @@map("usage_stripe_reports")
 }
 
 enum PulseStatus {

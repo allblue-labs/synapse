@@ -68,3 +68,35 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: role matrix e2e tests for `GET /v1/usage/summary`.
 - Risks: usage summary can reveal operational volume and should remain billing-protected.
 - Next recommended step: include usage summary in billing route e2e coverage.
+
+## 2026-05-07 Usage Rating Update
+
+- Changed: `GET /v1/usage/rated-summary` uses `billing:read`; usage rate list/set uses `billing:manage`.
+- Completed: usage controller metadata tests cover the new routes.
+- Pending: OWNER/ADMIN/OPERATOR/VIEWER e2e matrix for usage rating endpoints.
+- Risks: rated summaries expose financial amounts and should stay billing-protected.
+- Next recommended step: include usage rating routes in billing e2e coverage.
+
+## 2026-05-07 Stripe Usage Reporting Update
+
+- Changed: Stripe meter mapping and report-trigger routes require `billing:manage`.
+- Completed: usage controller metadata tests cover Stripe reporting routes.
+- Pending: e2e tests for billing route role matrix.
+- Risks: Stripe reporting is a financial write and must stay OWNER-only under the current permission matrix.
+- Next recommended step: include Stripe reporting endpoints in OWNER/ADMIN/OPERATOR/VIEWER e2e tests.
+
+## 2026-05-07 Stripe Webhook Reconciliation Update
+
+- Changed: Stripe webhook route is marked `@Public()` because Stripe cannot present Synapse JWT or tenant context.
+- Completed: billing controller tests assert the webhook bypasses session/tenant guards while all human billing routes remain permission-protected.
+- Pending: e2e tests proving public access is limited to signed Stripe payloads and does not expose tenant billing reads/writes.
+- Risks: public route metadata must not be copied to billing admin endpoints.
+- Next recommended step: add HTTP e2e coverage for billing routes and signed/unsigned webhook attempts.
+
+## 2026-05-07 Stripe Checkout Provisioning Update
+
+- Changed: `POST /v1/billing/checkout/subscription` requires `billing:manage`.
+- Completed: controller metadata tests cover checkout route protection; backend service receives tenant and actor from guards/decorators.
+- Pending: OWNER/ADMIN/OPERATOR/VIEWER e2e matrix for checkout creation.
+- Risks: checkout creation is a financial write and remains OWNER-only under the current permission matrix.
+- Next recommended step: include checkout creation in billing route e2e coverage.

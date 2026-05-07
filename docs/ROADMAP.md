@@ -54,11 +54,12 @@ Last updated: 2026-05-07
 
 ## Phase 6 — Billing (Stripe + Usage)
 
-- [ ] Stripe Customer + Subscription creation on register
+- [x] Stripe Customer provisioning through subscription checkout
+- [ ] Stripe Subscription creation on register
 - [ ] Plan keys: `light`, `pro`, `premium`
 - [ ] Admin-controlled feature flags for commercial plan activation
 - [ ] Entitlement checks at queue/LLM boundaries
-- [ ] Stripe webhook handler (subscription lifecycle events)
+- [x] Stripe webhook handler (subscription lifecycle events)
 - [ ] Operational usage meters: AI calls, audio transcription, workflow runs, storage, messages, automation executions
 
 ## Phase 7 — Security Hardening
@@ -135,3 +136,35 @@ Last updated: 2026-05-07
 - Pending: storage meter instrumentation, pricing/rating engine, usage aggregation, Stripe meter reporting, and production dashboards.
 - Risks: usage can be counted before being billed, so reporting and reconciliation are still needed.
 - Next recommended step: implement usage pricing/rating records and monthly aggregation service.
+
+## 2026-05-07 Usage Rating Update
+
+- Changed: usage pricing/rating stage has initial backend implementation.
+- Completed: `usage_rates`, `usage_period_aggregates`, rated summaries, shared rated usage contracts, and tests.
+- Pending: Stripe usage reporting, invoice reconciliation, admin workflows for rate activation, and e2e tests.
+- Risks: rating is local and does not yet create Stripe meter events.
+- Next recommended step: wire Stripe usage reporting and webhook reconciliation.
+
+## 2026-05-07 Stripe Usage Reporting Update
+
+- Changed: Stripe usage reporting stage has initial backend implementation.
+- Completed: Stripe meter mappings, report state persistence, meter event submission, skip/failure reconciliation records, contracts, and tests.
+- Pending: signed webhook reconciliation, Stripe customer/subscription lifecycle, retry jobs, and live-mode validation.
+- Risks: reporting is manual/API-triggered and not yet scheduled.
+- Next recommended step: add Stripe webhook endpoint with signature validation and subscription/status reconciliation.
+
+## 2026-05-07 Stripe Webhook Reconciliation Update
+
+- Changed: Phase 6 now includes signed Stripe webhook intake and local lifecycle reconciliation.
+- Completed: raw-body signature validation, duplicate-event protection, webhook event ledger, subscription status sync, invoice paid/payment-failed status sync, and route metadata tests.
+- Pending: customer/subscription provisioning, checkout sessions, customer portal, module purchase lifecycle, retry jobs, and full HTTP e2e coverage.
+- Risks: plan synchronization relies on Stripe metadata and existing tenant billing-account links.
+- Next recommended step: build Stripe customer and checkout session creation with explicit tenant ownership checks.
+
+## 2026-05-07 Stripe Checkout Provisioning Update
+
+- Changed: Phase 6 now has tenant-owned Stripe customer provisioning and subscription Checkout Session creation.
+- Completed: checkout sessions include tenant/plan metadata on both session and subscription data; existing customers are reused; new customer ids are persisted to `BillingAccount`.
+- Pending: customer portal sessions, direct subscription-on-register policy decision, module purchase checkout, retry jobs, and e2e tests.
+- Risks: plan price mapping must be configured by admins/ops before commercial checkout can work.
+- Next recommended step: add customer portal session creation for existing Stripe customers.

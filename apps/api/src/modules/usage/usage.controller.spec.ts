@@ -10,12 +10,20 @@ describe('UsageController route protection metadata', () => {
     expect(Reflect.getMetadata(PATH_METADATA, UsageController)).toBe('usage');
   });
 
-  it('requires billing read permission for usage summary', () => {
+  it.each([
+    ['summary', ['billing:read']],
+    ['ratedSummary', ['billing:read']],
+    ['rates', ['billing:manage']],
+    ['setRate', ['billing:manage']],
+    ['stripeMeters', ['billing:manage']],
+    ['setStripeMeter', ['billing:manage']],
+    ['reportToStripe', ['billing:manage']],
+  ] as const)('%s declares required permissions', (methodName, expected) => {
     expect(
       reflector.getAllAndOverride(PERMISSIONS_KEY, [
-        UsageController.prototype.summary,
+        UsageController.prototype[methodName],
         UsageController,
       ]),
-    ).toEqual(['billing:read']);
+    ).toEqual(expected);
   });
 });

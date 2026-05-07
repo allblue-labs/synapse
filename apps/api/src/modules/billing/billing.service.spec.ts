@@ -3,7 +3,10 @@ import {
   BillingStatus,
   ModuleCatalogStatus,
   ModulePurchaseStatus,
+  StripeWebhookEventStatus,
 } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
+import { createHmac } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { BillingService } from './billing.service';
@@ -25,6 +28,7 @@ function createPrismaMock() {
     },
     billingAccount: {
       findUnique: jest.fn(),
+      update: jest.fn(),
     },
     moduleCatalogItem: {
       findUnique: jest.fn(),
@@ -32,6 +36,10 @@ function createPrismaMock() {
     },
     modulePurchase: {
       findUnique: jest.fn(),
+    },
+    stripeWebhookEvent: {
+      findUnique: jest.fn(),
+      create: jest.fn(),
     },
   };
 }
@@ -41,17 +49,49 @@ function createService() {
   const audit = {
     record: jest.fn(),
   };
+  const config = {
+    get: jest.fn((key: string) => {
+      if (key === 'STRIPE_WEBHOOK_SECRET') return 'whsec_test';
+      if (key === 'STRIPE_SECRET_KEY') return 'sk_test';
+      if (key === 'STRIPE_BASE_URL') return 'https://stripe.test';
+      if (key === 'STRIPE_API_VERSION') return '2026-02-25.preview';
+      if (key === 'STRIPE_PRICE_LIGHT') return 'price_light_env';
+      return undefined;
+    }),
+  };
   return {
     prisma,
     audit,
+    config,
     service: new BillingService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      config as unknown as ConfigService,
     ),
   };
 }
 
+function signStripePayload(event: unknown, secret = 'whsec_test') {
+  const rawBody = Buffer.from(JSON.stringify(event));
+  const timestamp = Math.floor(Date.now() / 1000);
+  const signature = createHmac('sha256', secret)
+    .update(`${timestamp}.${rawBody.toString('utf8')}`)
+    .digest('hex');
+
+  return {
+    rawBody,
+    signatureHeader: `t=${timestamp},v1=${signature}`,
+  };
+}
+
 describe('BillingService', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    global.fetch = originalFetch;
+  });
+
   it('seeds Light, Pro, and Premium plans with commercial feature flags', async () => {
     const { service, prisma } = createService();
     prisma.billingFeatureFlag.upsert.mockResolvedValue({});
@@ -279,5 +319,304 @@ describe('BillingService', () => {
         },
       }),
     );
+  });
+
+  it('creates a Stripe customer and subscription checkout session with tenant metadata', async () => {
+    const { service, prisma, audit } = createService();
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        text: jest.fn().mockResolvedValue(JSON.stringify({ id: 'cus_123' })),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        text: jest.fn().mockResolvedValue(JSON.stringify({
+          id: 'cs_test_123',
+          url: 'https://checkout.stripe.test/session',
+        })),
+      });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    prisma.billingPlan.findUnique
+      .mockResolvedValueOnce({
+        key: 'light',
+        status: BillingPlanStatus.ACTIVE,
+        commercialFeatureFlag: 'billing.plan.light.commercial',
+        requiredPublicModules: 1,
+        metadata: {},
+      })
+      .mockResolvedValueOnce({
+        key: 'light',
+        status: BillingPlanStatus.ACTIVE,
+        commercialFeatureFlag: 'billing.plan.light.commercial',
+        requiredPublicModules: 1,
+      });
+    prisma.billingFeatureFlag.findUnique.mockResolvedValue({ enabled: true });
+    prisma.moduleCatalogItem.count.mockResolvedValue(1);
+    prisma.billingAccount.findUnique.mockResolvedValue({
+      tenantId: 'tenant_a',
+      stripeCustomerId: null,
+      tenant: { name: 'Tenant A' },
+    });
+    prisma.billingAccount.update.mockResolvedValue({ stripeCustomerId: 'cus_123' });
+
+    await expect(service.createSubscriptionCheckoutSession({
+      tenantId: 'tenant_a',
+      actorUserId: 'user_1',
+      actorEmail: 'owner@example.com',
+      planKey: 'light',
+      successUrl: 'http://localhost:5001/billing/success',
+      cancelUrl: 'http://localhost:5001/billing/cancel',
+    })).resolves.toEqual({
+      id: 'cs_test_123',
+      url: 'https://checkout.stripe.test/session',
+      stripeCustomerId: 'cus_123',
+      planKey: 'light',
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://stripe.test/v1/customers',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer sk_test',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }),
+      }),
+    );
+    const customerBody = fetchMock.mock.calls[0][1].body as URLSearchParams;
+    expect(customerBody.get('email')).toBe('owner@example.com');
+    expect(customerBody.get('metadata[tenantId]')).toBe('tenant_a');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://stripe.test/v1/checkout/sessions',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const checkoutBody = fetchMock.mock.calls[1][1].body as URLSearchParams;
+    expect(checkoutBody.get('mode')).toBe('subscription');
+    expect(checkoutBody.get('customer')).toBe('cus_123');
+    expect(checkoutBody.get('line_items[0][price]')).toBe('price_light_env');
+    expect(checkoutBody.get('metadata[tenantId]')).toBe('tenant_a');
+    expect(checkoutBody.get('subscription_data[metadata][synapse_plan_key]')).toBe('light');
+    expect(prisma.billingAccount.update).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant_a' },
+      data: { stripeCustomerId: 'cus_123' },
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.BILLING_STRIPE_CUSTOMER_CREATED,
+        tenantId: 'tenant_a',
+      }),
+    );
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.BILLING_STRIPE_CHECKOUT_CREATED,
+        resourceId: 'cs_test_123',
+      }),
+    );
+  });
+
+  it('reuses an existing Stripe customer when creating subscription checkout', async () => {
+    const { service, prisma } = createService();
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      text: jest.fn().mockResolvedValue(JSON.stringify({
+        id: 'cs_test_existing',
+        url: 'https://checkout.stripe.test/existing',
+      })),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    prisma.billingPlan.findUnique
+      .mockResolvedValueOnce({
+        key: 'light',
+        status: BillingPlanStatus.ACTIVE,
+        commercialFeatureFlag: 'billing.plan.light.commercial',
+        requiredPublicModules: 1,
+        metadata: { stripePriceId: 'price_from_metadata' },
+      })
+      .mockResolvedValueOnce({
+        key: 'light',
+        status: BillingPlanStatus.ACTIVE,
+        commercialFeatureFlag: 'billing.plan.light.commercial',
+        requiredPublicModules: 1,
+      });
+    prisma.billingFeatureFlag.findUnique.mockResolvedValue({ enabled: true });
+    prisma.moduleCatalogItem.count.mockResolvedValue(1);
+    prisma.billingAccount.findUnique.mockResolvedValue({
+      tenantId: 'tenant_a',
+      stripeCustomerId: 'cus_existing',
+      tenant: { name: 'Tenant A' },
+    });
+
+    await service.createSubscriptionCheckoutSession({
+      tenantId: 'tenant_a',
+      actorUserId: 'user_1',
+      actorEmail: 'owner@example.com',
+      planKey: 'light',
+      successUrl: 'http://localhost:5001/billing/success',
+      cancelUrl: 'http://localhost:5001/billing/cancel',
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((fetchMock.mock.calls[0][1].body as URLSearchParams).get('customer'))
+      .toBe('cus_existing');
+    expect((fetchMock.mock.calls[0][1].body as URLSearchParams).get('line_items[0][price]'))
+      .toBe('price_from_metadata');
+  });
+
+  it('rejects checkout for commercially inactive plans', async () => {
+    const { service, prisma } = createService();
+    prisma.billingPlan.findUnique.mockResolvedValue({
+      key: 'pro',
+      status: BillingPlanStatus.ACTIVE,
+      commercialFeatureFlag: 'billing.plan.pro.commercial',
+      requiredPublicModules: 2,
+      metadata: { stripePriceId: 'price_pro' },
+    });
+    prisma.billingFeatureFlag.findUnique.mockResolvedValue({ enabled: false });
+
+    await expect(service.createSubscriptionCheckoutSession({
+      tenantId: 'tenant_a',
+      actorEmail: 'owner@example.com',
+      planKey: 'pro',
+      successUrl: 'http://localhost:5001/billing/success',
+      cancelUrl: 'http://localhost:5001/billing/cancel',
+    })).rejects.toThrow('Billing plan is not commercially active.');
+  });
+
+  it('processes signed subscription webhooks and reconciles billing account state', async () => {
+    const { service, prisma, audit } = createService();
+    const currentPeriodEnd = Math.floor(Date.now() / 1000) + 86_400;
+    const event = {
+      id: 'evt_subscription_active',
+      type: 'customer.subscription.updated',
+      data: {
+        object: {
+          id: 'sub_123',
+          customer: 'cus_123',
+          status: 'active',
+          current_period_end: currentPeriodEnd,
+          metadata: {
+            tenantId: 'tenant_a',
+            synapse_plan_key: 'pro',
+          },
+        },
+      },
+    };
+    const signed = signStripePayload(event);
+    prisma.stripeWebhookEvent.findUnique.mockResolvedValue(null);
+    prisma.billingAccount.update.mockResolvedValue({});
+    prisma.stripeWebhookEvent.create.mockResolvedValue({
+      id: 'webhook_1',
+      status: StripeWebhookEventStatus.PROCESSED,
+      errorMessage: null,
+    });
+
+    await expect(
+      service.processStripeWebhook(signed.rawBody, signed.signatureHeader),
+    ).resolves.toEqual({
+      received: true,
+      duplicate: false,
+      eventId: 'evt_subscription_active',
+      status: StripeWebhookEventStatus.PROCESSED,
+    });
+
+    expect(prisma.billingAccount.update).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant_a' },
+      data: expect.objectContaining({
+        stripeCustomerId: 'cus_123',
+        stripeSubscriptionId: 'sub_123',
+        status: BillingStatus.ACTIVE,
+        planKey: 'pro',
+      }),
+    });
+    expect(prisma.billingAccount.update.mock.calls[0][0].data.currentPeriodEnd)
+      .toEqual(new Date(currentPeriodEnd * 1000));
+    expect(prisma.stripeWebhookEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        stripeEventId: 'evt_subscription_active',
+        eventType: 'customer.subscription.updated',
+        status: StripeWebhookEventStatus.PROCESSED,
+      }),
+    });
+    expect(audit.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.BILLING_STRIPE_WEBHOOK_PROCESSED,
+        resourceType: 'StripeWebhookEvent',
+        resourceId: 'webhook_1',
+      }),
+    );
+  });
+
+  it('deduplicates already recorded Stripe webhook events', async () => {
+    const { service, prisma } = createService();
+    const signed = signStripePayload({
+      id: 'evt_duplicate',
+      type: 'customer.subscription.updated',
+      data: { object: { id: 'sub_123' } },
+    });
+    prisma.stripeWebhookEvent.findUnique.mockResolvedValue({
+      stripeEventId: 'evt_duplicate',
+      status: StripeWebhookEventStatus.PROCESSED,
+    });
+
+    await expect(
+      service.processStripeWebhook(signed.rawBody, signed.signatureHeader),
+    ).resolves.toEqual({
+      received: true,
+      duplicate: true,
+      eventId: 'evt_duplicate',
+      status: StripeWebhookEventStatus.PROCESSED,
+    });
+    expect(prisma.billingAccount.update).not.toHaveBeenCalled();
+    expect(prisma.stripeWebhookEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects webhooks with invalid signatures', async () => {
+    const { service } = createService();
+    const signed = signStripePayload({
+      id: 'evt_bad_signature',
+      type: 'invoice.payment_failed',
+    });
+
+    await expect(
+      service.processStripeWebhook(signed.rawBody, 't=1,v1=bad'),
+    ).rejects.toThrow('Stripe webhook signature timestamp is outside tolerance.');
+  });
+
+  it('maps failed invoice webhooks to past due accounts', async () => {
+    const { service, prisma } = createService();
+    const periodEnd = Math.floor(Date.now() / 1000) + 3_600;
+    const signed = signStripePayload({
+      id: 'evt_invoice_failed',
+      type: 'invoice.payment_failed',
+      data: {
+        object: {
+          customer: 'cus_123',
+          subscription: 'sub_123',
+          lines: {
+            data: [{ period: { end: periodEnd } }],
+          },
+        },
+      },
+    });
+    prisma.stripeWebhookEvent.findUnique.mockResolvedValue(null);
+    prisma.billingAccount.update.mockResolvedValue({});
+    prisma.stripeWebhookEvent.create.mockResolvedValue({
+      id: 'webhook_2',
+      status: StripeWebhookEventStatus.PROCESSED,
+      errorMessage: null,
+    });
+
+    await service.processStripeWebhook(signed.rawBody, signed.signatureHeader);
+
+    expect(prisma.billingAccount.update).toHaveBeenCalledWith({
+      where: { stripeSubscriptionId: 'sub_123' },
+      data: {
+        status: BillingStatus.PAST_DUE,
+        currentPeriodEnd: new Date(periodEnd * 1000),
+      },
+    });
   });
 });

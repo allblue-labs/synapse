@@ -83,3 +83,35 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: cross-tenant integration tests with real database fixtures.
 - Risks: any future direct usage aggregation must always include tenant scope.
 - Next recommended step: add e2e tests proving tenant A cannot read tenant B usage summaries.
+
+## 2026-05-07 Usage Rating Update
+
+- Changed: rated aggregates are tenant-scoped by tenant and billing period.
+- Completed: aggregate upserts include tenant, billing period, metric, unit, and currency uniqueness.
+- Pending: database-backed cross-tenant tests for rated summaries.
+- Risks: any reporting job must rate one tenant/period at a time or enforce tenant filters.
+- Next recommended step: add integration tests before batch rating jobs.
+
+## 2026-05-07 Stripe Usage Reporting Update
+
+- Changed: Stripe report records are tenant-scoped and tied to tenant aggregate ids.
+- Completed: reporting looks up `BillingAccount` by tenant before sending customer usage.
+- Pending: integration tests with multiple tenants and distinct Stripe customer ids.
+- Risks: Stripe customer ids are global and must always be accessed through tenant-owned billing accounts.
+- Next recommended step: add tenant-scoped webhook reconciliation for Stripe customer/subscription events.
+
+## 2026-05-07 Stripe Webhook Reconciliation Update
+
+- Changed: Stripe webhook reconciliation updates tenant billing accounts by tenant metadata first, then existing subscription/customer ids when metadata is unavailable.
+- Completed: subscription events can set tenant-owned Stripe customer/subscription ids and billing status; invoice events only update accounts already linked by Stripe ids.
+- Pending: checkout/customer provisioning must always stamp `tenantId` and `synapse_plan_key` metadata.
+- Risks: Stripe identifiers are global; any future lookup must keep updates constrained to one `BillingAccount`.
+- Next recommended step: add database integration tests with two tenants and distinct Stripe customer/subscription ids.
+
+## 2026-05-07 Stripe Checkout Provisioning Update
+
+- Changed: checkout provisioning creates or reuses Stripe customers only through the tenant-owned `BillingAccount`.
+- Completed: new Stripe customer ids are persisted by `tenantId`; checkout sessions carry tenant metadata for later webhook reconciliation.
+- Pending: multi-tenant e2e tests with two customers, customer portal tenant checks, and checkout session retrieval checks.
+- Risks: a reused Stripe customer id must always come from the tenant billing account, never from client input.
+- Next recommended step: add e2e tests proving tenants cannot create checkout sessions against another tenant customer.

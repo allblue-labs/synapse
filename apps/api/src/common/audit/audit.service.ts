@@ -27,6 +27,9 @@ export const AuditAction = {
   MODULE_ENABLED:       'modules.enabled',
   MODULE_DISABLED:      'modules.disabled',
   BILLING_FEATURE_FLAG_UPDATED: 'billing.feature_flag.updated',
+  BILLING_STRIPE_CUSTOMER_CREATED: 'billing.stripe_customer.created',
+  BILLING_STRIPE_CHECKOUT_CREATED: 'billing.stripe_checkout.created',
+  BILLING_STRIPE_WEBHOOK_PROCESSED: 'billing.stripe_webhook.processed',
 } as const;
 
 export type AuditActionName = typeof AuditAction[keyof typeof AuditAction] | (string & {});

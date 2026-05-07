@@ -47,7 +47,15 @@ async function bootstrap() {
   // synapse_session cookie. Sits before route handlers so guards see it.
   app.use(cookieParser());
 
-  app.use(json({ limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb') }));
+  app.use(json({
+    limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb'),
+    verify: (req, _res, buf) => {
+      const expressReq = req as typeof req & { originalUrl?: string; rawBody?: Buffer };
+      if (expressReq.originalUrl === '/v1/billing/stripe/webhook') {
+        expressReq.rawBody = Buffer.from(buf);
+      }
+    },
+  }));
   app.use(urlencoded({ extended: true, limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb') }));
 
   app.setGlobalPrefix('v1');

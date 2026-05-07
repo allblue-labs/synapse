@@ -130,10 +130,6 @@ services:
     build:
       context: ../..
       dockerfile: apps/web/Dockerfile
-      args:
-        # Baked into the build at compile time. Sourced from the root
-        # `.env` so the same value is used everywhere.
-        NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL}
     container_name: synapse-web
     restart: unless-stopped
     env_file:

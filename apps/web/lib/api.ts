@@ -32,7 +32,7 @@ export type {Permission, UserRole};
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') ??
-  'http://localhost:5000/v1';
+  'http://192.168.1.15:5000/v1';
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 

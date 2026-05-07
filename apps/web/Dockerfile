@@ -31,8 +31,6 @@ COPY --from=contracts-build /app/packages/contracts/ packages/contracts/
 COPY apps/web/ apps/web/
 COPY --from=deps /app/apps/web/node_modules apps/web/node_modules
 
-ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/v1
-ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app/apps/web

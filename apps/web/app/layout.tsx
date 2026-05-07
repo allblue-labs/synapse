@@ -1,6 +1,14 @@
 import type {Metadata} from 'next';
 import {Inter} from 'next/font/google';
+import {cookies} from 'next/headers';
 import {Providers} from '@/components/providers/providers';
+import {
+  asLocale,
+  asLocalePreference,
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  resolveSystemLocale,
+} from '@/lib/i18n/types';
 import './globals.css';
 
 const inter = Inter({
@@ -24,11 +32,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({children}: {children: React.ReactNode}) {
+export default async function RootLayout({children}: {children: React.ReactNode}) {
+  const cookieStore = await cookies();
+  const cookieValue = cookieStore.get(LOCALE_COOKIE)?.value;
+
+  const preference = asLocalePreference(cookieValue);
+  // Server can't read navigator.language. When the user's preference is
+  // 'system' we render the platform default and let the client fix up
+  // after mount (mirrors how next-themes handles the `system` theme).
+  const locale = preference === 'system'
+    ? resolveSystemLocale(undefined)   // → DEFAULT_LOCALE
+    : asLocale(preference);
+
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang={locale} className={inter.variable} suppressHydrationWarning>
       <body className="font-sans">
-        <Providers locale="en" messages={{}}>
+        <Providers initialLocale={locale} initialLocalePreference={preference}>
           {children}
         </Providers>
       </body>

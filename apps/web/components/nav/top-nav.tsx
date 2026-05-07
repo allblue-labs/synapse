@@ -9,12 +9,15 @@ import {useState, useEffect} from 'react';
 import {cn} from '@/lib/utils';
 import {signOut} from '@/lib/auth';
 import type {CurrentUser} from '@/lib/api';
+import {useTranslator} from '@/components/providers/locale-provider';
+import {LanguageToggle} from '@/components/i18n/language-toggle';
+import type {MessageKey} from '@/lib/i18n/messages';
 
-const PRIMARY_NAV = [
-  {label: 'Overview', href: '/overview'},
-  {label: 'Modules',  href: '/modules'},
-  {label: 'Agents',   href: '/agents'},
-  {label: 'Activity', href: '/activity'},
+const PRIMARY_NAV: ReadonlyArray<{label: MessageKey; href: string}> = [
+  {label: 'appNav.overview', href: '/overview'},
+  {label: 'appNav.modules',  href: '/modules'},
+  {label: 'appNav.agents',   href: '/agents'},
+  {label: 'appNav.activity', href: '/activity'},
 ] as const;
 
 function ThemeToggle() {
@@ -74,10 +77,11 @@ function ThemeToggle() {
 }
 
 function UserMenu({user}: {user: CurrentUser | null}) {
+  const t = useTranslator();
   const [open, setOpen] = useState(false);
 
   const initial = (user?.name?.charAt(0) ?? user?.email?.charAt(0) ?? '?').toUpperCase();
-  const displayName = user?.name ?? 'Account';
+  const displayName = user?.name ?? t('appNav.account');
   const displayEmail = user?.email ?? '—';
 
   return (
@@ -114,7 +118,7 @@ function UserMenu({user}: {user: CurrentUser | null}) {
                 onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
-                <Settings size={14} className="text-zinc-400" /> Settings
+                <Settings size={14} className="text-zinc-400" /> {t('common.settings')}
               </Link>
             </div>
             <div className="border-t border-zinc-100 py-1 dark:border-zinc-800">
@@ -123,7 +127,7 @@ function UserMenu({user}: {user: CurrentUser | null}) {
                 onClick={signOut}
                 className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
               >
-                <LogOut size={14} /> Sign out
+                <LogOut size={14} /> {t('common.signOut')}
               </button>
             </div>
           </div>
@@ -134,13 +138,14 @@ function UserMenu({user}: {user: CurrentUser | null}) {
 }
 
 function CommandTrigger() {
+  const t = useTranslator();
   return (
     <button
       type="button"
       className="hidden h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white/60 px-3 text-sm text-zinc-500 shadow-soft transition-colors hover:bg-zinc-50 hover:text-zinc-900 sm:flex dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
     >
       <Search size={13} />
-      <span className="text-xs">Search</span>
+      <span className="text-xs">{t('common.search')}</span>
       <span className="ml-1 flex items-center gap-0.5 rounded border border-zinc-200 bg-white px-1 py-0.5 text-[10px] font-mono text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">
         <Command size={9} />K
       </span>
@@ -149,6 +154,7 @@ function CommandTrigger() {
 }
 
 export function TopNav({user}: {user: CurrentUser | null}) {
+  const t = useTranslator();
   const pathname = usePathname();
 
   return (
@@ -191,7 +197,7 @@ export function TopNav({user}: {user: CurrentUser | null}) {
                     : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
                 )}
               >
-                {label}
+                {t(label)}
                 {isActive && (
                   <span className="absolute inset-x-3 bottom-0 h-[2px] rounded-t-full bg-gradient-to-r from-brand-500 to-accent-500" />
                 )}
@@ -203,6 +209,7 @@ export function TopNav({user}: {user: CurrentUser | null}) {
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
           <CommandTrigger />
+          <LanguageToggle />
           <ThemeToggle />
           <UserMenu user={user} />
         </div>

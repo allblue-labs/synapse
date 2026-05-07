@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { json, urlencoded } from 'express';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -41,6 +42,10 @@ async function bootstrap() {
     }),
   );
   app.disable('x-powered-by');
+
+  // Populate `req.cookies` so the JWT cookie extractor can read the
+  // synapse_session cookie. Sits before route handlers so guards see it.
+  app.use(cookieParser());
 
   app.use(json({ limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb') }));
   app.use(urlencoded({ extended: true, limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb') }));

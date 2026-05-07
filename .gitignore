@@ -2,8 +2,19 @@ node_modules
 dist
 .next
 .turbo
+
+# Local environment files — never commit secrets.
+# Patterns match at any depth (root, apps/api, apps/web, …).
 .env
 .env.local
+.env.*.local
+
+# Keep tracked so a fresh clone has a working layout.
+# The symlink at infra/docker/.env is what lets `docker compose up -d`
+# substitute ${VAR} from the root .env without an --env-file flag.
+!.env.example
+!apps/*/.env.example
+
 .DS_Store
 coverage
 *.log

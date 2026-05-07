@@ -6,12 +6,15 @@ import Image from 'next/image';
 import {ArrowRight, Sun, Moon, Monitor, Menu, X} from 'lucide-react';
 import {useTheme} from 'next-themes';
 import {cn} from '@/lib/utils';
+import {useTranslator} from '@/components/providers/locale-provider';
+import {LanguageToggle} from '@/components/i18n/language-toggle';
+import type {MessageKey} from '@/lib/i18n/messages';
 
-const NAV_LINKS = [
-  {label: 'Modules',  href: '#modules'},
-  {label: 'Features', href: '#features'},
-  {label: 'Pricing',  href: '#pricing'},
-  {label: 'Docs',     href: '#'},
+const NAV_LINKS: ReadonlyArray<{label: MessageKey; href: string}> = [
+  {label: 'publicNav.modules',  href: '#modules'},
+  {label: 'publicNav.features', href: '#features'},
+  {label: 'publicNav.pricing',  href: '#pricing'},
+  {label: 'publicNav.docs',     href: '#'},
 ] as const;
 
 function ThemeButton() {
@@ -70,6 +73,7 @@ function ThemeButton() {
 }
 
 export function PublicNav() {
+  const t = useTranslator();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -119,7 +123,7 @@ export function PublicNav() {
               href={href}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
             >
-              {label}
+              {t(label)}
             </a>
           ))}
         </nav>
@@ -128,18 +132,19 @@ export function PublicNav() {
 
         {/* Desktop actions */}
         <div className="hidden items-center gap-1.5 md:flex">
+          <LanguageToggle />
           <ThemeButton />
           <Link
             href="/login"
             className="rounded-lg px-3.5 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           >
-            Sign in
+            {t('publicNav.signIn')}
           </Link>
           <Link
             href="/login"
             className="group inline-flex h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white shadow-soft transition-all hover:bg-zinc-800 hover:shadow-card dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
           >
-            Get started
+            {t('publicNav.getStarted')}
             <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
@@ -166,7 +171,7 @@ export function PublicNav() {
                 onClick={() => setMobileOpen(false)}
                 className="rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
-                {label}
+                {t(label)}
               </a>
             ))}
             <div className="mt-3 grid gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
@@ -174,13 +179,13 @@ export function PublicNav() {
                 href="/login"
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-center text-sm font-medium text-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
               >
-                Sign in
+                {t('publicNav.signIn')}
               </Link>
               <Link
                 href="/login"
                 className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
               >
-                Get started <ArrowRight size={13} />
+                {t('publicNav.getStarted')} <ArrowRight size={13} />
               </Link>
             </div>
           </nav>

@@ -1,35 +1,44 @@
 name: synapse
 
-# ---------------------------------------------------------------------------
-# Shared environment anchors
-# ---------------------------------------------------------------------------
-x-api-env: &api-env
-  DATABASE_URL: postgresql://synapse:synapse@postgres-synapse:5432/synapse?schema=public
-  REDIS_URL: redis://redis-synapse:6379
-  NODE_ENV: production
-  # Browser origin allowlist — must match the host where the frontend runs.
-  # Comma-separated. Override in `.env` for staging/production deployments.
-  CORS_ORIGINS: http://localhost:5001,http://127.0.0.1:5001
+# ───────────────────────────────────────────────────────────────────────
+# Synapse — Docker Compose stack.
+#
+# Environment layout:
+#   • root /.env             — shared infra (Postgres/Redis creds, host ports,
+#                              public API URL). Used for ${VAR} substitution
+#                              in this file via the `infra/docker/.env`
+#                              symlink that points back to the root.
+#   • apps/api/.env          — API runtime config, loaded into api-synapse
+#                              and migrate-synapse via `env_file:`.
+#   • apps/web/.env          — Web runtime config, loaded into web-synapse.
+#
+# Rule: never hardcode runtime values in this file. Use either a
+# service-level `env_file:` directive or `${VAR}` substitution from the
+# root `.env`. The only inline values allowed here are *static
+# composition* (in-network hostnames, plan names, etc.) — values that
+# describe Docker topology rather than business config.
+# ───────────────────────────────────────────────────────────────────────
 
 services:
 
-  # -------------------------------------------------------------------------
-  # Infrastructure
-  # -------------------------------------------------------------------------
+  # ─── Infrastructure ────────────────────────────────────────────────
   postgres-synapse:
     image: postgres:16-alpine
     container_name: synapse-postgres
     restart: unless-stopped
+    env_file:
+      - path: ./.env                         # → ../../.env via symlink
+        required: true
     environment:
-      POSTGRES_USER: synapse
-      POSTGRES_PASSWORD: synapse
-      POSTGRES_DB: synapse
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
     ports:
-      - "5435:5432"
+      - "${POSTGRES_HOST_PORT}:5432"
     volumes:
       - synapse-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U synapse -d synapse"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,7 +52,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--loglevel", "warning"]
     ports:
-      - "6380:6379"
+      - "${REDIS_HOST_PORT}:6379"
     volumes:
       - synapse-redis-data:/data
     healthcheck:
@@ -55,9 +64,7 @@ services:
     networks:
       - backend
 
-  # -------------------------------------------------------------------------
-  # Migration runner (runs once, then exits)
-  # -------------------------------------------------------------------------
+  # ─── Migration runner (runs once, then exits) ──────────────────────
   migrate-synapse:
     build:
       context: ../..
@@ -65,11 +72,13 @@ services:
       target: build
     container_name: synapse-migrate
     restart: "no"
-    environment:
-      <<: *api-env
     env_file:
-      - path: ../../.env
-        required: false
+      - path: ../../apps/api/.env
+        required: true
+    environment:
+      # Override DATABASE_URL with the in-network hostname. Composed
+      # from values in the root `.env` — no credentials in this file.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-synapse:5432/${POSTGRES_DB}?schema=public
     command: ["npx", "prisma", "migrate", "deploy", "--schema", "prisma/schema.prisma"]
     working_dir: /app/apps/api
     depends_on:
@@ -78,27 +87,28 @@ services:
     networks:
       - backend
 
-  # -------------------------------------------------------------------------
-  # API
-  # -------------------------------------------------------------------------
+  # ─── API ────────────────────────────────────────────────────────────
   api-synapse:
     build:
       context: ../..
       dockerfile: apps/api/Dockerfile
     container_name: synapse-api
     restart: unless-stopped
-    environment:
-      <<: *api-env
     env_file:
-      - path: ../../.env
-        required: false
+      - path: ../../apps/api/.env
+        required: true
+    environment:
+      # In-container URLs override the local-dev URLs in apps/api/.env.
+      # Composed from primitives in the root `.env`.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-synapse:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL:    redis://redis-synapse:6379
     ports:
-      - "5000:4000"
+      - "${API_HOST_PORT}:4000"
     healthcheck:
-      # The Nest app uses a global '/v1' prefix, so the route is /v1/health.
-      # Use 127.0.0.1 (not 'localhost') because the API binds IPv4-only via
-      # `app.listen(PORT, '0.0.0.0')` — busybox wget would otherwise try ::1
-      # first, hit ECONNREFUSED, and never fall back to v4.
+      # The Nest app uses a global '/v1' prefix → /v1/health.
+      # Use 127.0.0.1 (not 'localhost') because the API binds IPv4-only
+      # via `app.listen(PORT, '0.0.0.0')` — busybox wget would otherwise
+      # try ::1 first, hit ECONNREFUSED, and never fall back to v4.
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/v1/health || exit 1"]
       interval: 10s
       timeout: 5s
@@ -115,40 +125,35 @@ services:
       - backend
       - frontend
 
-  # -------------------------------------------------------------------------
-  # Web
-  # -------------------------------------------------------------------------
+  # ─── Web ────────────────────────────────────────────────────────────
   web-synapse:
     build:
       context: ../..
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:5000/v1
+        # Baked into the build at compile time. Sourced from the root
+        # `.env` so the same value is used everywhere.
+        NEXT_PUBLIC_API_BASE_URL: ${PUBLIC_API_BASE_URL}
     container_name: synapse-web
     restart: unless-stopped
     env_file:
-      - path: ../../.env
-        required: false
+      - path: ../../apps/web/.env
+        required: true
     ports:
-      - "5001:3000"
+      - "${WEB_HOST_PORT}:3000"
     depends_on:
       api-synapse:
         condition: service_healthy
     networks:
       - frontend
 
-# ---------------------------------------------------------------------------
-# Networks
-# ---------------------------------------------------------------------------
+# ───────────────────────────────────────────────────────────────────────
 networks:
   backend:
     driver: bridge
   frontend:
     driver: bridge
 
-# ---------------------------------------------------------------------------
-# Volumes
-# ---------------------------------------------------------------------------
 volumes:
   synapse-postgres-data:
   synapse-redis-data:

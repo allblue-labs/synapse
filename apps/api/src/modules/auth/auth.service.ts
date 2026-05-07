@@ -8,6 +8,21 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginLockoutService } from './login-lockout.service';
 
+/**
+ * What the service hands back to the controller after a successful
+ * authentication. The controller is responsible for converting this
+ * into an HttpOnly cookie + a body that exposes only the user shape.
+ */
+export interface IssuedSession {
+  token: string;
+  user: {
+    id: string;
+    email: string;
+    tenantId: string;
+    role: UserRole;
+  };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -17,7 +32,7 @@ export class AuthService {
     private readonly audit: AuditService,
   ) {}
 
-  async register(dto: RegisterDto, ip?: string) {
+  async register(dto: RegisterDto, ip?: string): Promise<IssuedSession> {
     const normalizedEmail = dto.email.toLowerCase().trim();
     const slug = dto.tenantSlug.toLowerCase().trim();
 
@@ -75,7 +90,7 @@ export class AuthService {
     return this.issueSession(result.user.id, result.user.email, result.tenant.id, UserRole.OWNER);
   }
 
-  async login(dto: LoginDto, ip: string) {
+  async login(dto: LoginDto, ip: string): Promise<IssuedSession> {
     const email = dto.email.toLowerCase().trim();
 
     // Gate 1 — distributed lockout (Redis). Reject before doing any
@@ -139,22 +154,43 @@ export class AuthService {
     return this.issueSession(user.id, user.email, membership.tenantId, membership.role);
   }
 
-  private issueSession(userId: string, email: string, tenantId: string, role: UserRole) {
-    const accessToken = this.jwtService.sign({
+  /**
+   * Audit-log a logout. The controller is responsible for actually
+   * clearing the cookie — this method only records the event and is
+   * tolerant of an unauthenticated logout (idempotent client behaviour).
+   */
+  async recordLogout(actor: {sub: string; tenantId: string} | null, ip?: string): Promise<void> {
+    if (!actor) return;
+    await this.audit.record({
+      tenantId:    actor.tenantId,
+      actorUserId: actor.sub,
+      action:      AuditAction.AUTH_LOGOUT,
+      status:      AuditStatus.SUCCESS,
+      ipAddress:   ip,
+    });
+  }
+
+  private issueSession(
+    userId: string,
+    email: string,
+    tenantId: string,
+    role: UserRole,
+  ): IssuedSession {
+    const token = this.jwtService.sign({
       sub: userId,
       email,
       tenantId,
-      role
+      role,
     });
 
     return {
-      accessToken,
+      token,
       user: {
         id: userId,
         email,
         tenantId,
-        role
-      }
+        role,
+      },
     };
   }
 }

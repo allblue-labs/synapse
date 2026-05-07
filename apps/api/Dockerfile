@@ -61,6 +61,6 @@ COPY --chown=nestjs:nodejs apps/api/scripts apps/api/scripts
 COPY --chown=nestjs:nodejs apps/api/tsconfig.json apps/api/tsconfig.json
 
 USER nestjs
-EXPOSE 4000
+EXPOSE 3000
 WORKDIR /app/apps/api
 CMD ["node", "dist/src/main.js"]

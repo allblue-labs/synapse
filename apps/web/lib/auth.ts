@@ -1,65 +1,35 @@
 /**
- * Auth-token helpers — single source of truth for client-side cookie I/O.
+ * Auth helpers — cookie-based session model.
  *
- * The token is stored as a JS-readable cookie (not HttpOnly) because the
- * Authorization header is built in-browser before each fetch. The dashboard
- * layout *also* checks for the cookie's presence server-side via next/headers,
- * which gives a free SSR auth gate.
+ * The JWT is stored in an HttpOnly cookie set by the API (`Set-Cookie:
+ * synapse_session=…`). JavaScript on the page cannot read it, set it,
+ * or clear it; signing out therefore goes through the API so the
+ * server can issue an expired-cookie response.
  *
- * For a stricter posture in production, move the cookie to HttpOnly and add
- * a server-side login endpoint (Next route handler) that performs the API
- * call and sets the cookie via Set-Cookie. The current shape keeps the
- * surface small while the platform is in private beta.
+ * Everything that used to live here (`setToken`, `getToken`,
+ * `clearToken`, `decodeTokenPayload`, `isTokenExpired`) is gone — none
+ * of it is meaningful now that the cookie is opaque to the browser.
  */
 
-const TOKEN_NAME = 'synapse_token';
-const ONE_DAY = 60 * 60 * 24;
-
-export function setToken(token: string): void {
-  if (typeof document === 'undefined') return;
-  const secure = location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie =
-    `${TOKEN_NAME}=${encodeURIComponent(token)};path=/;max-age=${ONE_DAY};SameSite=Lax${secure}`;
-}
-
-export function clearToken(): void {
-  if (typeof document === 'undefined') return;
-  document.cookie = `${TOKEN_NAME}=;path=/;expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-}
-
-export function getToken(): string | null {
-  if (typeof document === 'undefined') return null;
-  const match = document.cookie.match(/(?:^|;\s*)synapse_token=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
+import {api} from './api';
 
 /**
- * Best-effort decode of the JWT payload (no signature verification).
- * Useful for client-side display ("Signed in as ...") — never trust this for
- * authorisation decisions.
+ * Hard sign-out. Hits the API to clear the HttpOnly cookie, then
+ * forces a full navigation so any in-memory state (React tree,
+ * caches) is reset.
+ *
+ * Best-effort: if the network call fails we still navigate, because
+ * the cookie may already be invalid and stranding the user on a
+ * "Signed in" UI would be worse than a confusing fetch error.
  */
-export function decodeTokenPayload<T = Record<string, unknown>>(token: string): T | null {
+export async function signOut(): Promise<void> {
   try {
-    const [, payload] = token.split('.');
-    if (!payload) return null;
-    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(json) as T;
+    await api.auth.logout();
   } catch {
-    return null;
+    // Swallowed by design — see comment above.
   }
-}
 
-/** Sign out: clear the cookie and force a hard navigation to /login. */
-export function signOut(): void {
-  clearToken();
   if (typeof window !== 'undefined') {
     window.location.href = '/login';
   }
-}
-
-/** Is the JWT expired (best-effort, client-side hint only). */
-export function isTokenExpired(token: string): boolean {
-  const payload = decodeTokenPayload<{exp?: number}>(token);
-  if (!payload?.exp) return false;
-  return payload.exp * 1000 < Date.now();
 }

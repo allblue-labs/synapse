@@ -13,7 +13,7 @@ import {
 
 import {SynapseBgDark} from '@/components/background/synapse-bg';
 import {api, ApiError} from '@/lib/api';
-import {setToken} from '@/lib/auth';
+import {useTranslator} from '@/components/providers/locale-provider';
 
 const FEATURES = [
   'Connect WhatsApp, Telegram & web chat in minutes',
@@ -34,6 +34,7 @@ function safeNext(raw: string | null): string {
 
 export default function LoginClient() {
   const router = useRouter();
+  const t = useTranslator();
 
   const searchParams = useSearchParams();
 
@@ -51,22 +52,22 @@ export default function LoginClient() {
     setLoading(true);
 
     try {
-      const {accessToken} = await api.auth.login(email, password);
-
-      setToken(accessToken);
+      // The API responds with `Set-Cookie: synapse_session=…; HttpOnly`
+      // which the browser stores transparently. Nothing to plumb in JS.
+      await api.auth.login(email, password);
 
       router.push(next);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(
           err.isUnauthorized
-            ? 'Invalid email or password.'
+            ? t('login.errorInvalid')
             : err.isNetworkError
-              ? 'Could not reach the server. Please try again.'
+              ? t('login.errorNetwork')
               : err.message,
         );
       } else {
-        setError('Login failed. Please try again.');
+        setError(t('login.errorGeneric'));
       }
     } finally {
       setLoading(false);
@@ -149,7 +150,7 @@ export default function LoginClient() {
           className="absolute right-6 top-6 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
         >
           <ArrowLeft size={13} />
-          Back home
+          {t('common.backHome')}
         </Link>
 
         <div className="w-full max-w-[400px]">
@@ -171,11 +172,11 @@ export default function LoginClient() {
 
           <div className="mb-9">
             <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-              Welcome back
+              {t('login.welcomeBack')}
             </h1>
 
             <p className="mt-2 text-[15px] text-zinc-500 dark:text-zinc-400">
-              Sign in to continue to your workspace.
+              {t('login.intro')}
             </p>
           </div>
 
@@ -189,7 +190,7 @@ export default function LoginClient() {
                 htmlFor="email"
                 className="mb-1.5 block text-xs font-semibold text-zinc-700 dark:text-zinc-300"
               >
-                Work email
+                {t('login.workEmail')}
               </label>
 
               <input
@@ -211,14 +212,14 @@ export default function LoginClient() {
                   htmlFor="password"
                   className="text-xs font-semibold text-zinc-700 dark:text-zinc-300"
                 >
-                  Password
+                  {t('login.password')}
                 </label>
 
                 <a
                   href="mailto:hello@synapse.ai"
                   className="text-xs font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                 >
-                  Forgot?
+                  {t('common.forgot')}
                 </a>
               </div>
 
@@ -274,11 +275,11 @@ export default function LoginClient() {
                     />
                   </svg>
 
-                  Signing in…
+                  {t('common.saving')}
                 </>
               ) : (
                 <>
-                  Sign in to Synapse
+                  {t('login.submit')}
 
                   <ArrowRight
                     size={14}
@@ -291,33 +292,33 @@ export default function LoginClient() {
 
           <div className="mt-10 border-t border-zinc-100 pt-6 dark:border-zinc-800">
             <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-              New to Synapse?{' '}
+              {t('login.noAccount')}{' '}
 
               <a
                 href="mailto:hello@synapse.ai"
                 className="font-semibold text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
               >
-                Request access
+                {t('common.requestAccess')}
               </a>
             </p>
           </div>
 
           <p className="mt-8 text-center text-[11px] leading-relaxed text-zinc-400 dark:text-zinc-600">
-            By signing in, you agree to our{' '}
+            {t('login.legalPrefix')}{' '}
 
             <a
               href="#"
               className="underline-offset-2 hover:underline"
             >
-              Terms
+              {t('login.terms')}
             </a>{' '}
-            &{' '}
+            {t('login.legalAnd')}{' '}
 
             <a
               href="#"
               className="underline-offset-2 hover:underline"
             >
-              Privacy Policy
+              {t('login.privacy')}
             </a>.
           </p>
 

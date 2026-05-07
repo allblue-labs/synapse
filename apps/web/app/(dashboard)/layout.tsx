@@ -1,4 +1,3 @@
-import {cookies} from 'next/headers';
 import {redirect} from 'next/navigation';
 import {TopNav} from '@/components/nav/top-nav';
 import {SegmentNav} from '@/components/nav/segment-nav';
@@ -6,21 +5,28 @@ import {CurrentUserProvider} from '@/components/auth/can';
 import {api, ApiError, type CurrentUser} from '@/lib/api';
 import type {ReactNode} from 'react';
 
+/**
+ * Dashboard shell — RSC.
+ *
+ * The session lives in the HttpOnly `synapse_session` cookie. We never
+ * read its value; instead we ask the API to identify the caller via
+ * `/users/me`. The unified API client lazily forwards the request's
+ * cookies on the server, so this is a single call with no plumbing.
+ *
+ *   • 200  → render the shell with the resolved user
+ *   • 401  → cookie missing/expired → bounce to /login
+ *   • 5xx  → render the shell anyway; UI degrades gracefully
+ */
 export default async function DashboardLayout({children}: {children: ReactNode}) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('synapse_token')?.value;
-  if (!token) redirect('/login');
-
-  // Fetch the session user on every navigation. If the token is invalid/expired
-  // the API returns 401 → we treat it as a hard sign-out and bounce to /login.
   let user: CurrentUser | null = null;
+
   try {
-    user = await api.users.me({token});
+    user = await api.users.me();
   } catch (err) {
     if (err instanceof ApiError && err.isUnauthorized) {
       redirect('/login?expired=1');
     }
-    // Other failures (network, 5xx): render the shell anyway — UI degrades gracefully.
+    // Network / 5xx — keep going. Pages will show fallbacks.
   }
 
   return (

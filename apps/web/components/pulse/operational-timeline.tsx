@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {ConfidenceMeter} from './confidence-meter';
-import type {PulseTimelineEvent} from '@/lib/pulse/types';
+import type {PulseTimelineEventVM} from '@/lib/pulse/types';
 
 /**
  * OperationalTimeline — vertical timeline for a single ticket / item.
@@ -36,7 +36,7 @@ import type {PulseTimelineEvent} from '@/lib/pulse/types';
  * Pure presentational. The parent owns data loading and pagination.
  */
 
-const KIND_ICON: Record<PulseTimelineEvent['kind'], LucideIcon> = {
+const KIND_ICON: Record<PulseTimelineEventVM['kind'], LucideIcon> = {
   'ticket.opened':      Ticket,
   'message.inbound':    MessageCircle,
   'message.outbound':   ArrowRight,
@@ -53,7 +53,7 @@ const KIND_ICON: Record<PulseTimelineEvent['kind'], LucideIcon> = {
 };
 
 const ACTOR_TONE: Record<
-  PulseTimelineEvent['actor']['type'],
+  PulseTimelineEventVM['actor']['type'],
   {ring: string; bg: string; text: string}
 > = {
   SYSTEM: {
@@ -106,7 +106,7 @@ function absoluteFormatter(iso: string): string {
 }
 
 export interface OperationalTimelineProps {
-  events: ReadonlyArray<PulseTimelineEvent>;
+  events: ReadonlyArray<PulseTimelineEventVM>;
   /** Show oldest → newest (default: newest → oldest). */
   ascending?: boolean;
   /** Optional empty-state slot for tickets without any events yet. */
@@ -155,7 +155,7 @@ export function OperationalTimeline({
   );
 }
 
-function TimelineRow({event, isFirst}: {event: PulseTimelineEvent; isFirst: boolean}) {
+function TimelineRow({event, isFirst}: {event: PulseTimelineEventVM; isFirst: boolean}) {
   const Icon = KIND_ICON[event.kind] ?? PenSquare;
   const tone = ACTOR_TONE[event.actor.type];
   const isEscalation = event.kind === 'ai.decision' && event.confidence !== undefined && event.confidence < 0.65;

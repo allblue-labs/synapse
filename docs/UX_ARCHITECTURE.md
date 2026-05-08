@@ -323,3 +323,16 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending (backend integration, deferred to Stage 1C): Pulse DTO/OpenAPI examples → swap `lib/pulse/fixtures.ts` for `api.pulse.*` calls.
 - Risks: pages using fixtures show a "Pending backend integration" badge in their PageHeader so the deferred wire-up is greppable.
 - Next recommended step: Batch 2 — start with the playbooks visual editor (highest operational value next) and the metrics dashboard.
+
+## 2026-05-08 Frontend Stage 1B Batch 2 — Pulse backend integration
+
+- Changed (frontend, Claude Opus): Pulse inbox / tickets list / ticket detail are now wired to real `/v1/pulse/*` per `docs/FRONTEND_CONTRACT_PACK.md`. Fixtures removed.
+- API client (`apps/web/lib/api.ts`) covers the full Pulse contract: channels, conversations, conversation events/timeline, tickets, ticket events/timeline, knowledge contexts (list/get/query/publish/archive), scheduling integrations (list/get + prepare availability/booking), seven lifecycle commands. `PULSE_FLOW_STATES` mirrors backend FSM.
+- View models live in `apps/web/lib/pulse/types.ts` — explicit projections of backend records, never inventing data. Composition seam in `apps/web/lib/pulse/loaders.ts` returns `LoadResult<T>` so pages render honest empty/error/forbidden states without try/catch sprinkled at call sites.
+- Server Actions in `apps/web/lib/pulse/actions.ts` implement the seven ticket lifecycle commands with `FormData`-or-typed-object inputs, structured `ActionResult` return shapes, and `revalidatePath` on success.
+- New shared primitive `components/ui/load-state.tsx` — four variants (`empty`, `error`, `forbidden`, `not-found`).
+- `ConfidenceMeter` and `ChannelPill` are null-tolerant: render "—" / collapse rather than misleading values when backend data is absent.
+- Per the contract pack's AppSec rules, the loader's `summaryFor(event)` translates wire `event.type` strings into operator-facing summaries; raw provider payloads are filtered down to display-safe primitives in `safePayloadFields()`. Objects/arrays in event payloads are intentionally dropped from the timeline render.
+- Pending integrations (Batch 3): module store, billing visibility, knowledge management UI, scheduling integrations UI, Pulse metrics dashboard, runtime governance for platform admin. API client already exposes these endpoints so wiring is purely additive.
+- Risks: list-fanout enrichment in `loaders.toRow` issues per-row detail fetches to surface priority/confidence. The single-file seam to swap is `loaders.ts`.
+- Next recommended step: Batch 3 — module store + billing visibility (highest tenant value), then the knowledge management surface.

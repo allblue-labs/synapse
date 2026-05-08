@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {ArrowUpRight, Ticket} from 'lucide-react';
 import {PageHeader} from '@/components/ui/page-header';
+import {LoadState} from '@/components/ui/load-state';
 import {ConfidenceMeter} from '@/components/pulse/confidence-meter';
 import {
   ChannelPill,
@@ -10,7 +11,8 @@ import {
   TicketStatusPill,
   TicketTypePill,
 } from '@/components/pulse/status-pills';
-import {loadAllTickets} from '@/lib/pulse/fixtures';
+import {loadTicketsPage} from '@/lib/pulse/loaders';
+import type {PulseTicketRow} from '@/lib/pulse/types';
 import type {Metadata} from 'next';
 
 export const metadata: Metadata = {title: 'Tickets — Pulse'};
@@ -26,13 +28,7 @@ function ageOf(iso: string): string {
 }
 
 export default async function PulseTicketsPage() {
-  const tickets = await loadAllTickets();
-
-  const buckets = {
-    needsReview: tickets.filter((t) => t.status === 'PENDING_REVIEW'),
-    open:        tickets.filter((t) => t.status === 'OPEN' || t.status === 'WAITING_CUSTOMER'),
-    closed:      tickets.filter((t) => t.status === 'RESOLVED' || t.status === 'CANCELLED'),
-  };
+  const result = await loadTicketsPage({pageSize: 50});
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -43,46 +39,76 @@ export default async function PulseTicketsPage() {
         icon={<Ticket size={26} />}
         iconGradient="from-brand-500 to-indigo-500"
         glowColor="bg-brand-500/15"
-        actions={
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-amber-50/80 px-3 py-1 text-[11px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/30 dark:text-amber-400">
-            Pending backend integration
-          </span>
-        }
       />
 
-      {/* ── Stat strip ────────────────────────────────────────────────── */}
+      {result.kind === 'forbidden' && (
+        <LoadState
+          variant="forbidden"
+          title="You don’t have permission to view tickets."
+          description="Tickets require the tickets:read permission. Ask an admin to grant it."
+        />
+      )}
+
+      {result.kind === 'error' && (
+        <LoadState
+          variant="error"
+          title="We couldn’t load tickets right now."
+          description={`The Pulse API returned ${result.status || 'a network error'}: ${result.message}`}
+        />
+      )}
+
+      {result.kind === 'ok' && <Loaded rows={result.data.rows} total={result.data.total} />}
+    </div>
+  );
+}
+
+function Loaded({rows, total}: {rows: ReadonlyArray<PulseTicketRow>; total: number}) {
+  const buckets = {
+    needsReview: rows.filter((t) => t.status === 'PENDING_REVIEW'),
+    open:        rows.filter((t) => t.status === 'OPEN' || t.status === 'WAITING_CUSTOMER'),
+    closed:      rows.filter((t) => t.status === 'RESOLVED' || t.status === 'CANCELLED'),
+  };
+
+  if (total === 0) {
+    return (
+      <LoadState
+        variant="empty"
+        title="No tickets yet."
+        description="When Pulse ingests an inbound message and opens a ticket, it shows up here. Make sure a channel is connected."
+      />
+    );
+  }
+
+  const scored = rows.filter((t) => t.confidence !== null);
+  const avgConfidence = scored.length > 0
+    ? Math.round((scored.reduce((s, t) => s + (t.confidence ?? 0), 0) / scored.length) * 100)
+    : null;
+
+  return (
+    <>
+      {/* ── Stat strip ──────────────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Needs review"    value={buckets.needsReview.length} accent="amber" />
-        <Stat label="Open"             value={buckets.open.length}        accent="blue" />
-        <Stat label="Resolved (today)" value={buckets.closed.length}      accent="emerald" />
-        <Stat label="Avg confidence"   value={`${Math.round(
-          (tickets.reduce((s, t) => s + t.confidence, 0) / Math.max(tickets.length, 1)) * 100,
-        )}%`} accent="zinc" />
+        <Stat label="Needs review" value={buckets.needsReview.length} accent="amber" />
+        <Stat label="Open"          value={buckets.open.length}        accent="blue" />
+        <Stat label="Closed"        value={buckets.closed.length}      accent="emerald" />
+        <Stat label="Avg confidence" value={avgConfidence !== null ? `${avgConfidence}%` : '—'} accent="zinc" />
       </section>
 
-      {/* ── Needs review (priority) ──────────────────────────────────── */}
+      {/* ── Buckets ────────────────────────────────────────────── */}
       {buckets.needsReview.length > 0 && (
         <Section
           eyebrow="Operator queue"
           title={`${buckets.needsReview.length} ticket${buckets.needsReview.length === 1 ? '' : 's'} awaiting review`}
-          tickets={buckets.needsReview}
+          rows={buckets.needsReview}
         />
       )}
 
-      <Section
-        eyebrow="Active"
-        title="Open & waiting"
-        tickets={buckets.open}
-      />
+      <Section eyebrow="Active" title="Open & waiting" rows={buckets.open} />
 
       {buckets.closed.length > 0 && (
-        <Section
-          eyebrow="Closed"
-          title="Recently resolved"
-          tickets={buckets.closed}
-        />
+        <Section eyebrow="Closed" title="Recently resolved" rows={buckets.closed} />
       )}
-    </div>
+    </>
   );
 }
 
@@ -114,11 +140,11 @@ function Stat({label, value, accent}: {label: string; value: number | string; ac
 interface SectionProps {
   eyebrow: string;
   title: string;
-  tickets: ReadonlyArray<Awaited<ReturnType<typeof loadAllTickets>>[number]>;
+  rows: ReadonlyArray<PulseTicketRow>;
 }
 
-function Section({eyebrow, title, tickets}: SectionProps) {
-  if (tickets.length === 0) {
+function Section({eyebrow, title, rows}: SectionProps) {
+  if (rows.length === 0) {
     return (
       <section>
         <div className="mb-4">
@@ -140,7 +166,7 @@ function Section({eyebrow, title, tickets}: SectionProps) {
       </div>
 
       <ul className="space-y-2">
-        {tickets.map((t) => (
+        {rows.map((t) => (
           <li key={t.id}>
             <Link
               href={`/workspace/modules/pulse/tickets/${t.id}`}
@@ -160,9 +186,11 @@ function Section({eyebrow, title, tickets}: SectionProps) {
                     </span>
                     {t.escalated && <EscalationBadge />}
                   </div>
-                  <p className="mt-0.5 truncate text-sm text-zinc-600 dark:text-zinc-400">
-                    {t.preview}
-                  </p>
+                  {t.preview && (
+                    <p className="mt-0.5 truncate text-sm text-zinc-600 dark:text-zinc-400">
+                      {t.preview}
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     <SkillPill skill={t.skill} />
                     <TicketTypePill type={t.type} />

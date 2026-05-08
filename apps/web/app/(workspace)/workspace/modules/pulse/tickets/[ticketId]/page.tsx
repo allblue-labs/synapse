@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   History,
-  RefreshCw,
   ShieldAlert,
   Sparkles,
   Ticket,
@@ -24,7 +23,8 @@ import {
   TicketTypePill,
 } from '@/components/pulse/status-pills';
 import {Can} from '@/components/auth/can';
-import {loadTicketDetail} from '@/lib/pulse/fixtures';
+import {LoadState} from '@/components/ui/load-state';
+import {loadTicketDetail} from '@/lib/pulse/loaders';
 import type {Metadata} from 'next';
 
 interface PageProps {
@@ -38,8 +38,51 @@ export async function generateMetadata({params}: PageProps): Promise<Metadata> {
 
 export default async function PulseTicketDetailPage({params}: PageProps) {
   const {ticketId} = await params;
-  const ticket = await loadTicketDetail(ticketId);
-  if (!ticket) notFound();
+  const result = await loadTicketDetail(ticketId);
+
+  if (result.kind === 'not_found') {
+    notFound();
+  }
+
+  if (result.kind === 'forbidden') {
+    return (
+      <div className="animate-fade-in space-y-8">
+        <Link
+          href="/workspace/modules/pulse/tickets"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+        >
+          <ArrowLeft size={13} />
+          Tickets
+        </Link>
+        <LoadState
+          variant="forbidden"
+          title="You don’t have permission to view this ticket."
+          description="Tickets require the tickets:read permission. Ask an admin to grant it."
+        />
+      </div>
+    );
+  }
+
+  if (result.kind === 'error') {
+    return (
+      <div className="animate-fade-in space-y-8">
+        <Link
+          href="/workspace/modules/pulse/tickets"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+        >
+          <ArrowLeft size={13} />
+          Tickets
+        </Link>
+        <LoadState
+          variant="error"
+          title="We couldn’t load this ticket right now."
+          description={`The Pulse API returned ${result.status || 'a network error'}: ${result.message}`}
+        />
+      </div>
+    );
+  }
+
+  const ticket = result.data;
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -60,26 +103,6 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
 
         <div className="flex flex-wrap items-center gap-2">
           {ticket.priority === 'URGENT' && <EscalationBadge />}
-          <Can permission="pulse:validate">
-            <button
-              type="button"
-              disabled={!ticket.capabilities.canApprove}
-              className="btn-primary h-9 px-3.5 text-xs disabled:opacity-50"
-            >
-              <CheckCircle2 size={13} />
-              Approve
-            </button>
-          </Can>
-          <Can permission="pulse:reject">
-            <button
-              type="button"
-              disabled={!ticket.capabilities.canReject}
-              className="btn-secondary h-9 px-3.5 text-xs disabled:opacity-50"
-            >
-              <XCircle size={13} />
-              Reject
-            </button>
-          </Can>
           <Can permission="tickets:assign">
             <button
               type="button"
@@ -96,7 +119,24 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
               disabled={!ticket.capabilities.canResolve}
               className="btn-secondary h-9 px-3.5 text-xs disabled:opacity-50"
             >
+              <CheckCircle2 size={13} />
               Resolve
+            </button>
+          </Can>
+          <Can permission="tickets:write">
+            <button
+              type="button"
+              disabled={!ticket.capabilities.canReopen}
+              className="btn-secondary h-9 px-3.5 text-xs disabled:opacity-50"
+            >
+              Reopen
+            </button>
+            <button
+              type="button"
+              className="btn-ghost h-9 px-3.5 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+            >
+              <XCircle size={13} />
+              Cancel
             </button>
           </Can>
         </div>
@@ -169,17 +209,19 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
                 Operational events
               </h2>
             </div>
-            <button
-              type="button"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white/60 px-3 text-xs font-medium text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-400 dark:hover:bg-zinc-800"
-            >
-              <RefreshCw size={11} />
-              Refresh
-            </button>
           </div>
 
           <div className="rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-soft dark:border-zinc-800 dark:bg-zinc-900">
-            <OperationalTimeline events={ticket.timeline} />
+            {ticket.timeline.length === 0 ? (
+              <LoadState
+                variant="empty"
+                title="No timeline events yet."
+                description="Events appear here as Pulse ingests messages, applies skills, and operators take action."
+                className="border-0 p-6"
+              />
+            ) : (
+              <OperationalTimeline events={ticket.timeline} />
+            )}
           </div>
         </section>
 
@@ -190,39 +232,21 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
           <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-soft dark:border-zinc-800 dark:bg-zinc-900">
             <p className="section-eyebrow">Workflow</p>
             <h3 className="mt-1 text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-              State &amp; playbook
+              Conversation state
             </h3>
 
             <div className="mt-4 flex items-center gap-2">
-              <ConversationStatePill state={ticket.workflow.state} />
+              {ticket.workflow.state ? (
+                <ConversationStatePill state={ticket.workflow.state} />
+              ) : (
+                <span className="text-xs text-zinc-500 dark:text-zinc-500">No conversation linked.</span>
+              )}
             </div>
 
-            {ticket.workflow.playbookStep ? (
-              <div className="mt-4 rounded-xl border border-zinc-200/80 bg-zinc-50/60 p-3 dark:border-zinc-800 dark:bg-zinc-800/40">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
-                  Playbook
-                </p>
-                <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  {ticket.workflow.playbookStep.playbookName}
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-[11px] text-zinc-600 dark:text-zinc-400">
-                  <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono dark:bg-zinc-800">
-                    {ticket.workflow.playbookStep.stepIndex}/{ticket.workflow.playbookStep.stepCount}
-                  </span>
-                  <span>{ticket.workflow.playbookStep.stepLabel}</span>
-                </div>
-                <div className="mt-3 h-1 overflow-hidden rounded-full bg-zinc-200/70 dark:bg-zinc-700/50">
-                  <div
-                    className="bar-progress h-full bg-gradient-to-r from-brand-500 to-accent-500 transition-[width] duration-500"
-                    style={{['--w' as string]: `${(ticket.workflow.playbookStep.stepIndex / ticket.workflow.playbookStep.stepCount) * 100}%`} as React.CSSProperties}
-                  />
-                </div>
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-500">
-                No active playbook — running on default skill flow.
-              </p>
-            )}
+            <p className="mt-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-500">
+              Playbook step indicator and progress bar will appear here when Pulse exposes per-ticket flow state via{' '}
+              <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-[10px] dark:bg-zinc-800">flow/advance</code>.
+            </p>
           </section>
 
           {/* Extracted context */}
@@ -247,7 +271,7 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
               </dl>
             ) : (
               <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-500">
-                No structured fields extracted — operator review will categorise this ticket.
+                No structured fields surfaced for this ticket yet.
               </p>
             )}
           </section>
@@ -256,21 +280,27 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
           <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-soft dark:border-zinc-800 dark:bg-zinc-900">
             <p className="section-eyebrow">Lifecycle</p>
             <h3 className="mt-1 text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-              Created &amp; updated
+              Status &amp; assignment
             </h3>
             <dl className="mt-4 space-y-2 text-xs text-zinc-600 dark:text-zinc-400">
               <div className="flex items-center justify-between">
-                <dt className="text-zinc-500 dark:text-zinc-500">Created</dt>
-                <dd className="font-medium text-zinc-800 dark:text-zinc-200">
-                  {new Date(ticket.createdAt).toLocaleString()}
-                </dd>
+                <dt className="text-zinc-500 dark:text-zinc-500">Status</dt>
+                <dd className="font-medium text-zinc-800 dark:text-zinc-200">{ticket.status}</dd>
               </div>
               <div className="flex items-center justify-between">
-                <dt className="text-zinc-500 dark:text-zinc-500">Updated</dt>
-                <dd className="font-medium text-zinc-800 dark:text-zinc-200">
-                  {new Date(ticket.updatedAt).toLocaleString()}
+                <dt className="text-zinc-500 dark:text-zinc-500">Assigned to</dt>
+                <dd className="font-mono text-[11px] text-zinc-800 dark:text-zinc-200">
+                  {ticket.assignedUserId ?? 'unassigned'}
                 </dd>
               </div>
+              {ticket.resolvedAt && (
+                <div className="flex items-center justify-between">
+                  <dt className="text-zinc-500 dark:text-zinc-500">Resolved</dt>
+                  <dd className="font-medium text-zinc-800 dark:text-zinc-200">
+                    {new Date(ticket.resolvedAt).toLocaleString()}
+                  </dd>
+                </div>
+              )}
             </dl>
 
             <Link
@@ -290,7 +320,7 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
               <span className="font-mono">{ticket.id}</span>
             </div>
             <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-500">
-              Pending backend integration — data shown is local fixture. Real Pulse DTOs will replace it in Stage 1C.
+              Live data via <code className="font-mono">/v1/pulse/tickets/:id</code> + <code className="font-mono">/timeline</code>.
             </p>
           </section>
         </aside>

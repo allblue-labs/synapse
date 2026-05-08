@@ -207,7 +207,12 @@ const CHANNEL_STYLE: Record<PulseChannelProvider, {label: string; icon: LucideIc
   },
 };
 
-export function ChannelPill({channel, className}: {channel: PulseChannelProvider; className?: string}) {
+/**
+ * Returns `null` when `channel` is `null` so callers don't render an
+ * empty pill — the surrounding row collapses naturally.
+ */
+export function ChannelPill({channel, className}: {channel: PulseChannelProvider | null; className?: string}) {
+  if (!channel) return null;
   const {label, icon: Icon, tone} = CHANNEL_STYLE[channel];
   return (
     <span className={cn(BASE, tone, className)}>

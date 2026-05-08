@@ -413,3 +413,29 @@ Last updated: 2026-05-07
 - [ ] Marketing landing premium redesign (Stripe/Linear-grade hero + sections)
 - [ ] RBAC restricted-state UX + plan-based upgrade prompts surfaced inline
 - [ ] Animated synapse background refinements (operational variant)
+
+## Phase F1B — Frontend Stage 1B Batch 2 (Done — 2026-05-08)
+
+- [x] API client (`lib/api.ts`) extended with the full Pulse surface from `docs/FRONTEND_CONTRACT_PACK.md`
+- [x] Pulse view-model layer (`lib/pulse/types.ts`, `lib/pulse/loaders.ts`)
+- [x] Lifecycle Server Actions (`lib/pulse/actions.ts`) for the seven ticket commands
+- [x] Honest non-data states (`components/ui/load-state.tsx`)
+- [x] Null-tolerant `ConfidenceMeter` + `ChannelPill`
+- [x] Ticket detail / tickets list / inbox wired to real `/v1/pulse/*`
+- [x] Legacy fixtures removed
+
+## Phase F1B — Batch 3 (Next)
+
+- [ ] Module store workspace UI (consume `/v1/modules`, install/disable, plan eligibility, usage visibility)
+- [ ] Billing visibility (`/v1/billing/account`, `/v1/billing/plans`, checkout + portal redirects, usage summary + rated summary)
+- [ ] Knowledge management UI (list / publish / archive / query — clearly labelled "filter" not "semantic search" per contract pack)
+- [ ] Scheduling integrations UI (list integrations, prepare availability, prepare booking — "prepare" UX must not imply a confirmed booking)
+- [ ] Pulse metrics premium dashboard
+- [ ] Pulse playbook visual editor
+- [ ] Runtime governance UI for platform admin (`runtime:executions:*` — read-only by default, transition/cancel restricted)
+
+## Phase F1B — Batch 4 (After)
+
+- [ ] Marketing landing premium redesign
+- [ ] RBAC restricted-state UX + plan-based upgrade prompts inline
+- [ ] Animated synapse background refinements

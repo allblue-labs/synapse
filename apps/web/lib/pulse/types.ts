@@ -185,5 +185,6 @@ export interface PulseTicketDetailVM {
     canEscalate: boolean;
     canResolve: boolean;
     canReopen: boolean;
+    priority: Priority;
   };
 }

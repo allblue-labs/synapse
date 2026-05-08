@@ -10,8 +10,13 @@ import {cn} from '@/lib/utils';
  */
 
 export interface ConfidenceMeterProps {
-  /** 0..1. Values outside this range are clamped. */
-  value: number;
+  /**
+   * 0..1. Values outside this range are clamped. `null` is rendered
+   * as a soft "—" placeholder so callers don't have to null-check at
+   * every site (the backend legitimately returns `null` when the AI
+   * pipeline hasn't computed a score yet).
+   */
+  value: number | null | undefined;
   /** Display variant. `inline` is for table rows, `block` for detail panels. */
   variant?: 'inline' | 'block';
   /** Tucks the confidence value beneath a small label (block variant only). */
@@ -60,6 +65,35 @@ function bandFor(value: number): Band {
 }
 
 export function ConfidenceMeter({value, variant = 'inline', label, className}: ConfidenceMeterProps) {
+  // Backend hasn't scored this entity yet — render an honest neutral
+  // placeholder rather than misleading "0%".
+  if (value === null || value === undefined) {
+    if (variant === 'inline') {
+      return (
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/60 px-2 py-0.5 text-[11px] font-medium text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-500',
+            className,
+          )}
+          title="Confidence not yet scored"
+        >
+          —
+        </span>
+      );
+    }
+    return (
+      <div className={cn('flex flex-col gap-1.5', className)}>
+        {label && (
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 dark:text-zinc-500">
+            {label}
+          </p>
+        )}
+        <p className="text-2xl font-bold tabular-nums tracking-tight text-zinc-400 dark:text-zinc-600">—</p>
+        <p className="text-[11px] text-zinc-500 dark:text-zinc-500">Not yet scored</p>
+      </div>
+    );
+  }
+
   const v = Math.max(0, Math.min(1, value));
   const pct = Math.round(v * 100);
   const band = bandFor(v);

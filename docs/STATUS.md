@@ -377,3 +377,20 @@ Last updated: 2026-05-07
 - Pending (cross-cutting): backend Pulse DTO/OpenAPI examples — when they ship, `lib/pulse/fixtures.ts` becomes a one-file swap to real `api.pulse.*` calls; nothing in the UI layer changes.
 - Risks: every page using fixtures shows a "Pending backend integration" badge in its PageHeader actions slot so the deferred wire-up is greppable.
 - Next recommended step: ship Batch 2 with the playbooks visual editor and the Pulse metrics dashboard — both compose against the same fixture seam.
+
+## 2026-05-08 Frontend Stage 1B — Batch 2 (Pulse backend integration)
+
+- Changed (frontend, owned by Claude Opus): swapped Pulse fixtures for real backend wires; the inbox / tickets list / ticket detail screens now call `/v1/pulse/*` directly. Aligned to `docs/FRONTEND_CONTRACT_PACK.md` exactly.
+- Completed: `lib/api.ts` extended with the full Pulse surface — channels, conversations, conversation events/timeline, tickets, ticket events/timeline, knowledge contexts (list/get/query/publish/archive), scheduling integrations (read + prepare availability/booking), and lifecycle commands (assign, resolve, reopen, escalate, cancel, operator-review, flow advance). Added `PULSE_FLOW_STATES` (10-value FSM) and `qs(...)` helper.
+- Completed: `lib/pulse/types.ts` rewritten to re-export backend record shapes from `@/lib/api` and add three view models (`PulseTicketRow`, `PulseTicketDetailVM`, `PulseTimelineEventVM`). UI types are explicitly *projections* — never invent data the backend doesn't send.
+- Completed: `lib/pulse/loaders.ts` is the single seam between the API client and the screens. Composes ticket detail with timeline + best-effort conversation/channel enrichment; returns a typed `LoadResult<T>` (`ok | forbidden | not_found | error`) instead of throwing. Maps event-type strings to operator-facing summaries — never echoes raw provider payloads.
+- Completed: `lib/pulse/actions.ts` — Server Actions for the seven ticket lifecycle commands. Each accepts `FormData` or a typed object; validates inputs locally, calls the backend, revalidates ticket detail / tickets list / inbox on success, and returns a typed `ActionResult`.
+- Completed: `components/ui/load-state.tsx` — shared four-variant honest-state primitive (empty / error / forbidden / not-found). Used across all wired Pulse pages.
+- Completed: `ConfidenceMeter` and `ChannelPill` are null-tolerant — honest "—" placeholder rather than misleading 0% / empty pill.
+- Completed: legacy `lib/pulse/fixtures.ts` deleted; no screen falls back to mock data.
+- Completed: ticket detail `/workspace/modules/pulse/tickets/:id` calls `GET /v1/pulse/tickets/:id` + `/timeline` + conversation/channel enrichment. Header buttons aligned to the lifecycle FSM (Escalate / Resolve / Reopen / Cancel) and `<Can>`-gated against `tickets:assign` / `tickets:resolve` / `tickets:write`.
+- Completed: tickets list `/workspace/modules/pulse/tickets` calls `loadTicketsPage`. Honest empty fallback for tenants with zero tickets.
+- Completed: inbox `/workspace/modules/pulse/inbox` calls `loadInboxLanes` (parallel filtered fetches).
+- Pending: knowledge management / scheduling integrations / module store / billing / runtime governance / usage UIs — deferred to Batch 3. API client already exposes them so wiring is additive.
+- Risks: tickets list fans out N detail-fetches per row to surface priority/confidence — acceptable today, the swap-in seam is `loaders.toRow`.
+- Next recommended step: Batch 3 — module store + billing visibility, then knowledge management, scheduling integrations, runtime governance.

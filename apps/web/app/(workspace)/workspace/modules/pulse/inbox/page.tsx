@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {ArrowUpRight, Inbox, Sparkles} from 'lucide-react';
 import {PageHeader} from '@/components/ui/page-header';
+import {LoadState} from '@/components/ui/load-state';
 import {ConfidenceMeter} from '@/components/pulse/confidence-meter';
 import {
   ChannelPill,
@@ -9,7 +10,7 @@ import {
   SkillPill,
   TicketStatusPill,
 } from '@/components/pulse/status-pills';
-import {loadInboxTickets} from '@/lib/pulse/fixtures';
+import {loadInboxLanes} from '@/lib/pulse/loaders';
 import type {PulseTicketRow} from '@/lib/pulse/types';
 import type {Metadata} from 'next';
 
@@ -22,10 +23,6 @@ export const metadata: Metadata = {title: 'Inbox — Pulse'};
  *   - lane 1 ▸ items needing operator review (top priority, urgent first)
  *   - lane 2 ▸ live items (in-flight conversations the AI is handling)
  *   - lane 3 ▸ waiting on customer (no action required, low signal)
- *
- * Each row exposes everything an operator needs to triage in one glance:
- * status, skill, channel, priority, confidence, age. Hover lifts the row;
- * clicking opens the ticket detail.
  */
 
 function ageOf(iso: string): string {
@@ -39,11 +36,7 @@ function ageOf(iso: string): string {
 }
 
 export default async function PulseInboxPage() {
-  const [needsReview, openLane, waiting] = await Promise.all([
-    loadInboxTickets({status: 'needs_review'}),
-    loadInboxTickets({status: 'open'}),
-    loadInboxTickets({status: 'waiting_customer'}),
-  ]);
+  const result = await loadInboxLanes();
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -54,22 +47,54 @@ export default async function PulseInboxPage() {
         icon={<Inbox size={26} />}
         iconGradient="from-brand-500 to-accent-500"
         glowColor="bg-brand-500/15"
-        actions={
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/80 bg-amber-50/80 px-3 py-1 text-[11px] font-semibold text-amber-700 dark:border-amber-800/60 dark:bg-amber-900/30 dark:text-amber-400">
-            Pending backend integration
-          </span>
-        }
       />
 
-      {/* ── Headline counters ─────────────────────────────────────────── */}
+      {result.kind === 'forbidden' && (
+        <LoadState
+          variant="forbidden"
+          title="You don’t have permission to view the inbox."
+          description="The inbox requires the tickets:read permission. Ask an admin to grant it."
+        />
+      )}
+
+      {result.kind === 'error' && (
+        <LoadState
+          variant="error"
+          title="We couldn’t load the inbox right now."
+          description={`The Pulse API returned ${result.status || 'a network error'}: ${result.message}`}
+        />
+      )}
+
+      {result.kind === 'ok' && (
+        <Loaded
+          needsReview={result.data.needsReview}
+          open={result.data.open}
+          waiting={result.data.waiting}
+        />
+      )}
+    </div>
+  );
+}
+
+function Loaded({
+  needsReview,
+  open,
+  waiting,
+}: {
+  needsReview: ReadonlyArray<PulseTicketRow>;
+  open:        ReadonlyArray<PulseTicketRow>;
+  waiting:     ReadonlyArray<PulseTicketRow>;
+}) {
+  return (
+    <>
+      {/* ── Headline counters ─────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Counter label="Needs review"     value={needsReview.length} accent="amber"   icon={<Sparkles size={14} />} />
-        <Counter label="In flow"          value={openLane.length}    accent="blue"    icon={<Inbox size={14} />} />
-        <Counter label="Waiting customer" value={waiting.length}     accent="zinc"    icon={null} />
-        <Counter label="Auto-handled"     value="—"                  accent="emerald" icon={null} />
+        <Counter label="In flow"           value={open.length}        accent="blue"    icon={<Inbox size={14} />} />
+        <Counter label="Waiting customer"  value={waiting.length}     accent="zinc"    icon={null} />
+        <Counter label="Auto-handled"      value="—"                  accent="emerald" icon={null} />
       </section>
 
-      {/* ── Operator queue (highest signal) ──────────────────────────── */}
       <Lane
         eyebrow="Operator queue"
         title={`${needsReview.length} ticket${needsReview.length === 1 ? '' : 's'} awaiting review`}
@@ -78,17 +103,15 @@ export default async function PulseInboxPage() {
         rows={needsReview}
       />
 
-      {/* ── In flow ─────────────────────────────────────────────────── */}
       <Lane
         eyebrow="In flow"
         title="Active conversations"
         description="The AI is currently handling these. Watch them passively; only step in if you spot something worth correcting."
         emptyHint="No live items right now."
-        rows={openLane}
+        rows={open}
         muted
       />
 
-      {/* ── Waiting on customer ─────────────────────────────────────── */}
       <Lane
         eyebrow="Watching"
         title="Waiting on customer"
@@ -97,7 +120,7 @@ export default async function PulseInboxPage() {
         rows={waiting}
         muted
       />
-    </div>
+    </>
   );
 }
 
@@ -210,9 +233,11 @@ function QueueRow({row, muted}: {row: PulseTicketRow; muted: boolean}) {
               </span>
               {row.escalated && <EscalationBadge />}
             </div>
-            <p className="mt-0.5 truncate text-sm text-zinc-600 dark:text-zinc-400">
-              {row.preview}
-            </p>
+            {row.preview && (
+              <p className="mt-0.5 truncate text-sm text-zinc-600 dark:text-zinc-400">
+                {row.preview}
+              </p>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <SkillPill skill={row.skill} />
               <ChannelPill channel={row.customer.channel} />

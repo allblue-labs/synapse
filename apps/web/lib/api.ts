@@ -207,7 +207,7 @@ export interface PulseKnowledgeContextRecord {
   type: PulseKnowledgeContextType;
   status: PulseKnowledgeContextStatus;
   title: string;
-  body: string;
+  content: string;
   metadata?: Record<string, unknown>;
   publishedAt: string;
   archivedAt: string | null;
@@ -231,17 +231,53 @@ export interface PulseSchedulingIntegrationRecord {
 
 // ─── Lifecycle commands — request bodies ─────────────────────────────
 
-export interface AssignTicketBody       {assignedUserId: string; note?: string}
-export interface ResolveTicketBody      {resolutionSummary?: string}
-export interface ReopenTicketBody       {reason?: string}
-export interface EscalateTicketBody     {reason?: string; priority?: number}
-export interface CancelTicketBody       {reason?: string}
+export interface AssignTicketBody    {assignedUserId: string; note?: string}
+export interface ResolveTicketBody   {resolutionSummary?: string}
+export interface ReopenTicketBody    {reason?: string}
+export interface EscalateTicketBody  {reason?: string; priority?: number}
+export interface CancelTicketBody    {reason?: string}
+
 export interface SubmitOperatorReviewBody {
-  approved: boolean;
-  notes?: string;
-  confidenceOverride?: number;
+  /** Operator-facing summary of the review outcome. */
+  summary?: string;
+  /** Optional confidence override the operator wants to record. */
+  confidence?: number;
+  /** Structured decision payload — at minimum `{approved: boolean}`. */
+  decision: {
+    approved: boolean;
+  } & Record<string, unknown>;
 }
-export interface AdvanceFlowStateBody {targetState: string; reason?: string}
+
+/**
+ * Flow advance — see `PULSE_FLOW_STATES` for valid `nextState` values.
+ * `transitionSource` is `'manual' | 'system'` (operator vs automated).
+ */
+export interface AdvanceFlowStateBody {
+  nextState: PulseFlowState;
+  transitionSource?: 'manual' | 'system';
+  confidence?: number;
+  note?: string;
+  aiDecisionSummary?: {
+    summary: string;
+    [key: string]: unknown;
+  };
+}
+
+/** Pulse FSM positions — must match backend `PULSE_FLOW_STATE_VALUES`. */
+export const PULSE_FLOW_STATES = [
+  'intake',
+  'classify_intent',
+  'collect_context',
+  'waiting_customer',
+  'execute_action',
+  'review_required',
+  'operator_takeover',
+  'escalated',
+  'completed',
+  'cancelled',
+] as const;
+
+export type PulseFlowState = typeof PULSE_FLOW_STATES[number];
 
 // ─── List filters ────────────────────────────────────────────────────
 
@@ -266,16 +302,17 @@ export interface PulseTicketListParams extends PulsePagination {
 }
 
 export interface PulseEventListParams extends PulsePagination {
-  type?: string;
+  /** Backend filter param name is `eventType`, not `type`. */
+  eventType?: string;
   category?: PulseTimelineCategory;
-  from?: string;
-  to?: string;
+  occurredFrom?: string;
+  occurredTo?: string;
 }
 
 export interface PulseTimelineListParams extends PulsePagination {
   category?: PulseTimelineCategory;
-  from?: string;
-  to?: string;
+  occurredFrom?: string;
+  occurredTo?: string;
 }
 
 // ─── Legacy queue (still backed by the original entries flow) ────────
@@ -533,7 +570,8 @@ export const api = {
     publishKnowledge: (body: {
       type: PulseKnowledgeContextType;
       title: string;
-      body: string;
+      /** Note: backend field name is `content` (not `body`). */
+      content: string;
       metadata?: Record<string, unknown>;
     }) =>
       request<PulseKnowledgeContextRecord>(`/pulse/knowledge`, {method: 'POST', json: body}),

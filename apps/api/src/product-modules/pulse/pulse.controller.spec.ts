@@ -24,9 +24,27 @@ describe('PulseController route protection metadata', () => {
     ['conversations', ['pulse:read']],
     ['conversation', ['pulse:read']],
     ['conversationEvents', ['pulse:read']],
+    ['conversationTimeline', ['pulse:read']],
     ['tickets', ['tickets:read']],
     ['ticket', ['tickets:read']],
     ['ticketEvents', ['tickets:read']],
+    ['ticketTimeline', ['tickets:read']],
+    ['assignTicket', ['tickets:assign']],
+    ['resolveTicket', ['tickets:resolve']],
+    ['reopenTicket', ['tickets:write']],
+    ['escalateTicket', ['tickets:assign']],
+    ['cancelTicket', ['tickets:write']],
+    ['submitOperatorReview', ['tickets:write']],
+    ['advanceFlowState', ['tickets:write']],
+    ['knowledge', ['pulse:read']],
+    ['knowledgeContextById', ['pulse:read']],
+    ['queryKnowledge', ['pulse:read']],
+    ['publishKnowledge', ['pulse:write']],
+    ['archiveKnowledge', ['pulse:write']],
+    ['schedulingIntegrationsList', ['integrations:read']],
+    ['schedulingIntegration', ['integrations:read']],
+    ['prepareSchedulingAvailability', ['integrations:read']],
+    ['prepareSchedulingBooking', ['integrations:manage']],
     ['list', ['pulse:read']],
     ['get', ['pulse:read']],
     ['create', ['pulse:write']],
@@ -54,10 +72,33 @@ describe('PulseController read filter contracts', () => {
   const getTicket = { execute: jest.fn() };
   const listConversationEvents = { execute: jest.fn() };
   const listTicketEvents = { execute: jest.fn() };
+  const listOperationalTimeline = { execute: jest.fn() };
   const createEntry = { execute: jest.fn() };
   const validateEntry = { execute: jest.fn() };
   const rejectEntry = { execute: jest.fn() };
   const retryEntry = { execute: jest.fn() };
+  const ticketLifecycle = {
+    assignTicket: jest.fn(),
+    resolveTicket: jest.fn(),
+    reopenTicket: jest.fn(),
+    escalateTicket: jest.fn(),
+    cancelTicket: jest.fn(),
+    submitOperatorReview: jest.fn(),
+    advanceFlowState: jest.fn(),
+  };
+  const knowledgeContext = {
+    list: jest.fn(),
+    get: jest.fn(),
+    query: jest.fn(),
+    publish: jest.fn(),
+    archive: jest.fn(),
+  };
+  const schedulingIntegrations = {
+    list: jest.fn(),
+    get: jest.fn(),
+    prepareAvailability: jest.fn(),
+    prepareBooking: jest.fn(),
+  };
 
   const controller = new PulseController(
     listQueue as never,
@@ -70,10 +111,14 @@ describe('PulseController read filter contracts', () => {
     getTicket as never,
     listConversationEvents as never,
     listTicketEvents as never,
+    listOperationalTimeline as never,
     createEntry as never,
     validateEntry as never,
     rejectEntry as never,
     retryEntry as never,
+    ticketLifecycle as never,
+    knowledgeContext as never,
+    schedulingIntegrations as never,
   );
 
   beforeEach(() => {
@@ -153,5 +198,64 @@ describe('PulseController read filter contracts', () => {
       'ticket-1',
       query,
     );
+  });
+
+  it('forwards consolidated conversation timeline filters', () => {
+    const query = {
+      page: 1,
+      pageSize: 20,
+      category: 'operator_action' as const,
+    };
+
+    controller.conversationTimeline('tenant-1', 'conversation-1', query);
+
+    expect(listOperationalTimeline.execute).toHaveBeenCalledWith(
+      'tenant-1',
+      'conversation',
+      'conversation-1',
+      query,
+    );
+  });
+
+  it('forwards consolidated ticket timeline filters', () => {
+    const query = {
+      page: 1,
+      pageSize: 20,
+      category: 'workflow_state' as const,
+    };
+
+    controller.ticketTimeline('tenant-1', 'ticket-1', query);
+
+    expect(listOperationalTimeline.execute).toHaveBeenCalledWith(
+      'tenant-1',
+      'ticket',
+      'ticket-1',
+      query,
+    );
+  });
+
+  it('forwards tenant-scoped knowledge context filters', () => {
+    const query = {
+      page: 1,
+      pageSize: 10,
+      type: 'FAQ' as const,
+      status: 'ACTIVE' as const,
+      query: 'hours',
+    };
+
+    controller.knowledge('tenant-1', query);
+
+    expect(knowledgeContext.list).toHaveBeenCalledWith('tenant-1', query);
+  });
+
+  it('forwards tenant-scoped scheduling integration filters', () => {
+    const query = {
+      provider: 'GOOGLE_CALENDAR' as const,
+      status: 'ACTIVE' as const,
+    };
+
+    controller.schedulingIntegrationsList('tenant-1', query);
+
+    expect(schedulingIntegrations.list).toHaveBeenCalledWith('tenant-1', query);
   });
 });

@@ -68,6 +68,7 @@ export type Permission =
   // Runtime execution governance
   | 'runtime:executions:read'
   | 'runtime:executions:create'
+  | 'runtime:executions:transition'
   | 'runtime:executions:cancel'
   // Billing
   | 'billing:read'
@@ -84,7 +85,7 @@ export const ALL_PERMISSIONS: ReadonlyArray<Permission> = [
   'tickets:read', 'tickets:write', 'tickets:assign', 'tickets:resolve',
   'integrations:read', 'integrations:manage',
   'audit:read',
-  'runtime:executions:read', 'runtime:executions:create', 'runtime:executions:cancel',
+  'runtime:executions:read', 'runtime:executions:create', 'runtime:executions:transition', 'runtime:executions:cancel',
   'billing:read', 'billing:manage',
 ] as const;
 
@@ -192,6 +193,43 @@ export type PulseTicketStatus =
   | 'RESOLVED'
   | 'CANCELLED';
 export type PulseActorType = 'SYSTEM' | 'USER' | 'CUSTOMER' | 'AI' | 'INTEGRATION';
+export type PulseEventType =
+  | 'pulse.conversation.linked'
+  | 'pulse.conversation.resolved'
+  | 'pulse.entry.received'
+  | 'pulse.entry.validated'
+  | 'pulse.entry.rejected'
+  | 'pulse.entry.retry_requested'
+  | 'pulse.ticket.created'
+  | 'pulse.ticket.assign_ticket'
+  | 'pulse.ticket.resolve_ticket'
+  | 'pulse.ticket.reopen_ticket'
+  | 'pulse.ticket.escalate_ticket'
+  | 'pulse.ticket.cancel_ticket'
+  | 'pulse.ticket.submit_operator_review'
+  | 'pulse.ticket.advance_flow_state'
+  | 'pulse.knowledge.published'
+  | 'pulse.knowledge.archived'
+  | 'pulse.unsupported_message_type'
+  | 'pulse.flow.transitioned';
+export type PulseTimelineCategory =
+  | 'entry'
+  | 'ticket_lifecycle'
+  | 'operator_action'
+  | 'escalation'
+  | 'confidence'
+  | 'workflow_state';
+export type PulseFlowState =
+  | 'intake'
+  | 'classify_intent'
+  | 'collect_context'
+  | 'waiting_customer'
+  | 'execute_action'
+  | 'review_required'
+  | 'operator_takeover'
+  | 'escalated'
+  | 'completed'
+  | 'cancelled';
 export type PulseSkillType = 'SCHEDULER' | 'SALES' | 'SUPPORT' | 'KNOWLEDGE' | 'MARKETING' | 'OPERATOR';
 export type PulseKnowledgeContextType =
   | 'FAQ'
@@ -199,6 +237,7 @@ export type PulseKnowledgeContextType =
   | 'OPERATIONAL_INSTRUCTION'
   | 'PRODUCT_SERVICE'
   | 'CAMPAIGN_PROMOTION';
+export type PulseKnowledgeContextStatus = 'ACTIVE' | 'ARCHIVED';
 export type IntegrationProvider = 'GOOGLE_CALENDAR' | 'OUTLOOK_CALENDAR' | 'CALENDLY';
 export type ExecutionStatus =
   | 'REQUESTED'
@@ -507,7 +546,7 @@ export type PulseTicketSummary = {
 export type PulseOperationalEventRecord = {
   id: string;
   tenantId: string;
-  eventType: string;
+  eventType: PulseEventType | string;
   actorType: PulseActorType;
   actorUserId?: string | null;
   channelId?: string | null;
@@ -516,6 +555,83 @@ export type PulseOperationalEventRecord = {
   payload: Record<string, unknown>;
   metadata: Record<string, unknown>;
   occurredAt: string;
+};
+
+export type PulseTimelineResponse = {
+  scope: 'ticket' | 'conversation';
+  resourceId: string;
+  category?: PulseTimelineCategory | null;
+  data: PulseOperationalEventRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type PulseKnowledgeContextRecord = {
+  id: string;
+  tenantId: string;
+  type: PulseKnowledgeContextType;
+  title: string;
+  content: string;
+  status: PulseKnowledgeContextStatus;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PublishPulseKnowledgeContextRequest = {
+  type: PulseKnowledgeContextType;
+  title: string;
+  content: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type QueryPulseKnowledgeContextRequest = {
+  query: string;
+  type?: PulseKnowledgeContextType;
+  limit?: number;
+};
+
+export type PulseEventPayload = {
+  schemaVersion: 1;
+  action: string;
+  data: Record<string, unknown>;
+};
+
+export type AssignPulseTicketRequest = {
+  assignedUserId: string;
+  note?: string;
+};
+
+export type ResolvePulseTicketRequest = {
+  resolutionSummary?: string;
+};
+
+export type ReopenPulseTicketRequest = {
+  reason?: string;
+};
+
+export type EscalatePulseTicketRequest = {
+  reason?: string;
+  priority?: number;
+};
+
+export type CancelPulseTicketRequest = {
+  reason?: string;
+};
+
+export type SubmitPulseOperatorReviewRequest = {
+  summary: string;
+  confidence?: number;
+  decision?: Record<string, unknown>;
+};
+
+export type AdvancePulseFlowStateRequest = {
+  nextState: PulseFlowState;
+  transitionSource?: 'manual' | 'system' | 'ai' | 'integration';
+  confidence?: number;
+  note?: string;
+  aiDecisionSummary?: Record<string, unknown>;
 };
 
 export type SchedulingProvider = Extract<
@@ -556,6 +672,38 @@ export type SchedulingBookingResponse = {
   startsAt: string;
   endsAt: string;
   status: 'CONFIRMED' | 'PENDING' | 'FAILED';
+};
+
+export type PulseSchedulingIntegrationRecord = {
+  id: string;
+  tenantId: string;
+  provider: SchedulingProvider;
+  status: 'ACTIVE' | 'DISCONNECTED' | 'NEEDS_ATTENTION' | 'DISABLED';
+  displayName: string;
+  externalRef?: string | null;
+  settings: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  credentialsConfigured: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PreparedSchedulingAvailabilityRequest = {
+  prepared: true;
+  executable: false;
+  reason: 'provider_call_not_implemented';
+  provider: SchedulingProvider;
+  integrationId: string;
+  request: SchedulingAvailabilityRequest;
+};
+
+export type PreparedSchedulingBookingRequest = {
+  prepared: true;
+  executable: false;
+  reason: 'provider_call_not_implemented';
+  provider: SchedulingProvider;
+  integrationId: string;
+  request: SchedulingBookingRequest;
 };
 
 export type TenantExecutionContext = {

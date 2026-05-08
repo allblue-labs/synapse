@@ -8,6 +8,7 @@ import {
   IPulseOperationalEventRepository,
   PULSE_OPERATIONAL_EVENT_REPOSITORY,
 } from '../../domain/ports/pulse-operational-event-repository.port';
+import {PULSE_EVENT_TYPES} from '../../domain/pulse-event-types';
 
 @Injectable()
 export class RejectEntryUseCase {
@@ -39,7 +40,7 @@ export class RejectEntryUseCase {
 
     await this.events.record({
       tenantId,
-      eventType: 'pulse.entry.rejected',
+      eventType: PULSE_EVENT_TYPES.ENTRY_REJECTED,
       conversationId: updated.conversationId ?? undefined,
       payload: {
         entryId: updated.id,

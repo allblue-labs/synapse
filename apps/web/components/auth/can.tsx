@@ -55,7 +55,7 @@ interface CanProps {
  *     <button>New agent</button>
  *   </Can>
  *
- *   <Can any={['clinic-flow:validate', 'clinic-flow:reject']} fallback={<ReadOnlyNotice />}>
+ *   <Can any={['pulse:validate', 'pulse:reject']} fallback={<ReadOnlyNotice />}>
  *     <ValidationToolbar />
  *   </Can>
  */

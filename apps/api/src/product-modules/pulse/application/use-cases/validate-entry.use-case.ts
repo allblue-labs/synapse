@@ -12,6 +12,7 @@ import {
   IPulseTicketRepository,
   PULSE_TICKET_REPOSITORY,
 } from '../../domain/ports/pulse-ticket-repository.port';
+import {PULSE_EVENT_TYPES} from '../../domain/pulse-event-types';
 import {PulseExtractedData} from '../../contracts/pulse.contracts';
 
 @Injectable()
@@ -60,7 +61,7 @@ export class ValidateEntryUseCase {
 
     await this.events.record({
       tenantId,
-      eventType: 'pulse.entry.validated',
+      eventType: PULSE_EVENT_TYPES.ENTRY_VALIDATED,
       conversationId: updated.conversationId ?? undefined,
       ticketId: ticket.id,
       payload: {

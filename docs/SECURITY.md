@@ -248,3 +248,83 @@ Not yet configured. Required before production:
 - Pending: database-backed cross-tenant leak tests.
 - Risks: local test auth is intentionally synthetic and only exists inside the spec.
 - Next recommended step: add two-tenant database fixtures for filtered read paths.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: ticket lifecycle commands now validate DTOs, enforce tenant-scoped ticket lookup before writes, and emit audit-safe operational payloads.
+- Completed: sensitive keys in lifecycle event payload data are masked; forbidden route behavior remains under `tickets:*` permissions; terminal ticket mutations reject invalid operations.
+- Pending: rate limiting for high-risk mutation routes and database-backed cross-tenant mutation tests.
+- Risks: audit/event writes are sequential best-effort after the ticket update; a future transactional outbox should be considered before high-scale execution.
+- Next recommended step: add event type catalog validation and two-tenant mutation fixtures.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: event type query filters now validate against the Pulse event catalog.
+- Completed: unsupported event type/category query values are rejected before repository access; timeline routes remain protected by `pulse:read` or `tickets:read`.
+- Pending: database-backed cross-tenant timeline tests and event payload response-shaping review.
+- Risks: timeline payloads are audit-safe by convention today; future event writers must keep masking before persistence.
+- Next recommended step: add response-shaping tests before exposing broader payload details.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: flow advancement no longer accepts arbitrary next-state values.
+- Completed: DTO validation rejects unsupported states; lifecycle logic rejects invalid transitions before ticket writes, events, or audit records.
+- Pending: role-matrix tests for flow advancement and database-backed transition isolation tests.
+- Risks: automated confidence-triggered transitions must remain audit-safe and must not persist chain-of-thought or provider secrets.
+- Next recommended step: add confidence summary schemas and review-trigger tests.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: automated confidence decisions are summarized and masked before event persistence.
+- Completed: sensitive keys in `aiDecisionSummary` are redacted by the existing event payload masker; low-confidence automation is prevented from bypassing review/escalation.
+- Pending: stricter DTO schema for AI decision summaries and role-matrix tests for operator review actions.
+- Risks: do not persist chain-of-thought or raw provider payloads in decision summaries.
+- Next recommended step: define a strict AI decision summary schema before runtime integration.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: knowledge context reads/writes are tenant-scoped and validation-gated.
+- Completed: publish/archive writes emit audit records and operational events; repository tests verify tenant filters and cross-tenant archive rejection.
+- Pending: stricter metadata schema and database-backed tenant isolation fixtures.
+- Risks: content may contain sensitive business instructions; future response shaping must avoid exposing archived/internal context to unauthorized roles.
+- Next recommended step: add metadata/content classification before runtime retrieval.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: scheduling integration reads avoid exposing provider credential references.
+- Completed: repository maps `credentialsRef` to `credentialsConfigured`; prepare use cases require tenant-owned active integrations with configured credentials.
+- Pending: secret vault integration, provider adapter threat model, and booking webhook signature validation.
+- Risks: provider secrets must never be returned or persisted in operational payloads.
+- Next recommended step: design secure provider adapter boundaries before execution endpoints.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: usage writes are server-side and tenant-scoped from trusted use cases.
+- Completed: usage metadata avoids provider secrets and uses resource ids plus idempotency keys.
+- Pending: abuse/rate-limit tests around high-volume metered operations.
+- Risks: usage metadata must remain audit-safe as future provider adapters add richer context.
+- Next recommended step: add usage metadata schema helpers before runtime/provider execution writes.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: runtime execution routes are permission-protected and tenant-contextual.
+- Completed: request uses server-provided tenant/user context; get/transition require tenant id and execution id.
+- Pending: service actor auth, forbidden audit tests, and cross-tenant database fixtures.
+- Risks: `runtime:executions:create` currently covers both request and transition; production runtime transitions need narrower service-only authorization.
+- Next recommended step: define service actor RBAC and add route-level AppSec tests.
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: runtime transition routes no longer reuse create permission and lifecycle payload persistence now masks sensitive keys.
+- Completed: added `runtime:executions:transition`, dedicated cancellation, audit events for runtime actions, invalid transition rejection, and masking for keys such as secrets, tokens, credentials, raw provider payloads, reasoning, and chain-of-thought.
+- Pending: service actor auth, forbidden audit tests, callback signature/auth policy, and database-backed tenant isolation tests.
+- Risks: masking is a defense-in-depth layer, not permission to send unrestricted provider payloads into Synapse.
+- Next recommended step: define service actor credentials and callback authorization before queue/gRPC runtime integration.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: AppSec validation now has opt-in real database fixtures for tenant isolation and side-effect segregation.
+- Completed: fixtures cover cross-tenant runtime transition rejection, tenant-scoped runtime audit records, Pulse mutation cross-tenant rejection, and no event/audit/usage writes for rejected terminal mutations.
+- Pending: forbidden route audit fixtures, service actor auth fixtures, and HTTP role-matrix database fixtures.
+- Risks: unit-mode skips these specs; AppSec signoff must include `RUN_DATABASE_TESTS=1`.
+- Next recommended step: add forbidden-action audit fixtures once service-actor authorization is defined.

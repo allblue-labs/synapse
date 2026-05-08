@@ -427,3 +427,217 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Full request-to-database e2e coverage still depends on dedicated test database fixtures.
 
 **Next recommended step:** add database-backed two-tenant fixtures when the test DB lifecycle is ready.
+
+---
+
+## 2026-05-08 — Pulse ticket mutations are operational commands
+
+**Decision:** Expose intent-shaped ticket lifecycle commands rather than generic ticket update endpoints.
+
+**Reason:** Pulse is an operational communication module, not a CRUD ticket database. Commands such as assign, resolve, escalate, review, and advance flow preserve business meaning and make event/audit trails reliable.
+
+**Consequence:** Each lifecycle mutation emits a standardized Pulse operational event payload and a platform audit event, while repository writes remain tenant-scoped.
+
+**Status:** Completed for first-pass lifecycle commands.
+
+**Risk:** Flow advancement currently records metadata and confidence but does not yet enforce a formal playbook transition graph.
+
+**Next recommended step:** add a central Pulse event type catalog and timeline aggregation APIs.
+
+---
+
+## 2026-05-08 — Pulse timelines are event-category projections
+
+**Decision:** Build consolidated ticket and conversation timelines from Pulse operational events using a central event type catalog and category mappings.
+
+**Reason:** Pulse should expose operational history, not raw mirrored chats. Category filters make operator actions, escalation history, confidence transitions, and workflow transitions discoverable without duplicating event storage.
+
+**Consequence:** Timeline APIs return enriched operational event records and can evolve into projected read models later if query volume requires it.
+
+**Status:** Completed for V1 timeline aggregation.
+
+**Risk:** Category mappings must stay synchronized with newly introduced event types.
+
+**Next recommended step:** use the workflow-state category to enforce guided flow transitions.
+
+---
+
+## 2026-05-08 — Pulse flow advancement uses an explicit V1 state graph
+
+**Decision:** `advanceFlowState` validates requested states and transitions against a Pulse-owned state machine.
+
+**Reason:** Pulse workflows need guided operational movement, not free-form string metadata. A state graph gives future playbooks, operator review, and runtime execution a stable lifecycle backbone.
+
+**Consequence:** Flow advancement can now reject invalid movement and map review, escalation, waiting, completion, and cancellation states onto ticket statuses.
+
+**Status:** Completed for V1 generic flow rules.
+
+**Risk:** Tenant/playbook-specific transition policies are not implemented yet.
+
+**Next recommended step:** add confidence threshold rules that route low-confidence transitions to review-required/operator takeover states.
+
+---
+
+## 2026-05-08 — Pulse confidence policy routes automated transitions to human review
+
+**Decision:** Apply static V1 confidence thresholds only to AI/integration-driven flow advancement.
+
+**Reason:** Human operators can intentionally move work forward, but automated decisions below confidence thresholds should become review or escalation work instead of silently advancing operational state.
+
+**Consequence:** Confidence below `0.65` becomes `review_required`; confidence below `0.35` becomes `escalated`; summaries are stored as masked operational event payload data.
+
+**Status:** Completed for V1 policy.
+
+**Risk:** Thresholds are not tenant/playbook configurable yet.
+
+**Next recommended step:** introduce tenant-scoped knowledge context so future runtime extraction has governed context inputs.
+
+---
+
+## 2026-05-08 — Pulse knowledge context is tenant-scoped operational context
+
+**Decision:** Model Pulse knowledge context as tenant-owned operational records rather than global prompts or provider-side state.
+
+**Reason:** Future runtime extraction needs governed context inputs for FAQs, instructions, products/services, business descriptions, and campaigns without leaking data across tenants.
+
+**Consequence:** Knowledge context APIs are tenant-scoped and produce audit/event records on publish/archive, while query remains a simple backend contract for future retrieval.
+
+**Status:** Completed for V1 foundation.
+
+**Risk:** Semantic retrieval and versioning are not implemented yet.
+
+**Next recommended step:** prepare scheduling provider contracts without implementing provider calls.
+
+---
+
+## 2026-05-08 — Pulse scheduling integrations are prepare-only contracts for now
+
+**Decision:** Expose scheduling integration readiness and request preparation without provider calls.
+
+**Reason:** Google Calendar, Outlook Calendar, and Calendly require secret isolation, provider-specific retries, and booking reconciliation. Pulse needs stable contracts first without pretending provider execution exists.
+
+**Consequence:** Availability and booking endpoints return prepared, non-executable requests and validate tenant-owned active integrations.
+
+**Status:** Completed for V1 contracts.
+
+**Risk:** Consumers must not treat prepare responses as confirmed availability or bookings.
+
+**Next recommended step:** add usage metering candidates before provider adapters.
+
+---
+
+## 2026-05-08 — Pulse usage metering uses existing platform metric types
+
+**Decision:** Map Pulse usage candidates onto existing `UsageMetricType` values instead of adding new enum values.
+
+**Reason:** Avoiding a schema migration keeps this slice focused while still producing operational billing data for messages, workflow runs, automation executions, and storage.
+
+**Consequence:** Unit names carry Pulse-specific dimensions such as `ticket_operation`, `flow_transition`, `knowledge_operation`, and `scheduling_availability_prepare`.
+
+**Status:** Completed for V1 usage candidates.
+
+**Risk:** Repeated same-action ticket operations need operation-level ids before they can be counted precisely.
+
+**Next recommended step:** prepare runtime execution contracts without implementing provider calls.
+
+---
+
+## 2026-05-08 — Runtime execution lifecycle is persisted but not executed
+
+**Decision:** Store runtime execution requests and lifecycle transitions in Synapse now, without implementing the future external Go Runtime.
+
+**Reason:** Synapse owns auth, tenancy, RBAC, audit, billing, and execution governance. Persisted lifecycle state gives the future runtime a stable contract while avoiding fake provider execution.
+
+**Consequence:** Runtime APIs can create/read/transition execution records, but no gRPC, queue submission, Kubernetes, or local LLM work is performed.
+
+**Status:** Completed for lifecycle contracts.
+
+**Risk:** Transition permissions need a service-actor model before production runtime writes.
+
+**Next recommended step:** harden runtime and Pulse mutation AppSec coverage.
+
+---
+
+## 2026-05-07 — Three frontend experiences, three route groups
+
+**Decision:** Split the Next.js frontend into three top-level experiences, each in its own App Router route group with its own layout chrome:
+
+| Experience       | Route group       | URL prefix      | Chrome                                     |
+|------------------|-------------------|-----------------|--------------------------------------------|
+| Public marketing | `(marketing)`     | `/`, `/pricing`, `/modules` | `PublicNav` only                |
+| Tenant workspace | `(workspace)`     | `/workspace/*`  | `TopNav` (operational), `SegmentNav`        |
+| Platform admin   | `(platform)`      | `/platform/*`   | Distinct admin top bar + indigo accent      |
+
+**Reason:** Mixing tenant and admin surfaces under a shared `(dashboard)` group made the IA ambiguous and tempted shared layouts that leaked admin affordances into tenant traffic. Splitting by route group lets each layout enforce its own auth posture and visual identity.
+
+**Consequence:** Workspace and platform layouts both call `/users/me` and propagate the `CurrentUser` via `<CurrentUserProvider>`, but the chrome is independent. Marketing pages stay layoutless from a session standpoint — middleware pre-validates that they're on the public allowlist.
+
+**Status:** Shipping in Stage 1A.
+
+**Risk:** Three separate layouts mean three places to keep in sync (header height, cookie behaviour, etc.) — the shared primitives (`PageHeader`, `PendingSection`, `SegmentNav`) absorb most of that.
+
+**Next recommended step:** add a shared "shell" primitive that both workspace and platform layouts compose, once the visual identities have stabilised.
+
+---
+
+## 2026-05-07 — `PendingSection` for IA-listed but not-yet-built surfaces
+
+**Decision:** Every route in the IA that doesn't yet have a real implementation renders a `PendingSection` — a real `PageHeader` plus a dashed-outline card calling out the deferred scope and a `Stage 1B` tracking tag.
+
+**Reason:** Stage 1 of the frontend overhaul is multi-batch. The IA needs to be present (so middleware, navigation, and breadcrumbs all line up) before the rich UX is built. Stubs that lie about being implemented (empty pages, "Coming soon" with no detail) erode trust; an explicit "what's coming" panel is honest and discoverable.
+
+**Consequence:** Surface count is high but cost-of-build is low. Each Stage 1B PR replaces one `PendingSection` with the real thing — no IA churn.
+
+**Status:** Stage 1A applies it to every Pulse surface (except inbox/settings/logs which already had a real impl) and every `/platform/*` page.
+
+**Risk:** Stubs left in production traffic past their due date. Mitigation: every `PendingSection` carries a tracking tag (`Stage 1B`) so they're greppable.
+
+**Next recommended step:** when Stage 1B begins, audit the codebase for `PendingSection` usage and prioritise replacements by tenant-visible value (ticket detail, inbox queue redesign, module store first).
+
+---
+
+## 2026-05-07 — Pulse route IA collapse
+
+**Decision:** Backend already uses Pulse (`/v1/pulse/*`). Frontend mirrors this by collapsing the older nested messaging URL hierarchy into `modules/pulse/*` directly, and renaming `queue → inbox` and `errors → logs` to match the new IA Part 6 spec.
+
+**Reason:** "Messaging" was a holdover concept from the original branding when Pulse was one feature inside a broader messaging module. With the official rename, the intermediate `messaging` segment adds a hop with no information; the `queue/errors` names also leak the implementation. `inbox/logs` align to the operational vocabulary used elsewhere in the product.
+
+**Consequence:** Old pre-Pulse URLs are gone. Bookmarks break. Acceptable while the platform is in private beta — no public links to migrate.
+
+**Status:** Done in Stage 1A.
+
+**Risk:** External documentation referring to old paths must be updated alongside this PR.
+
+**Next recommended step:** if/when the platform exits private beta, add a one-time set of static redirects from old paths to new ones (most likely as a Next middleware extension).
+
+---
+
+## 2026-05-08 — Runtime lifecycle transitions require explicit governance
+
+**Decision:** Runtime lifecycle state changes use a dedicated transition permission, a separate cancel command, transition-state validation, audit records, and payload masking before persistence.
+
+**Reason:** Runtime records are control-plane governance state. They may later be touched by an external Go Runtime, so Synapse must define authorization, transition rules, and audit-safe persistence before any callback integration exists.
+
+**Consequence:** Runtime APIs still do not execute work, but they now reject invalid lifecycle jumps and avoid persisting obvious secrets, raw provider payloads, or chain-of-thought fields in execution input/output/context.
+
+**Status:** Completed for V1 backend hardening.
+
+**Risk:** A true runtime service-actor model is still pending.
+
+**Next recommended step:** add database-backed tenant fixtures and forbidden-action tests before external runtime adapters.
+
+---
+
+## 2026-05-08 — Database fixtures are opt-in until test database orchestration exists
+
+**Decision:** Add real Prisma/PostgreSQL fixture specs behind `RUN_DATABASE_TESTS=1` instead of making normal unit tests depend on a local database.
+
+**Reason:** The backend needs true multi-tenant persistence checks, but this repository does not yet own a disposable test database lifecycle for every developer and CI run.
+
+**Consequence:** `npm test` remains fast and deterministic, while `npm run test:db` gives Ninja and CI a focused entrypoint for database-backed isolation validation.
+
+**Status:** Completed for runtime lifecycle and Pulse ticket lifecycle fixture foundation.
+
+**Risk:** These fixtures will not execute unless a migrated PostgreSQL database is configured.
+
+**Next recommended step:** provision a disposable test database and expand fixtures to HTTP role matrices.

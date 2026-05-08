@@ -19,6 +19,7 @@ import {
   IPulseConversationRepository,
   PULSE_CONVERSATION_REPOSITORY,
 } from '../../domain/ports/pulse-conversation-repository.port';
+import {PULSE_EVENT_TYPES} from '../../domain/pulse-event-types';
 import {PULSE_QUEUE, DEFAULT_JOB_OPTIONS} from '../../infrastructure/processors/pulse.processor';
 import {ProcessPulseJob} from '../../contracts/pulse.contracts';
 
@@ -78,10 +79,25 @@ export class CreateEntryUseCase {
         provider: input.provider,
       },
     });
+    await this.usage.record({
+      tenantId: input.tenantId,
+      moduleSlug: 'pulse',
+      metricType: UsageMetricType.MESSAGE,
+      quantity: 1,
+      unit: 'message',
+      resourceType: 'PulseEntry',
+      resourceId: entry.id,
+      idempotencyKey: `pulse-entry-message:${entry.id}`,
+      metadata: {
+        hasMedia: !!input.mediaUrl,
+        provider: input.provider,
+        channelIdentifier: input.channelIdentifier,
+      },
+    });
 
     await this.events.record({
       tenantId: input.tenantId,
-      eventType: 'pulse.entry.received',
+      eventType: PULSE_EVENT_TYPES.ENTRY_RECEIVED,
       conversationId: entry.conversationId ?? undefined,
       payload: {
         entryId: entry.id,
@@ -107,7 +123,7 @@ export class CreateEntryUseCase {
 
       await this.events.record({
         tenantId: input.tenantId,
-        eventType: 'pulse.conversation.linked',
+        eventType: PULSE_EVENT_TYPES.CONVERSATION_LINKED,
         conversationId: conversation.id,
         payload: {
           conversationId: conversation.id,
@@ -143,7 +159,7 @@ export class CreateEntryUseCase {
 
     await this.events.record({
       tenantId: input.tenantId,
-      eventType: 'pulse.conversation.resolved',
+      eventType: PULSE_EVENT_TYPES.CONVERSATION_RESOLVED,
       channelId: channel.id,
       conversationId: conversation.id,
       payload: {

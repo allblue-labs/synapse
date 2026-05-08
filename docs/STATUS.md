@@ -249,3 +249,97 @@ Last updated: 2026-05-07
 - Pending: database-backed fixtures with two tenants and overlapping ids.
 - Risks: the current harness stubs use cases, so repository/database isolation is still covered separately by unit tests rather than one integrated request-to-database test.
 - Next recommended step: add database-backed Pulse read e2e fixtures or proceed to ticket mutation APIs once test DB wiring is available.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: added operational ticket lifecycle command APIs instead of generic CRUD mutations.
+- Completed: `assignTicket`, `resolveTicket`, `reopenTicket`, `escalateTicket`, `cancelTicket`, `submitOperatorReview`, and `advanceFlowState` now have backend routes, DTO validation, tenant-scoped repository updates, Pulse operational events, audit events, and contract types.
+- Pending: formal guided-flow state machine, consolidated timeline aggregation, usage metering writes, and database-backed multi-tenant fixtures.
+- Risks: flow state currently lives in ticket metadata as a foundation; it needs stricter transition rules before playbook execution.
+- Next recommended step: standardize Pulse timeline aggregation and event type catalogs around these lifecycle events.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: added a central Pulse event type catalog and consolidated operational timeline APIs.
+- Completed: event-type filters are catalog-aware; `GET /v1/pulse/tickets/:id/timeline` and `GET /v1/pulse/conversations/:id/timeline` support category slices for entry, ticket lifecycle, operator actions, escalation, confidence, and workflow state transitions.
+- Pending: response examples/OpenAPI, database-backed timeline isolation fixtures, and richer timeline denormalization for operator-facing summaries.
+- Risks: timeline aggregation reads event records directly; future large tenants may need projection tables or query-plan review.
+- Next recommended step: implement guided flow state-machine rules using the new workflow-state timeline category.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: `advanceFlowState` now uses a V1 guided-flow state graph instead of arbitrary metadata strings.
+- Completed: supported states include intake, classify intent, collect context, waiting customer, execute action, review required, operator takeover, escalated, completed, and cancelled; invalid transitions are rejected; review/escalation/waiting/completion states map to ticket statuses.
+- Pending: playbook-specific transition overrides, confidence threshold automation, and database-backed transition fixtures.
+- Risks: V1 transitions are conservative and generic; tenant-specific playbooks will need explicit transition policies before runtime execution.
+- Next recommended step: implement the confidence and human-review layer on top of review-required/operator-takeover states.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: automated flow advancement now applies V1 confidence thresholds before ticket writes.
+- Completed: AI/integration transitions below `0.65` route to `review_required`; below `0.35` route to `escalated`; audit-safe AI decision summaries are stored through masked operational event payloads.
+- Pending: tenant/playbook-specific thresholds, operator takeover assignment rules, and dedicated confidence review APIs.
+- Risks: thresholds are static V1 defaults and should not be treated as tenant-configurable policy yet.
+- Next recommended step: implement Pulse Knowledge Context foundation for FAQs, instructions, products/services, and campaigns.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: added tenant-scoped Pulse Knowledge Context backend APIs.
+- Completed: list/get/query/publish/archive flows support FAQs, business descriptions, operational instructions, products/services, and campaigns/promotions; publish/archive emit Pulse operational events and audit records.
+- Pending: strict retrieval ranking, embedding/runtime integration, update/versioning workflow, and database-backed two-tenant fixtures.
+- Risks: query uses simple title/content filtering as a runtime-ready contract, not semantic retrieval.
+- Next recommended step: finalize scheduling integration contracts for Google Calendar, Outlook Calendar, and Calendly.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: added scheduling integration contract seams without provider calls.
+- Completed: tenant-scoped scheduling integration list/get, availability prepare, booking prepare, provider port contracts, and shared prepared-request contract types for Google Calendar, Outlook Calendar, and Calendly.
+- Pending: actual provider adapters, secret retrieval, booking execution, and webhook reconciliation.
+- Risks: prepare endpoints validate readiness only; they intentionally do not contact providers or create bookings.
+- Next recommended step: implement operational usage metering candidates for Pulse conversations, ticket operations, workflow executions, knowledge storage, and scheduling prepare/booking intents.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: Pulse now writes platform usage events for operational candidates.
+- Completed: inbound entries record `MESSAGE`; ticket lifecycle and flow advancement record `WORKFLOW_RUN`; knowledge publish records `STORAGE` bytes; knowledge archive and scheduling prepare flows record `AUTOMATION_EXECUTION`.
+- Pending: channel/number count metering, successful provider booking metering, plan-limit enforcement, and rated usage defaults.
+- Risks: lifecycle idempotency keys are conservative per ticket/action and may undercount repeated same-action operations until operation ids exist.
+- Next recommended step: prepare runtime integration contracts and execution lifecycle models for future Go Runtime.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: added tenant-aware runtime execution lifecycle persistence and protected APIs.
+- Completed: request/get/transition APIs persist `ExecutionRequest` records and support requested, queued, running, succeeded, failed, cancelled, and timed-out states.
+- Pending: external Go Runtime adapter, gRPC/queue submission, service actor permissions, and runtime usage metering.
+- Risks: lifecycle APIs prepare state only; they do not execute providers or submit work to an external runtime.
+- Next recommended step: continue Pulse AppSec hardening and role-matrix/database-backed tenant fixtures around runtime and Pulse mutation routes.
+
+## 2026-05-07 Frontend Stage 1A — Route IA + Pulse rename
+
+- Changed (frontend, owned by Claude Opus): full route IA reorganised into three experiences — public marketing (`/`, `/pricing`, `/modules`), tenant workspace (`/workspace/*`), platform admin (`/platform/*`).
+- Completed: legacy `(dashboard)/*` routes moved under `(workspace)/workspace/*` via `git mv` (history preserved). Old nested messaging module routes collapsed into `modules/pulse/*` with `queue → inbox` and `errors → logs` renames.
+- Completed: full Pulse sub-route IA scaffolded — `/workspace/modules/pulse/{inbox,tickets,tickets/[ticketId],timeline,playbooks,knowledge,catalog,campaigns,integrations,settings,metrics,logs}`. Inbox, settings and logs ship live; the remaining surfaces use a shared `PendingSection` scaffold tagged `Stage 1B` so they're discoverable but never lie about being implemented.
+- Completed: platform admin shell at `/platform/{overview,tenants,modules,billing,flags,integrations,runtime,audit}` with a distinct top bar (indigo accent, "Platform" badge) and a quick-link back to the workspace; every page uses the same `PendingSection` until Stage 1B fills them.
+- Completed: marketing layer — `/pricing` (Light/Pro/Premium tiers + usage-metering notes) and `/modules` (read-only public catalog preview) live behind a shared `(marketing)` layout with `PublicNav`.
+- Completed: API client, entry/status types, and request paths updated to Pulse naming and `/v1/pulse/*` to match the backend rename.
+- Completed: middleware (`apps/web/middleware.ts`) with public allowlist + `synapse_session` cookie presence guard; static assets, `_next/*`, root metadata files and any URL with a file extension bypass via the matcher.
+- Completed: i18n dictionaries + SegmentNav slug map updated for the new IA.
+- Pending (Stage 1B): rich operational UX for ticket detail (timeline, confidence overlays, AI decision summary, human review actions); inbox queue redesign as an operational queue; playbook visual editor; module store premium UI; platform admin operational dashboards; design-system additions (operational cards, queue components, animated synapse bg refinements); marketing landing premium redesign; RBAC restricted-state UX + plan-based upgrade prompts.
+- Risks: backend Pulse DTO/OpenAPI examples are still pending — ticket / timeline / playbook screens will need to negotiate response shapes when they ship in Stage 1B. Platform-admin role isn't enforced client-side yet beyond the cookie gate; the layout banner makes the surface obvious but the backend remains the only authority.
+- Next recommended step: ship Stage 1B starting with the ticket detail screen (highest operational value) and the inbox redesign, then move on to the module store and platform overview dashboards.
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: runtime lifecycle governance now has stricter backend authorization and transition policy.
+- Completed: added `runtime:executions:transition`, a dedicated cancel command, audit events for request/transition/cancel, transition-state validation, and recursive masking for sensitive runtime input/output/context payload keys.
+- Pending: service-actor authentication, database-backed two-tenant runtime fixtures, route-level forbidden audit tests, and queue/gRPC callback authorization.
+- Risks: transition/cancel APIs remain governance-only and must be restricted further before any external runtime can call back into Synapse.
+- Next recommended step: add database-backed multi-tenant fixtures for runtime lifecycle and Pulse mutation routes.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: added opt-in database-backed fixture specs for runtime lifecycle and Pulse ticket mutation isolation.
+- Completed: `RUN_DATABASE_TESTS=1 npm run test:db` now targets real Prisma/PostgreSQL fixtures for two-tenant idempotency, cross-tenant runtime transition rejection, runtime audit segregation, Pulse ticket mutation isolation, Pulse event/audit/usage segregation, and terminal mutation no-side-effect checks.
+- Pending: CI test database provisioning, HTTP-level role-matrix fixtures, forbidden-action audit fixture coverage, and broader Pulse read/timeline database fixtures.
+- Risks: database fixtures are skipped in normal unit mode until a real test database is supplied.
+- Next recommended step: wire a disposable PostgreSQL test database for Ninja/CI and run `npm run test:db` before external runtime callback work.

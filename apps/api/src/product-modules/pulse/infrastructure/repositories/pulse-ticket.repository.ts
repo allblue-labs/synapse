@@ -4,6 +4,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import {
   CreatePulseTicketInput,
   IPulseTicketRepository,
+  UpdatePulseTicketInput,
 } from '../../domain/ports/pulse-ticket-repository.port';
 
 @Injectable()
@@ -19,6 +20,11 @@ export class PulseTicketRepository implements IPulseTicketRepository {
         conversationId: true,
         type: true,
         status: true,
+        assignedUserId: true,
+        confidence: true,
+        metadata: true,
+        priority: true,
+        resolvedAt: true,
       },
     });
   }
@@ -74,6 +80,42 @@ export class PulseTicketRepository implements IPulseTicketRepository {
         conversationId: true,
         type: true,
         status: true,
+        assignedUserId: true,
+        confidence: true,
+        metadata: true,
+        priority: true,
+        resolvedAt: true,
+      },
+    });
+  }
+
+  async update(tenantId: string, id: string, input: UpdatePulseTicketInput) {
+    const current = await this.findById(tenantId, id);
+    if (!current) {
+      return null;
+    }
+
+    return this.prisma.pulseTicket.update({
+      where: { id },
+      data: {
+        status: input.status,
+        assignedUserId: input.assignedUserId,
+        confidence: input.confidence,
+        priority: input.priority,
+        metadata: input.metadata,
+        resolvedAt: input.resolvedAt,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        conversationId: true,
+        type: true,
+        status: true,
+        assignedUserId: true,
+        confidence: true,
+        metadata: true,
+        priority: true,
+        resolvedAt: true,
       },
     });
   }

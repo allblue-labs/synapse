@@ -87,16 +87,16 @@ export interface RegisterPayload {
   tenantSlug: string;
 }
 
-// ─── ClinicFlow ──────────────────────────────────────────────────────
+// ─── Pulse ───────────────────────────────────────────────────────────
 
-export type ClinicFlowStatus =
+export type PulseEntryStatus =
   | 'processing'
   | 'pending_validation'
   | 'ready_to_confirm'
   | 'scheduled'
   | 'failed';
 
-export interface ClinicFlowExtractedData {
+export interface PulseExtractedData {
   procedure?: string;
   date?: string;
   time?: string;
@@ -104,34 +104,34 @@ export interface ClinicFlowExtractedData {
   patientName?: string;
 }
 
-export interface ClinicFlowLog {
+export interface PulseEntryLog {
   at: string;
   stage: string;
   message: string;
 }
 
-export interface ClinicFlowEntry {
+export interface PulseEntry {
   id: string;
   tenantId: string;
   conversationId?: string;
-  status: ClinicFlowStatus;
+  status: PulseEntryStatus;
   originalMessage: string;
   transcription?: string;
   mediaUrl?: string;
   contactPhone: string;
   contactName?: string;
-  extractedData?: ClinicFlowExtractedData;
+  extractedData?: PulseExtractedData;
   confidence?: number;
   aiSummary?: string;
   scheduledAt?: string;
   errorMessage?: string;
-  processingLogs?: ClinicFlowLog[];
+  processingLogs?: PulseEntryLog[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ClinicFlowListResponse {
-  data: ClinicFlowEntry[];
+export interface PulseListResponse {
+  data: PulseEntry[];
   total: number;
   page: number;
   pageSize: number;
@@ -272,39 +272,39 @@ export const api = {
     me: () => request<CurrentUser>('/users/me'),
   },
 
-  clinicFlow: {
+  pulse: {
     list: (params?: {status?: string; page?: number}) => {
       const qs = new URLSearchParams();
       if (params?.status) qs.set('status', params.status);
       if (params?.page) qs.set('page', String(params.page));
       const suffix = qs.toString() ? `?${qs}` : '';
-      return request<ClinicFlowListResponse>(`/clinic-flow/queue${suffix}`);
+      return request<PulseListResponse>(`/pulse/queue${suffix}`);
     },
 
     get: (id: string) =>
-      request<ClinicFlowEntry>(`/clinic-flow/queue/${id}`),
+      request<PulseEntry>(`/pulse/queue/${id}`),
 
     validate: (
       id: string,
-      data: {extractedData?: ClinicFlowExtractedData; scheduledAt?: string},
+      data: {extractedData?: PulseExtractedData; scheduledAt?: string},
     ) =>
-      request<ClinicFlowEntry>(`/clinic-flow/queue/${id}/validate`, {
+      request<PulseEntry>(`/pulse/queue/${id}/validate`, {
         method: 'POST',
         json: data,
       }),
 
     reject: (id: string, reason?: string) =>
-      request<ClinicFlowEntry>(`/clinic-flow/queue/${id}/reject`, {
+      request<PulseEntry>(`/pulse/queue/${id}/reject`, {
         method: 'POST',
         json: {reason},
       }),
 
     retry: (id: string) =>
-      request<ClinicFlowEntry>(`/clinic-flow/queue/${id}/retry`, {
+      request<PulseEntry>(`/pulse/queue/${id}/retry`, {
         method: 'POST',
       }),
 
     errors: () =>
-      request<ClinicFlowListResponse>('/clinic-flow/errors'),
+      request<PulseListResponse>('/pulse/errors'),
   },
 };

@@ -31,7 +31,7 @@ export function ProductMockup() {
             <span className="h-2.5 w-2.5 rounded-full bg-zinc-300 dark:bg-zinc-700" />
           </div>
           <div className="ml-3 flex h-5 flex-1 items-center justify-center rounded-md bg-white px-2 text-[10px] font-medium text-zinc-400 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-500 dark:ring-zinc-700">
-            app.synapse.ai/modules/messaging
+            app.synapse.ai/workspace/modules/pulse
           </div>
         </div>
 
@@ -102,7 +102,7 @@ export function ProductMockup() {
                     <Bot size={10} />
                   </div>
                   <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">
-                    ClinicFlow AI
+                    Pulse
                   </span>
                   <span className="text-[10px] text-zinc-400">·</span>
                   <span className="text-[10px] text-zinc-400">extracting fields</span>

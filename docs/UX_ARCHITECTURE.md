@@ -190,3 +190,98 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: generated API examples/OpenAPI for Claude Opus frontend integration.
 - Risks: frontend should wait for documented response examples before building rich operational screens.
 - Next recommended step: publish backend API examples after database-backed e2e fixtures or mutation contracts land.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: backend now exposes stable operator-action endpoints for ticket details and timelines.
+- Completed: no frontend files were changed; request contract types were added for assign, resolve, reopen, escalate, cancel, operator review, and flow advancement.
+- Pending: response examples/OpenAPI and frontend-owned integration.
+- Risks: UI should present these as operational actions, not generic edit-ticket forms.
+- Next recommended step: publish endpoint examples after timeline aggregation APIs are added.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: backend now exposes timeline APIs suitable for ticket details and conversation history surfaces.
+- Completed: no frontend files were changed; contract types were added for Pulse event types, timeline categories, and timeline responses.
+- Pending: generated API examples/OpenAPI and frontend-owned timeline composition.
+- Risks: UI should treat categories as backend contract values and avoid rendering raw payload fields without product review.
+- Next recommended step: publish API examples after guided flow-state semantics are defined.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: backend now exposes a constrained flow-state contract for operator actions.
+- Completed: no frontend files were changed; `PulseFlowState` and `AdvancePulseFlowStateRequest.nextState` are now contract-defined values.
+- Pending: API examples and frontend-owned affordances for allowed next actions.
+- Risks: UI should not invent flow-state names; it should consume backend contract values and future allowed-transition responses.
+- Next recommended step: publish allowed-transition examples after confidence/review policy is added.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: backend can now surface why automated flow advancement went to review or escalation.
+- Completed: no frontend files were changed; `AdvancePulseFlowStateRequest` accepts an audit-safe `aiDecisionSummary`.
+- Pending: API examples for review/escalation timeline entries and frontend-owned operator review UX.
+- Risks: UI must present summaries, not raw AI reasoning or provider payloads.
+- Next recommended step: document decision-summary examples after the strict summary schema is finalized.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: backend exposes stable contracts for future Pulse knowledge management screens.
+- Completed: no frontend files were changed; contracts cover records, publish requests, and query requests.
+- Pending: API examples/OpenAPI and frontend-owned knowledge management integration.
+- Risks: UI should distinguish active context from archived context and avoid implying semantic search until retrieval is implemented.
+- Next recommended step: document knowledge API examples after scheduling contracts land.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: backend exposes scheduling integration readiness and prepare contracts for future scheduling UX.
+- Completed: no frontend files were changed; contracts cover scheduling integration records and prepared availability/booking requests.
+- Pending: API examples/OpenAPI and frontend-owned scheduling integration UX.
+- Risks: UI must not present prepared booking requests as confirmed bookings.
+- Next recommended step: document scheduling examples after usage metering candidate names are finalized.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: backend now records usage events that future admin/billing UX can summarize.
+- Completed: no frontend files were changed; Pulse-specific usage unit names are documented in billing docs.
+- Pending: frontend-owned usage summaries and admin billing views.
+- Risks: UI should not display these units as charged until rate cards/meter mappings are active.
+- Next recommended step: expose usage examples after runtime execution metrics are defined.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: backend exposes runtime execution lifecycle contracts for future admin/runtime views.
+- Completed: no frontend files were changed; existing shared execution contract types remain the integration basis.
+- Pending: API examples/OpenAPI and frontend-owned runtime admin views.
+- Risks: UI must label lifecycle records as execution governance state, not completed runtime work.
+- Next recommended step: document runtime examples after service actor authorization is designed.
+
+## 2026-05-07 Frontend Stage 1A — IA Reorg + Pulse Rename
+
+- Changed (frontend, Claude Opus): top-level route IA reorganised into three experiences. Public marketing at `/`, `/pricing`, `/modules`. Tenant workspace at `/workspace/*`. Platform admin at `/platform/*`. Each lives in its own App Router group with its own layout chrome.
+- Completed: `(dashboard)/*` → `(workspace)/workspace/*` (history-preserving `git mv`). Old nested messaging module routes collapsed into `modules/pulse/*` with `queue → inbox` and `errors → logs` renames to align with the IA spec.
+- Completed: full Pulse sub-route IA scaffolded — `/workspace/modules/pulse/{inbox,tickets,tickets/[ticketId],timeline,playbooks,knowledge,catalog,campaigns,integrations,settings,metrics,logs}`. Inbox / settings / logs ship live; the rest render via a shared `PendingSection` so the IA is present without misrepresenting implementation status.
+- Completed: platform admin shell at `/platform/{overview,tenants,modules,billing,flags,integrations,runtime,audit}` — distinct top bar (indigo accent + "Platform" badge), quick-link back to workspace, every page on `PendingSection` until Stage 1B.
+- Completed: marketing layer with `(marketing)` group: `/pricing` (Light/Pro/Premium with usage-billing notes), `/modules` (read-only public catalog preview).
+- Completed: API client, entry/status types, and request paths updated to Pulse naming and `/v1/pulse/*` to match backend contract.
+- Completed: Edge middleware (`apps/web/middleware.ts`) — public-route allowlist (`/`, `/login`, `/register`, `/pricing`, `/modules`) + `synapse_session` cookie presence guard. Static assets, `_next/*`, root metadata files and any URL with a file extension bypass via the matcher.
+- Completed: i18n dictionaries + `SegmentNav` slug map updated for the new IA.
+- Pending (Stage 1B, frontend): rich Pulse ticket detail with operational timeline / confidence overlays / human review actions; inbox redesign as operational queue; playbook visual editor; module store premium UI; platform admin operational dashboards; design-system additions; marketing landing premium redesign; RBAC restricted-state UX.
+- Pending (cross-cutting): Pulse DTO/OpenAPI examples from backend before Stage 1B ticket/timeline screens are built — frontend currently relies on the existing `PulseEntry` shape.
+- Risks: Stubs (`PendingSection`) carry a `Stage 1B` tag so they're greppable; risk is leaving them in production traffic past their due. Platform-admin role is not enforced client-side beyond the cookie gate; backend remains the only authority.
+- Next recommended step: ship Stage 1B starting with the ticket detail screen (highest operational value), then inbox queue redesign, then module store and platform overview dashboards.
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: backend runtime lifecycle contracts now distinguish request, transition, and cancel operations.
+- Completed: no frontend files were changed; future admin/runtime views can rely on separate permissions and should present cancellation as an explicit operational command.
+- Pending: API examples/OpenAPI and frontend-owned runtime admin views.
+- Risks: UI must not expose transition controls broadly; runtime lifecycle records are governance state, not provider execution results.
+- Next recommended step: document runtime route examples after service actor authorization is designed.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: no frontend files were changed.
+- Completed: backend fixture coverage gives future frontend integration a safer contract baseline for runtime lifecycle and Pulse ticket mutation state.
+- Pending: API examples/OpenAPI and frontend-owned handling of forbidden/cross-tenant states.
+- Risks: UI should still rely on backend errors and permissions; fixture coverage does not create new frontend affordances.
+- Next recommended step: publish route examples after HTTP role-matrix fixtures land.

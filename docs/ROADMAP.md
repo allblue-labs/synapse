@@ -258,3 +258,115 @@ Last updated: 2026-05-07
 - Pending: database-backed request tests and response examples.
 - Risks: use-case stubbing keeps the tests fast but leaves persistence integration for a later test database slice.
 - Next recommended step: decide between test database fixtures and `tickets:assign` / `tickets:resolve` backend mutations.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: moved Pulse from read-only operational state into command-based ticket lifecycle handling.
+- Completed: first lifecycle commands cover assignment, resolution, reopening, escalation, cancellation, operator review, and flow advancement.
+- Pending: timeline aggregation, guided state-machine enforcement, confidence threshold policy, and usage metering candidates.
+- Risks: command APIs are stable enough for backend validation but should not be treated as final playbook execution semantics.
+- Next recommended step: implement consolidated operational timeline queries and central event type definitions.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: Pulse operational history is now queryable through category-aware timelines.
+- Completed: central event type constants, category mappings, timeline use case, controller routes, and contract response types.
+- Pending: playbook transition enforcement, confidence threshold policy, and database-backed e2e fixtures.
+- Risks: categories are intentionally V1 and may expand as Pulse skills mature.
+- Next recommended step: implement guided flow state machine and confidence review policy.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: guided flow state enforcement has started inside the Pulse lifecycle path.
+- Completed: state constants, allowed transition graph, HTTP validation, lifecycle enforcement, and status mapping.
+- Pending: confidence threshold policy, playbook integration, and runtime execution contracts for state advancement.
+- Risks: state-machine V1 should remain module-local until another product module needs a similar primitive.
+- Next recommended step: add confidence thresholds and automatic review/escalation triggers.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: confidence policy now influences guided flow outcomes.
+- Completed: low-confidence automated transitions move into review/escalation states and preserve masked decision summaries for operator timelines.
+- Pending: configurable thresholds, operator assignment policy, and UI-facing allowed action examples.
+- Risks: confidence decisions are operational governance, not AI provider execution logic.
+- Next recommended step: build tenant-scoped Pulse Knowledge Context contracts/repositories.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: Pulse now has the backend foundation for tenant-owned business context.
+- Completed: repository, use case, DTOs, controller routes, shared contracts, and tests for knowledge context operations.
+- Pending: retrieval scoring, version history, runtime-context assembly, and frontend examples.
+- Risks: retrieval remains intentionally basic until runtime/search strategy is chosen.
+- Next recommended step: finalize scheduling integration contracts and settings abstractions.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: scheduling provider integration is now contract-ready.
+- Completed: provider ports and tenant-scoped integration readiness validation exist for availability/booking preparation.
+- Pending: provider adapters, credentials vault integration, rate limits, and event/audit lifecycle for actual bookings.
+- Risks: current endpoints are preparation contracts, not execution contracts.
+- Next recommended step: add usage metering foundation for operational Pulse actions.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: Pulse operational actions are now connected to the platform usage ledger.
+- Completed: messages, ticket operations, flow transitions, knowledge storage, knowledge operations, and scheduling prepare intents write usage events.
+- Pending: usage summaries by Pulse dimension, channel limits, provider execution metrics, and plan-limit checks.
+- Risks: metering exists but does not yet enforce commercial entitlements.
+- Next recommended step: continue with runtime integration contracts and execution lifecycle preparation.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: runtime preparation now has persisted execution lifecycle models.
+- Completed: lifecycle service and controller cover request, read, and transition operations without external runtime calls.
+- Pending: runtime service actor model, queue/gRPC provider boundary, cancellation semantics, and database-backed tenant fixtures.
+- Risks: exposing transition APIs to human roles is temporary until service actor authorization is designed.
+- Next recommended step: AppSec hardening for runtime routes and Pulse lifecycle route matrices.
+
+## Phase F1 — Frontend Stage 1A (Done)
+
+- [x] Route IA reorg: `(dashboard)/*` → `(workspace)/workspace/*`
+- [x] Public marketing routes: `/pricing`, `/modules` (read-only public catalog)
+- [x] Platform admin shell at `/platform/*` with distinct chrome
+- [x] Pulse rename throughout the frontend (files, types, paths, content strings)
+- [x] Pulse sub-route IA scaffolded (`inbox`, `tickets`, `tickets/[ticketId]`, `timeline`, `playbooks`, `knowledge`, `catalog`, `campaigns`, `integrations`, `settings`, `metrics`, `logs`)
+- [x] API client switched to `api.pulse.*` and `/v1/pulse/*`
+- [x] Edge middleware (cookie-presence guard + public allowlist)
+- [x] Shared `PendingSection` scaffold for IA-listed but not-yet-built surfaces
+- [x] i18n dictionaries + SegmentNav slug map updated for new IA
+
+## Phase F1B — Frontend Stage 1B (Next)
+
+- [ ] Pulse ticket detail UI: operational timeline, extracted context, confidence overlays, workflow state, playbook step, human review actions, audit trail
+- [ ] Pulse inbox redesign as operational queue (status / skill / confidence / priority — not chat-style)
+- [ ] Pulse playbook visual editor
+- [ ] Pulse knowledge / catalog / campaigns operational UX
+- [ ] Pulse metrics premium dashboard
+- [ ] Module store premium UI (workspace install/upgrade flow)
+- [ ] Platform admin operational dashboards (tenants list, runtime metrics, billing pipeline, audit explorer)
+- [ ] Design-system additions: operational cards, queue components, timeline component, confidence indicators, animated synapse bg refinements
+- [ ] Marketing landing premium redesign (Stripe/Linear-grade hero + sections)
+- [ ] RBAC restricted-state UX + plan-based upgrade prompts surfaced inline
+
+## Phase F1C — Frontend Stage 1C (Later)
+
+- [ ] Marketing site polish (about/customers/legal pages; case studies)
+- [ ] Tenant onboarding wizard (post-signup setup)
+- [ ] In-product search (`⌘K`) wired to real entities
+- [ ] Per-tenant theme override (white-label)
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: runtime hardening moved from documented risk into enforced lifecycle behavior.
+- Completed: dedicated transition permission, cancel permission route, request/transition/cancel audit records, invalid transition rejection, and runtime payload redaction.
+- Pending: service actor model, external callback auth, database-backed tenant isolation fixtures, and role-matrix HTTP tests.
+- Risks: human tenant admins can still transition lifecycle state until the service-actor model is introduced.
+- Next recommended step: build database-backed runtime/Pulse isolation fixtures before provider adapters or runtime callbacks.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: database fixture work has started with opt-in Prisma-backed specs.
+- Completed: runtime execution and Pulse ticket lifecycle fixtures cover core two-tenant isolation and side-effect segregation.
+- Pending: CI database lifecycle, HTTP authorization fixtures, module registry/billing fixture coverage, and timeline/read fixture expansion.
+- Risks: fixtures prove behavior only when `RUN_DATABASE_TESTS=1` is used against migrated PostgreSQL.
+- Next recommended step: add test database orchestration and then expand fixtures to route-level RBAC matrices.

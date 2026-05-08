@@ -11,9 +11,9 @@ import {LanguageToggle} from '@/components/i18n/language-toggle';
 import type {MessageKey} from '@/lib/i18n/messages';
 
 const NAV_LINKS: ReadonlyArray<{label: MessageKey; href: string}> = [
-  {label: 'publicNav.modules',  href: '#modules'},
-  {label: 'publicNav.features', href: '#features'},
-  {label: 'publicNav.pricing',  href: '#pricing'},
+  {label: 'publicNav.modules',  href: '/modules'},
+  {label: 'publicNav.features', href: '/#features'},
+  {label: 'publicNav.pricing',  href: '/pricing'},
   {label: 'publicNav.docs',     href: '#'},
 ] as const;
 

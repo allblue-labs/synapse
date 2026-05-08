@@ -4,6 +4,7 @@ import { PrismaService } from '../../../../common/prisma/prisma.service';
 import {
   CreatePulseOperationalEventInput,
   IPulseOperationalEventRepository,
+  PulseOperationalTimelineFilter,
 } from '../../domain/ports/pulse-operational-event-repository.port';
 
 @Injectable()
@@ -40,6 +41,7 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
       page?: number;
       pageSize?: number;
       eventType?: string;
+      eventTypes?: ReadonlyArray<string>;
       occurredFrom?: Date;
       occurredTo?: Date;
     } = {},
@@ -49,17 +51,14 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
     const where: Prisma.PulseOperationalEventWhereInput = {
       tenantId,
       conversationId,
-      ...(filter.eventType && { eventType: filter.eventType }),
+      ...this.eventTypeFilter(filter),
       ...this.occurredAtFilter(filter),
     };
     const [data, total] = await this.prisma.$transaction([
       this.prisma.pulseOperationalEvent.findMany({
         where,
         select: {
-          id: true,
-          tenantId: true,
-          eventType: true,
-          occurredAt: true,
+          ...this.timelineSelect(),
         },
         orderBy: { occurredAt: 'asc' },
         skip: (page - 1) * pageSize,
@@ -78,6 +77,7 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
       page?: number;
       pageSize?: number;
       eventType?: string;
+      eventTypes?: ReadonlyArray<string>;
       occurredFrom?: Date;
       occurredTo?: Date;
     } = {},
@@ -87,17 +87,14 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
     const where: Prisma.PulseOperationalEventWhereInput = {
       tenantId,
       ticketId,
-      ...(filter.eventType && { eventType: filter.eventType }),
+      ...this.eventTypeFilter(filter),
       ...this.occurredAtFilter(filter),
     };
     const [data, total] = await this.prisma.$transaction([
       this.prisma.pulseOperationalEvent.findMany({
         where,
         select: {
-          id: true,
-          tenantId: true,
-          eventType: true,
-          occurredAt: true,
+          ...this.timelineSelect(),
         },
         orderBy: { occurredAt: 'asc' },
         skip: (page - 1) * pageSize,
@@ -134,5 +131,33 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
         ...(filter.occurredTo && { lte: filter.occurredTo }),
       },
     };
+  }
+
+  private eventTypeFilter(filter: PulseOperationalTimelineFilter): Prisma.PulseOperationalEventWhereInput {
+    if (filter.eventTypes?.length) {
+      return { eventType: { in: [...filter.eventTypes] } };
+    }
+
+    if (filter.eventType) {
+      return { eventType: filter.eventType };
+    }
+
+    return {};
+  }
+
+  private timelineSelect() {
+    return {
+      id: true,
+      tenantId: true,
+      eventType: true,
+      actorType: true,
+      actorUserId: true,
+      channelId: true,
+      conversationId: true,
+      ticketId: true,
+      payload: true,
+      metadata: true,
+      occurredAt: true,
+    } satisfies Prisma.PulseOperationalEventSelect;
   }
 }

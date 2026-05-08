@@ -13,14 +13,30 @@ export interface CreatePulseTicketInput {
   metadata?: Prisma.InputJsonValue;
 }
 
+export interface PulseTicketRecord {
+  id: string;
+  tenantId: string;
+  conversationId: string | null;
+  type: PulseTicketType;
+  status: PulseTicketStatus;
+  assignedUserId: string | null;
+  confidence: number | null;
+  metadata: Prisma.JsonValue;
+  priority: number;
+  resolvedAt: Date | null;
+}
+
+export interface UpdatePulseTicketInput {
+  status?: PulseTicketStatus;
+  assignedUserId?: string | null;
+  confidence?: number | null;
+  priority?: number;
+  metadata?: Prisma.InputJsonValue;
+  resolvedAt?: Date | null;
+}
+
 export interface IPulseTicketRepository {
-  findById(tenantId: string, id: string): Promise<{
-    id: string;
-    tenantId: string;
-    conversationId: string | null;
-    type: PulseTicketType;
-    status: PulseTicketStatus;
-  } | null>;
+  findById(tenantId: string, id: string): Promise<PulseTicketRecord | null>;
   list(tenantId: string, filter?: {
     page?: number;
     pageSize?: number;
@@ -38,11 +54,6 @@ export interface IPulseTicketRepository {
     page: number;
     pageSize: number;
   }>;
-  create(input: CreatePulseTicketInput): Promise<{
-    id: string;
-    tenantId: string;
-    conversationId: string | null;
-    type: PulseTicketType;
-    status: PulseTicketStatus;
-  }>;
+  create(input: CreatePulseTicketInput): Promise<PulseTicketRecord>;
+  update(tenantId: string, id: string, input: UpdatePulseTicketInput): Promise<PulseTicketRecord | null>;
 }

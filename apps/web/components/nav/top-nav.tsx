@@ -14,10 +14,10 @@ import {LanguageToggle} from '@/components/i18n/language-toggle';
 import type {MessageKey} from '@/lib/i18n/messages';
 
 const PRIMARY_NAV: ReadonlyArray<{label: MessageKey; href: string}> = [
-  {label: 'appNav.overview', href: '/overview'},
-  {label: 'appNav.modules',  href: '/modules'},
-  {label: 'appNav.agents',   href: '/agents'},
-  {label: 'appNav.activity', href: '/activity'},
+  {label: 'appNav.overview', href: '/workspace/overview'},
+  {label: 'appNav.modules',  href: '/workspace/modules'},
+  {label: 'appNav.agents',   href: '/workspace/agents'},
+  {label: 'appNav.activity', href: '/workspace/activity'},
 ] as const;
 
 function ThemeToggle() {
@@ -114,7 +114,7 @@ function UserMenu({user}: {user: CurrentUser | null}) {
             </div>
             <div className="py-1">
               <Link
-                href="/settings"
+                href="/workspace/settings"
                 onClick={() => setOpen(false)}
                 className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
               >
@@ -162,7 +162,7 @@ export function TopNav({user}: {user: CurrentUser | null}) {
       <div className="mx-auto flex h-14 max-w-7xl items-center px-6">
 
         {/* Logo */}
-        <Link href="/overview" className="group mr-6 flex shrink-0 items-center gap-2">
+        <Link href="/workspace/overview" className="group mr-6 flex shrink-0 items-center gap-2">
           <Image
             src="/logo.png"
             alt="Synapse"
@@ -183,8 +183,8 @@ export function TopNav({user}: {user: CurrentUser | null}) {
         <nav className="flex flex-1 items-stretch gap-0.5 self-stretch">
           {PRIMARY_NAV.map(({label, href}) => {
             const isActive =
-              href === '/overview'
-                ? pathname === '/overview'
+              href === '/workspace/overview'
+                ? pathname === '/workspace/overview'
                 : pathname.startsWith(href);
             return (
               <Link

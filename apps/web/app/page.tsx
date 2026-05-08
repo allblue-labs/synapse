@@ -119,7 +119,7 @@ const USE_CASES = [
   {
     icon: CalendarClock,
     sector: 'Clinics & Healthcare',
-    headline: 'ClinicFlow AI books and confirms appointments 24/7',
+    headline: 'Pulse books and confirms appointments 24/7',
     description: 'Patients message naturally. Agents extract intent, propose slots, and confirm — handing off cleanly to staff for edge cases.',
     bullets: ['Appointment scheduling', 'Pre-screening triage', 'Insurance qualification'],
   },

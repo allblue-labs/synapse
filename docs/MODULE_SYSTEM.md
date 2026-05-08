@@ -224,3 +224,83 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: reusable e2e helpers only if future modules need the same pattern.
 - Risks: avoid moving Pulse-specific test setup into core prematurely.
 - Next recommended step: proceed to Pulse ticket mutation contracts or database-backed read fixtures.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: Pulse lifecycle logic remains inside `src/product-modules/pulse`.
+- Completed: command DTOs, lifecycle use case, event payload helper, repository mutation method, and controller routes are module-local.
+- Pending: shared event conventions only if future modules repeat the pattern.
+- Risks: do not move Pulse ticket semantics into core orchestration while preparing future runtime contracts.
+- Next recommended step: add Pulse timeline aggregation within the product-module boundary.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: event taxonomy and timeline aggregation remain inside the Pulse product-module boundary.
+- Completed: `domain/pulse-event-types.ts` centralizes V1 event names and category mappings.
+- Pending: shared event taxonomy only if multiple product modules need a platform convention.
+- Risks: premature platform abstraction would couple future modules to Pulse-specific history categories.
+- Next recommended step: keep guided flow state-machine work module-local.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: Pulse owns its V1 state-machine rules inside the product-module domain.
+- Completed: `domain/pulse-flow-state-machine.ts` defines supported states and transitions without adding core orchestration coupling.
+- Pending: playbook-specific policies and runtime-ready transition contracts.
+- Risks: do not promote this to a core workflow engine until module extraction requirements are clearer.
+- Next recommended step: add confidence/human-review policies inside Pulse first.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: Pulse owns confidence routing policy inside the product-module domain.
+- Completed: `domain/pulse-confidence-policy.ts` defines V1 thresholds without calling runtime providers.
+- Pending: playbook-specific policy overrides and tenant settings.
+- Risks: keep policy extractable-first and avoid coupling it to core billing/runtime services.
+- Next recommended step: implement Pulse Knowledge Context inside the product-module boundary.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: knowledge context lives entirely inside the Pulse product module.
+- Completed: module-local repository, port, DTOs, use case, controller routes, and contracts were added.
+- Pending: retrieval adapters only after runtime/search strategy is selected.
+- Risks: do not move Pulse-specific context semantics into core knowledge-base modules prematurely.
+- Next recommended step: add scheduling contracts inside Pulse integration boundaries.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: scheduling contracts remain inside Pulse integration boundaries.
+- Completed: provider port and integration-setting repository ports are module-local and extractable-first.
+- Pending: provider adapters and shared platform integration lifecycle APIs.
+- Risks: avoid coupling Pulse scheduling to core orchestration before provider lifecycle is finalized.
+- Next recommended step: add usage metering foundation inside platform services while keeping Pulse event candidates module-local.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: Pulse modules call the platform usage service through explicit use-case boundaries.
+- Completed: no billing/rating logic moved into Pulse; Pulse only emits usage events.
+- Pending: shared naming conventions for future modules' usage units.
+- Risks: keep module-authored usage units documented to avoid marketplace billing ambiguity.
+- Next recommended step: document runtime execution usage unit conventions with runtime contracts.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: runtime execution lifecycle is in core runtime, not in product modules.
+- Completed: product modules can later create runtime requests through stable contracts without importing provider adapters.
+- Pending: module-to-runtime orchestration service and external runtime adapter.
+- Risks: do not let product modules call future provider clients directly.
+- Next recommended step: define module-owned execution request conventions after AppSec hardening.
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: runtime governance hardening remains in core runtime and does not move provider execution into product modules.
+- Completed: product modules inherit stricter lifecycle contracts through core runtime permissions, transition validation, cancellation, audit, and payload masking.
+- Pending: module-to-runtime request conventions and service-actor callback boundaries.
+- Risks: product modules must not bypass core runtime lifecycle services when future runtime adapters exist.
+- Next recommended step: define module-owned execution request conventions after tenant fixture coverage.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: fixture coverage preserves the core/product-module boundary.
+- Completed: runtime lifecycle fixtures live in core runtime; Pulse lifecycle fixtures live inside `src/product-modules/pulse`.
+- Pending: module registry enablement fixtures and module-to-runtime request convention fixtures.
+- Risks: shared fixture helpers must stay generic and not pull Pulse semantics into core modules.
+- Next recommended step: add module registry database fixtures after Pulse timeline fixture coverage.

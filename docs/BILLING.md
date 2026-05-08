@@ -189,3 +189,83 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: plan limit enforcement and billing-period usage filters.
 - Risks: route validation is not quota enforcement.
 - Next recommended step: add plan limit checks before provider webhook ingestion.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: lifecycle events now mark ticket operations as future usage-metering candidates.
+- Completed: Pulse operational events include `usageCandidate: ticket_operation` metadata.
+- Pending: actual `UsageMeteringService` writes for ticket operations and workflow executions.
+- Risks: usage-candidate metadata is not billing enforcement or rated usage.
+- Next recommended step: define usage event names for ticket lifecycle and flow transitions.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: event categories make future usage-metering candidates easier to identify.
+- Completed: ticket lifecycle, operator action, escalation, confidence, and workflow-state event groups are explicit.
+- Pending: concrete usage event writes and billing-period aggregations.
+- Risks: timeline categories are reporting aids, not billable usage records.
+- Next recommended step: map lifecycle and workflow-state categories to usage-metering event names.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: workflow state transitions are now structured enough to become future usage-metering candidates.
+- Completed: completion, escalation, review, and waiting states can be identified through lifecycle events and metadata.
+- Pending: actual `UsageMeteringService` writes for workflow executions and automation executions.
+- Risks: state transitions remain operational records, not billable records, until metering writes are implemented.
+- Next recommended step: define metering event names for workflow transitions after confidence rules are added.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: review/escalation outcomes can now be identified as future usage/automation candidates.
+- Completed: confidence decisions are present in operational event payloads for later aggregation.
+- Pending: usage metering writes for AI executions, workflow transitions, and operator review events.
+- Risks: confidence metadata is not a rated usage record.
+- Next recommended step: map confidence-triggered reviews to usage candidates after knowledge context lands.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: knowledge publish/archive events are marked as future operational usage candidates only through event history.
+- Completed: no billing runtime behavior changed.
+- Pending: storage usage metering for knowledge content and retrieval/query usage metrics.
+- Risks: knowledge content size is not yet metered.
+- Next recommended step: define storage and retrieval usage metrics after provider contracts are finalized.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: scheduling prepare/booking intent contracts identify future usage-metering points.
+- Completed: no billing runtime behavior changed and no provider calls are made.
+- Pending: usage events for scheduling availability checks, booking attempts, and successful bookings.
+- Risks: prepared requests are not billable provider executions yet.
+- Next recommended step: implement Pulse usage metering candidates before provider adapters.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: Pulse operational usage candidates now create usage ledger events.
+- Completed: units added through existing metric types: `message`, `ticket_operation`, `flow_transition`, `byte`, `knowledge_operation`, `scheduling_availability_prepare`, and `scheduling_booking_prepare`.
+- Pending: rate cards, Stripe meter mappings, and plan-limit checks for these Pulse-specific units.
+- Risks: metered events are not automatically billable until admin rate cards and Stripe meter mappings are configured.
+- Next recommended step: define default Pulse unit pricing/rating policy after runtime contracts.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: no billing runtime behavior changed.
+- Completed: execution lifecycle records can later anchor runtime/workflow usage events.
+- Pending: usage metering for queued/running/completed runtime executions.
+- Risks: execution lifecycle records are not usage events by themselves.
+- Next recommended step: map runtime lifecycle transitions to usage events after service actor auth is defined.
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: no billing behavior changed.
+- Completed: runtime lifecycle transitions are now structured enough to become future metering boundaries after service-actor auth.
+- Pending: usage writes for queued/running/completed/cancelled runtime state transitions.
+- Risks: lifecycle audit records are not billable usage events and should not be rated directly.
+- Next recommended step: map runtime lifecycle transitions to usage events only after service actors and tenant fixtures are in place.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: no billing contract changed.
+- Completed: Pulse ticket lifecycle database fixtures verify workflow usage events remain tenant-scoped and are not written when mutations are rejected.
+- Pending: rated usage, billing summary, Stripe report, and plan-limit database fixtures.
+- Risks: usage fixture coverage is narrow and currently limited to Pulse ticket operation side effects.
+- Next recommended step: add usage summary and plan-limit fixtures after route-level RBAC coverage.

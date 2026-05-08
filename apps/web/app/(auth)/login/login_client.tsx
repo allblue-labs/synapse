@@ -23,10 +23,10 @@ const FEATURES = [
 ];
 
 function safeNext(raw: string | null): string {
-  if (!raw) return '/overview';
+  if (!raw) return '/workspace/overview';
 
   if (!raw.startsWith('/') || raw.startsWith('//')) {
-    return '/overview';
+    return '/workspace/overview';
   }
 
   return raw;

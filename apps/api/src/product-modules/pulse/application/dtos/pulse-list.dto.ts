@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsDateString, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import {
   PulseChannelProvider,
   PulseChannelStatus,
@@ -8,6 +8,11 @@ import {
   PulseTicketStatus,
   PulseTicketType,
 } from '@prisma/client';
+import {
+  PULSE_EVENT_TYPE_VALUES,
+  PULSE_TIMELINE_CATEGORY_VALUES,
+  PulseTimelineCategory,
+} from '../../domain/pulse-event-types';
 
 export class PulseListDto {
   @IsOptional()
@@ -86,7 +91,7 @@ export class PulseTicketListDto extends PulseListDto {
 
 export class PulseEventListDto extends PulseListDto {
   @IsOptional()
-  @IsString()
+  @IsIn(PULSE_EVENT_TYPE_VALUES)
   eventType?: string;
 
   @IsOptional()
@@ -96,4 +101,10 @@ export class PulseEventListDto extends PulseListDto {
   @IsOptional()
   @IsDateString()
   occurredTo?: string;
+}
+
+export class PulseTimelineListDto extends PulseEventListDto {
+  @IsOptional()
+  @IsIn(PULSE_TIMELINE_CATEGORY_VALUES)
+  category?: PulseTimelineCategory;
 }

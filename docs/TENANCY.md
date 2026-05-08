@@ -203,3 +203,83 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: database-backed tests with two tenants and overlapping Pulse ids.
 - Risks: guard-level tenant rejection is covered, but persistence-layer leak checks still need integrated fixtures.
 - Next recommended step: add database-backed cross-tenant filtered read tests.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: ticket lifecycle mutations resolve tickets by `(tenantId, ticketId)` before updating.
+- Completed: repository update tests prove cross-tenant/missing tickets return null without write attempts; use-case tests ensure missing tickets do not emit events or audit entries.
+- Pending: database-backed two-tenant lifecycle mutation fixtures.
+- Risks: repository updates use a tenant-scoped pre-read followed by id update; future transactional hardening may be needed under concurrent writes.
+- Next recommended step: add database-backed cross-tenant mutation tests after timeline aggregation lands.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: timeline aggregation uses tenant-scoped event repository queries.
+- Completed: ticket and conversation timelines preserve tenant id as the base query predicate for filtered category reads.
+- Pending: database-backed two-tenant timeline fixtures with overlapping event ids.
+- Risks: future include/expand behavior must not load related ticket/conversation data outside tenant scope.
+- Next recommended step: add database-backed timeline isolation tests after flow-state rules land.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: guided flow transitions execute through the existing tenant-scoped ticket lifecycle path.
+- Completed: invalid transitions stop before repository updates; accepted transitions still update by tenant-owned ticket id only.
+- Pending: two-tenant transition fixtures and concurrent transition handling.
+- Risks: concurrent operators could race flow metadata until transactional transition checks are added.
+- Next recommended step: add database-backed mutation isolation tests after confidence rules land.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: confidence policy executes inside the tenant-scoped lifecycle mutation path.
+- Completed: review/escalation rerouting still uses tenant-owned ticket reads before updates.
+- Pending: database-backed two-tenant confidence transition fixtures.
+- Risks: static thresholds are global today; tenant-specific thresholds must be tenant-scoped when added.
+- Next recommended step: keep future threshold settings tenant-owned and never platform-global by accident.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: Pulse knowledge context repository requires `tenantId` for every read/list/publish/archive path.
+- Completed: list/query filters always include tenant scope; archive performs tenant-scoped lookup before update.
+- Pending: two-tenant database fixtures with overlapping context ids.
+- Risks: future retrieval aggregation must not mix tenant contexts for runtime requests.
+- Next recommended step: include knowledge context in the database-backed tenant isolation suite.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: scheduling integration reads and prepare flows are tenant-scoped.
+- Completed: integration lookup requires `(tenantId, integrationId)` and validates provider match before preparing availability or booking requests.
+- Pending: database-backed two-tenant integration fixtures.
+- Risks: future provider adapters must not use external refs without first resolving tenant-owned integration settings.
+- Next recommended step: include integration settings in the tenant isolation fixture plan.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: Pulse usage events are written with the active tenant id from the use-case boundary.
+- Completed: ticket, knowledge, scheduling, and entry message usage writes include tenant-owned resource ids.
+- Pending: database-backed two-tenant usage summary tests for Pulse-specific units.
+- Risks: future batch/retry jobs must preserve tenant id and idempotency keys.
+- Next recommended step: include Pulse usage events in tenant isolation fixture plans.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: runtime execution lifecycle records are tenant-owned.
+- Completed: request idempotency is scoped by tenant; read and transition use `(tenantId, executionId)` lookup before updates.
+- Pending: two-tenant execution fixtures with overlapping idempotency keys.
+- Risks: future external runtime callbacks must include tenant context and be validated server-side.
+- Next recommended step: add database-backed execution lifecycle tenant isolation tests.
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: runtime cancel/transition commands continue to resolve execution records through tenant-scoped lookup before writes.
+- Completed: transition policy is enforced after `(tenantId, executionId)` lookup; idempotency keys remain tenant-scoped; audit records carry the owning tenant id.
+- Pending: database-backed two-tenant runtime fixtures for request, transition, cancel, and idempotency reuse.
+- Risks: future runtime callbacks must never update by execution id alone.
+- Next recommended step: build two-tenant execution lifecycle fixtures with overlapping idempotency keys and attempted cross-tenant transitions.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: two-tenant persistence fixtures now exist for runtime and Pulse ticket lifecycle boundaries.
+- Completed: runtime fixtures validate tenant-scoped idempotency keys, tenant-scoped reads, cross-tenant transition rejection, and audit segregation; Pulse fixtures validate ticket mutation ownership and event/audit/usage segregation.
+- Pending: database-backed fixtures for Pulse timelines, knowledge context, scheduling integrations, module registry, billing, and usage summaries.
+- Risks: fixtures require a migrated PostgreSQL database and are skipped by default.
+- Next recommended step: run `npm run test:db` in a disposable test database and expand coverage to Pulse timeline reads.

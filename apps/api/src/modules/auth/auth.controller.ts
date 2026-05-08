@@ -4,7 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { Public } from '../../common/authorization';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
-import { AuthService, IssuedSession } from './auth.service';
+import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import {

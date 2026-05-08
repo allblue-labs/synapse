@@ -188,3 +188,83 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: complete OWNER/ADMIN/OPERATOR/VIEWER matrix for every filtered read route.
 - Risks: the current forbidden case uses an invalid role to prove guard failure; role matrix behavior still needs explicit cases.
 - Next recommended step: add role-matrix HTTP tests for Pulse reads.
+
+## 2026-05-08 Pulse Ticket Lifecycle Mutation Update
+
+- Changed: lifecycle routes use granular ticket permissions.
+- Completed: assignment/escalation use `tickets:assign`; resolution uses `tickets:resolve`; reopen/cancel/operator-review/flow-advance use `tickets:write`.
+- Pending: OWNER/ADMIN/OPERATOR/VIEWER HTTP role matrix for lifecycle commands.
+- Risks: future lifecycle commands must not fall back to broad `pulse:write`.
+- Next recommended step: add lifecycle role-matrix HTTP tests.
+
+## 2026-05-08 Pulse Event Catalog + Timeline Aggregation Update
+
+- Changed: consolidated timelines reuse existing read permissions.
+- Completed: conversation timelines use `pulse:read`; ticket timelines use `tickets:read`.
+- Pending: role-matrix HTTP tests for timeline category filters.
+- Risks: future admin-only timeline categories should not appear on tenant-user routes without permission review.
+- Next recommended step: include timeline routes in the lifecycle role-matrix suite.
+
+## 2026-05-08 Pulse Guided Flow State Machine Update
+
+- Changed: flow advancement remains protected by `tickets:write`.
+- Completed: no broad `pulse:write` permission was introduced for state-machine movement.
+- Pending: OWNER/ADMIN/OPERATOR/VIEWER matrix tests for flow advancement.
+- Risks: future automated/runtime transitions will need a distinct service permission model.
+- Next recommended step: define service-actor permission boundaries before runtime-driven flow transitions.
+
+## 2026-05-08 Pulse Confidence + Human Review Layer Update
+
+- Changed: confidence-triggered review/escalation uses the existing `tickets:write` flow advancement path.
+- Completed: no new broad permission was introduced.
+- Pending: role-matrix tests for low-confidence flow advancement and operator review submission.
+- Risks: future runtime/service actors need separate permission boundaries from human operators.
+- Next recommended step: define service actor RBAC before external runtime writes flow transitions.
+
+## 2026-05-08 Pulse Knowledge Context Foundation Update
+
+- Changed: knowledge context uses existing Pulse permissions.
+- Completed: list/get/query use `pulse:read`; publish/archive use `pulse:write`.
+- Pending: decide whether knowledge management needs a dedicated permission before broader admin UX.
+- Risks: broad `pulse:write` may be too permissive for tenant knowledge governance later.
+- Next recommended step: evaluate `knowledge:manage` or `pulse:knowledge:manage` before frontend management surfaces ship.
+
+## 2026-05-08 Pulse Scheduling Integration Contracts Update
+
+- Changed: scheduling integration routes use integration-specific permissions.
+- Completed: scheduling integration list/get and availability prepare use `integrations:read`; booking prepare uses `integrations:manage`.
+- Pending: role-matrix tests for scheduling routes.
+- Risks: actual booking execution may need a narrower permission than `integrations:manage`.
+- Next recommended step: define booking execution permission before provider adapters.
+
+## 2026-05-08 Pulse Usage Metering Foundation Update
+
+- Changed: usage writes are side effects of already protected Pulse routes/use cases.
+- Completed: no new public usage-write route was introduced.
+- Pending: role-matrix tests proving lower-privilege users cannot trigger protected metered operations they should not access.
+- Risks: future service actors need explicit permission boundaries for metered runtime writes.
+- Next recommended step: include usage effects in lifecycle/scheduling role-matrix tests.
+
+## 2026-05-08 Runtime Execution Lifecycle Contract Update
+
+- Changed: runtime execution lifecycle APIs use runtime permissions.
+- Completed: request/transition use `runtime:executions:create`; read uses `runtime:executions:read`.
+- Pending: service-only transition permission and role-matrix HTTP tests.
+- Risks: human-created transitions are not a final production authorization model.
+- Next recommended step: introduce service actor permissions before runtime callbacks.
+
+## 2026-05-08 Runtime AppSec Hardening Update
+
+- Changed: runtime transition now has a dedicated permission instead of sharing create.
+- Completed: request uses `runtime:executions:create`; read uses `runtime:executions:read`; transition uses `runtime:executions:transition`; cancel uses `runtime:executions:cancel`.
+- Pending: service-only transition/callback permission design and OWNER/ADMIN/OPERATOR/VIEWER HTTP matrix tests.
+- Risks: OWNER/ADMIN permission inheritance still allows human transition while service actors are pending.
+- Next recommended step: introduce runtime service actor permissions and verify forbidden audit behavior.
+
+## 2026-05-08 Database Fixture Foundation Update
+
+- Changed: no RBAC matrix changed in this fixture slice.
+- Completed: database fixtures validate server-side tenant ownership after permission gates would allow a command.
+- Pending: HTTP role-matrix fixtures for runtime request/read/transition/cancel and Pulse ticket commands.
+- Risks: database fixtures do not replace route-level forbidden tests.
+- Next recommended step: add HTTP role-matrix tests with forbidden audit assertions.

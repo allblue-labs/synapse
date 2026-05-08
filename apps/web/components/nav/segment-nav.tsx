@@ -10,15 +10,39 @@ import {cn} from '@/lib/utils';
  * Add new routes here so they appear nicely in the segment nav.
  */
 const ROUTE_LABELS: Record<string, string> = {
+  // Top-level zones
+  workspace:     'Workspace',
+  platform:      'Platform',
+
+  // Workspace surfaces
   overview:      'Overview',
   modules:       'Modules',
   agents:        'Agents',
   activity:      'Activity',
   settings:      'Settings',
-  messaging:     'Messaging',
-  'clinic-flow': 'ClinicFlow AI',
-  queue:         'Queue',
-  errors:        'Errors',
+  billing:       'Billing',
+  team:          'Team',
+
+  // Pulse module surfaces
+  pulse:         'Pulse',
+  inbox:         'Inbox',
+  tickets:       'Tickets',
+  timeline:      'Timeline',
+  playbooks:     'Playbooks',
+  knowledge:     'Knowledge',
+  catalog:       'Catalog',
+  campaigns:     'Campaigns',
+  integrations:  'Integrations',
+  metrics:       'Metrics',
+  logs:          'Logs',
+
+  // Platform admin surfaces
+  tenants:       'Tenants',
+  flags:         'Feature Flags',
+  audit:         'Audit',
+  runtime:       'Runtime',
+
+  // Generic
   conversations: 'Conversations',
   channels:      'Channels',
   automations:   'Automations',

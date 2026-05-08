@@ -32,9 +32,12 @@ export const AuditAction = {
   BILLING_STRIPE_CHECKOUT_CREATED: 'billing.stripe_checkout.created',
   BILLING_STRIPE_PORTAL_CREATED: 'billing.stripe_portal.created',
   BILLING_STRIPE_WEBHOOK_PROCESSED: 'billing.stripe_webhook.processed',
+  RUNTIME_EXECUTION_REQUESTED: 'runtime.execution.requested',
+  RUNTIME_EXECUTION_TRANSITIONED: 'runtime.execution.transitioned',
+  RUNTIME_EXECUTION_CANCELLED: 'runtime.execution.cancelled',
 } as const;
 
-export type AuditActionName = typeof AuditAction[keyof typeof AuditAction] | (string & {});
+export type AuditActionName = typeof AuditAction[keyof typeof AuditAction] | (string & Record<never, never>);
 
 export interface AuditEventInput {
   /** Owning tenant. Optional for pre-session events (e.g. failed login). */

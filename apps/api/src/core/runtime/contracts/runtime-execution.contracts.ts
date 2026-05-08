@@ -23,7 +23,14 @@ export interface RuntimeExecutionLifecycleStore {
     tenantId: string;
     executionId: string;
     status: ExecutionResponseContract['status'];
+    actorUserId?: string;
     output?: Record<string, unknown>;
     errorMessage?: string;
+  }): Promise<ExecutionResponseContract>;
+  cancel(input: {
+    tenantId: string;
+    executionId: string;
+    actorUserId?: string;
+    reason?: string;
   }): Promise<ExecutionResponseContract>;
 }

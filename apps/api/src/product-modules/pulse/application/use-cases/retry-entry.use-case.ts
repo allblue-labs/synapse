@@ -10,6 +10,7 @@ import {
   IPulseOperationalEventRepository,
   PULSE_OPERATIONAL_EVENT_REPOSITORY,
 } from '../../domain/ports/pulse-operational-event-repository.port';
+import {PULSE_EVENT_TYPES} from '../../domain/pulse-event-types';
 import {PULSE_QUEUE, DEFAULT_JOB_OPTIONS} from '../../infrastructure/processors/pulse.processor';
 import {ProcessPulseJob} from '../../contracts/pulse.contracts';
 
@@ -45,7 +46,7 @@ export class RetryEntryUseCase {
 
     await this.events.record({
       tenantId,
-      eventType: 'pulse.entry.retry_requested',
+      eventType: PULSE_EVENT_TYPES.ENTRY_RETRY_REQUESTED,
       conversationId: updated.conversationId ?? undefined,
       payload: {
         entryId: updated.id,

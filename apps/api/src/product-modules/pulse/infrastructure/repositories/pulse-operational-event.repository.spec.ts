@@ -93,6 +93,13 @@ describe('PulseOperationalEventRepository', () => {
         id: true,
         tenantId: true,
         eventType: true,
+        actorType: true,
+        actorUserId: true,
+        channelId: true,
+        conversationId: true,
+        ticketId: true,
+        payload: true,
+        metadata: true,
         occurredAt: true,
       },
       orderBy: { occurredAt: 'asc' },
@@ -140,6 +147,13 @@ describe('PulseOperationalEventRepository', () => {
         id: true,
         tenantId: true,
         eventType: true,
+        actorType: true,
+        actorUserId: true,
+        channelId: true,
+        conversationId: true,
+        ticketId: true,
+        payload: true,
+        metadata: true,
         occurredAt: true,
       },
       orderBy: { occurredAt: 'asc' },
@@ -156,5 +170,36 @@ describe('PulseOperationalEventRepository', () => {
         },
       },
     });
+  });
+
+  it('lists timeline categories using tenant and event type sets', async () => {
+    const prisma = createPrismaMock();
+    prisma.pulseOperationalEvent.findMany.mockResolvedValue([]);
+    prisma.pulseOperationalEvent.count.mockResolvedValue(0);
+    const repository = new PulseOperationalEventRepository(
+      prisma as unknown as PrismaService,
+    );
+
+    await repository.listForTicket('tenant_a', 'ticket_1', {
+      eventTypes: [
+        'pulse.ticket.escalate_ticket',
+        'pulse.ticket.advance_flow_state',
+      ],
+    });
+
+    expect(prisma.pulseOperationalEvent.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          tenantId: 'tenant_a',
+          ticketId: 'ticket_1',
+          eventType: {
+            in: [
+              'pulse.ticket.escalate_ticket',
+              'pulse.ticket.advance_flow_state',
+            ],
+          },
+        },
+      }),
+    );
   });
 });

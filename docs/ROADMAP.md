@@ -439,3 +439,11 @@ Last updated: 2026-05-07
 - [ ] Marketing landing premium redesign
 - [ ] RBAC restricted-state UX + plan-based upgrade prompts inline
 - [ ] Animated synapse background refinements
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: first-admin provisioning now aligns with Light/Pro/Premium billing plans.
+- Completed: admin bootstrap uses `light` for the initial tenant billing account.
+- Pending: automated smoke coverage for `admin:create`.
+- Risks: bootstrap can still fail if migrations did not seed billing plans.
+- Next recommended step: add a Docker smoke test for migration + admin provisioning.

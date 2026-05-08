@@ -299,3 +299,11 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: concrete multi-tenant HTTP fixture examples.
 - Risks: stale frontend caches can simulate cross-tenant leakage if not cleared on tenant/session changes.
 - Next recommended step: include cache invalidation expectations in frontend implementation review.
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: first tenant bootstrap now creates a tenant-owned billing account using the current `light` plan.
+- Completed: tenant creation no longer attempts to reference a retired plan key.
+- Pending: two-tenant bootstrap/idempotency smoke tests.
+- Risks: repeated bootstrap with different tenant slugs still requires operator intent.
+- Next recommended step: add admin provisioning to local Docker QA checklist.

@@ -320,3 +320,11 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: marketplace purchase examples and generated module response examples.
 - Risks: frontend must not invent module availability or commercial activation state.
 - Next recommended step: add concrete module registry response fixtures before marketplace UI expansion.
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: no module registry behavior changed.
+- Completed: admin bootstrap aligns with current platform billing plans required before module entitlement checks.
+- Pending: smoke test after module registry and billing seeders run.
+- Risks: module enablement still depends on billing/module registry seed state.
+- Next recommended step: verify module list after admin bootstrap in Docker QA.

@@ -336,3 +336,11 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending integrations (Batch 3): module store, billing visibility, knowledge management UI, scheduling integrations UI, Pulse metrics dashboard, runtime governance for platform admin. API client already exposes these endpoints so wiring is purely additive.
 - Risks: list-fanout enrichment in `loaders.toRow` issues per-row detail fetches to surface priority/confidence. The single-file seam to swap is `loaders.ts`.
 - Next recommended step: Batch 3 — module store + billing visibility (highest tenant value), then the knowledge management surface.
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: no frontend files or UX contracts changed.
+- Completed: initial tenant provisioning can create a valid billing account for frontend billing/module surfaces.
+- Pending: frontend should still handle missing billing account states defensively.
+- Risks: if bootstrap is not run, authenticated workspace state may not exist yet.
+- Next recommended step: verify login/workspace after admin bootstrap succeeds.

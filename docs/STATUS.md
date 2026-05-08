@@ -394,3 +394,11 @@ Last updated: 2026-05-07
 - Pending: knowledge management / scheduling integrations / module store / billing / runtime governance / usage UIs — deferred to Batch 3. API client already exposes them so wiring is additive.
 - Risks: tickets list fans out N detail-fetches per row to surface priority/confidence — acceptable today, the swap-in seam is `loaders.toRow`.
 - Next recommended step: Batch 3 — module store + billing visibility, then knowledge management, scheduling integrations, runtime governance.
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: `npm run admin:create` now creates the first tenant billing account with plan key `light`.
+- Completed: removed the retired `starter` plan reference from the admin provisioning script.
+- Pending: container smoke test for first-admin provisioning after migrations.
+- Risks: provisioning still requires billing core migrations to be applied so the `light` plan exists.
+- Next recommended step: rebuild the API image and rerun `npm run admin:create` inside the container after migrations complete.

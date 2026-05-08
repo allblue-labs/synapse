@@ -30,6 +30,7 @@ const prisma = new PrismaClient();
 const MIN_PASSWORD_LENGTH = 12;
 const SLUG_PATTERN = /^[a-z0-9-]{3,48}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEFAULT_BILLING_PLAN_KEY = 'light';
 
 // ── Logging helpers (no password ever crosses the boundary) ───────────
 function info(msg: string)  { process.stdout.write(`  ${msg}\n`); }
@@ -145,6 +146,7 @@ async function ensureTenant(name: string, slug: string) {
   const existing = await prisma.tenant.findUnique({where: {slug}});
   if (existing) {
     info(`Reusing existing tenant "${existing.name}" (slug: ${slug}).`);
+    await ensureBillingAccount(existing.id);
     return existing;
   }
 
@@ -153,11 +155,30 @@ async function ensureTenant(name: string, slug: string) {
       name,
       slug,
       status: TenantStatus.ACTIVE,
-      billingAccount: {create: {planKey: 'starter'}},
+      billingAccount: {create: {planKey: DEFAULT_BILLING_PLAN_KEY}},
     },
   });
   ok(`Created tenant "${created.name}" (slug: ${slug}).`);
   return created;
+}
+
+async function ensureBillingAccount(tenantId: string) {
+  const existing = await prisma.billingAccount.findUnique({where: {tenantId}});
+  if (!existing) {
+    await prisma.billingAccount.create({
+      data: {tenantId, planKey: DEFAULT_BILLING_PLAN_KEY},
+    });
+    ok(`Created billing account with plan "${DEFAULT_BILLING_PLAN_KEY}".`);
+    return;
+  }
+
+  if (existing.planKey !== DEFAULT_BILLING_PLAN_KEY) {
+    await prisma.billingAccount.update({
+      where: {tenantId},
+      data: {planKey: DEFAULT_BILLING_PLAN_KEY},
+    });
+    ok(`Updated billing account plan to "${DEFAULT_BILLING_PLAN_KEY}".`);
+  }
 }
 
 main()

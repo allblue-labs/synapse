@@ -285,3 +285,11 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: response examples and plan-limit display contracts.
 - Risks: frontend must not display usage as charged unless backend rated/metered data indicates it.
 - Next recommended step: add billing response examples after seeded billing fixtures exist.
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: first-admin bootstrap uses `light` as the initial `BillingAccount.planKey`.
+- Completed: removed retired `starter` reference that violated `BillingAccount_planKey_fkey`.
+- Pending: smoke test for admin bootstrap against a migrated database.
+- Risks: `light` must exist in `billing_plans`; this is seeded by billing core migration/startup seeders.
+- Next recommended step: rerun admin bootstrap after rebuilding the API image.

@@ -284,3 +284,11 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: HTTP role-matrix examples and generated permission metadata.
 - Risks: UI permission gates are advisory; backend remains final authority.
 - Next recommended step: frontend should hide/disable actions by permission and always handle `403`.
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: no RBAC contract changed.
+- Completed: first-admin bootstrap still assigns `OWNER`; billing plan fix only corrects tenant billing account creation.
+- Pending: smoke test proving bootstrap creates tenant, user, membership, and billing account.
+- Risks: admin credentials remain env-driven and must not be logged.
+- Next recommended step: add bootstrap verification to operational runbooks.

@@ -344,3 +344,11 @@ Not yet configured. Required before production:
 - Pending: route-level forbidden examples and generated error schemas.
 - Risks: frontend must treat backend authorization as final even when UI hides actions.
 - Next recommended step: add API error examples after HTTP role-matrix fixtures land.
+
+## 2026-05-08 Admin Bootstrap Billing Plan Fix
+
+- Changed: admin bootstrap no longer references retired billing plan keys.
+- Completed: first tenant provisioning now respects current billing FK constraints.
+- Pending: smoke test with sanitized admin env values.
+- Risks: admin bootstrap remains a privileged operational command and must be run with controlled env secrets.
+- Next recommended step: document and test the containerized admin provisioning runbook.

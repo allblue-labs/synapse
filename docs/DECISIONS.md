@@ -673,3 +673,19 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** The pack is static until OpenAPI/generated contracts exist.
 
 **Next recommended step:** keep the pack updated after every backend API change and add generated API examples later.
+
+---
+
+## 2026-05-08 — Admin bootstrap uses the Light plan
+
+**Decision:** The first-admin provisioning script creates the initial tenant billing account with plan key `light`.
+
+**Reason:** `starter` is a retired pre-billing-core default. Current commercial plans are Light, Pro, and Premium, and `BillingAccount.planKey` is constrained to `billing_plans.key`.
+
+**Consequence:** `npm run admin:create` works after billing migrations seed the `light` plan.
+
+**Status:** Completed.
+
+**Risk:** Running the script before migrations complete will still fail correctly.
+
+**Next recommended step:** add a container smoke test for first-admin provisioning.

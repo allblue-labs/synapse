@@ -10,6 +10,7 @@
     "lint": "eslint \"src/**/*.ts\"",
     "test": "jest",
     "test:db": "RUN_DATABASE_TESTS=1 jest --runInBand --testPathPattern database-fixtures",
+    "test:db:dev-reset": "npm run prisma:generate && RUN_DATABASE_TESTS=1 jest --runInBand --testPathPattern database-fixtures",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

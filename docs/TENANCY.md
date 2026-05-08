@@ -302,8 +302,56 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
-- Changed: first tenant bootstrap now creates a tenant-owned billing account using the current `light` plan.
-- Completed: tenant creation no longer attempts to reference a retired plan key.
-- Pending: two-tenant bootstrap/idempotency smoke tests.
-- Risks: repeated bootstrap with different tenant slugs still requires operator intent.
-- Next recommended step: add admin provisioning to local Docker QA checklist.
+- Changed: superseded by platform-admin bootstrap; `admin:create` no longer creates a first tenant.
+- Completed: tenant creation paths still must use current billing plan keys.
+- Pending: tenant/customer provisioning smoke tests separate from platform-admin bootstrap.
+- Risks: older QA checklists may still expect `ADMIN_TENANT_*`.
+- Next recommended step: split platform-admin and customer-tenant provisioning in local Docker QA.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: `admin:create` no longer creates a first tenant; platform admins are tenantless by default.
+- Completed: `TenantGuard` allows `platform_admin` without tenant context only on routes marked `@AllowTenantless()` and uses `x-tenant-id` as the explicit tenant boundary when a platform admin operates inside a tenant.
+- Pending: platform admin endpoints that list/select/manage tenants with audit-safe context.
+- Risks: older local data may contain an admin email with both a tenant membership and platform role; tenant-scoped services must continue to reject missing tenant ids.
+- Next recommended step: add HTTP fixtures for platform-admin tenant-bound and tenantless requests.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: platform user-management routes are tenantless and explicitly marked with `@AllowTenantless()`.
+- Completed: tenant customer creation still requires an explicit `tenantId`; platform admin/tester creation does not create tenant memberships.
+- Pending: tenant-bound fixtures for platform-created customer users.
+- Risks: platform admins entering tenant-scoped operations must still supply an explicit tenant boundary and must not infer tenant ownership from email.
+- Next recommended step: add two-tenant fixtures for platform-created customers and cross-tenant membership attempts.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: platform governance routes remain tenantless but never bypass scope checks.
+- Completed: platform usage metrics can optionally filter by tenant id, but the response is aggregated and redacted rather than exposing raw tenant payloads.
+- Pending: two-tenant fixtures for scoped platform metric reads.
+- Risks: tenant id filters on platform metrics must stay administrative and must not become a tenant data-exfiltration path.
+- Next recommended step: validate tenant-filtered platform metrics with scoped-admin fixtures.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: module/policy platform mutations remain tenantless platform operations and do not mutate tenant records directly.
+- Completed: module catalog governance and policy flags are global platform state with audit metadata and actor attribution.
+- Pending: validation that global platform changes cannot be triggered through tenant workspace roles.
+- Risks: global module/policy changes affect all tenants and must be reviewed before production use.
+- Next recommended step: require explicit confirmation metadata or change-ticket references for production governance writes.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: tenant workspace roles are now explicitly tested against platform governance routes.
+- Completed: HTTP fixture rejects tenant `OWNER` from tenantless platform governance even when the request has tenant context.
+- Pending: CI execution of DB fixtures.
+- Risks: platform metrics tenant filters still need broader persisted cross-tenant test data.
+- Next recommended step: add a second metrics fixture for explicit tenant filters.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: persisted fixture now seeds two tenants and validates scoped usage metrics against real tenant usage events.
+- Completed: scoped admin only sees usage for assigned module and receives redacted sensitive metric fields.
+- Pending: fixture for explicit `tenantId` filtering across two tenants.
+- Risks: current fixture validates module scope more deeply than tenant-filter behavior; local reset flow destroys all current dev tenants.
+- Next recommended step: add tenant-filtered platform metrics fixture.

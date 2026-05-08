@@ -347,8 +347,56 @@ Not yet configured. Required before production:
 
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
-- Changed: admin bootstrap no longer references retired billing plan keys.
-- Completed: first tenant provisioning now respects current billing FK constraints.
-- Pending: smoke test with sanitized admin env values.
+- Changed: superseded by platform-admin bootstrap; `admin:create` no longer provisions tenant billing.
+- Completed: retired billing plan keys remain removed from tenant/customer provisioning paths.
+- Pending: smoke test with sanitized platform-admin env values.
 - Risks: admin bootstrap remains a privileged operational command and must be run with controlled env secrets.
-- Next recommended step: document and test the containerized admin provisioning runbook.
+- Next recommended step: document and test the containerized platform-admin provisioning runbook.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: first-admin bootstrap now creates a tenantless platform administrator instead of a tenant customer owner.
+- Completed: JWT validation accepts tenantless sessions only for `role: "platform_admin"`; non-platform sessions still require `tenantId`. Tenantless platform access requires explicit route metadata. Forbidden permission checks continue to audit denials.
+- Pending: audited platform user-management endpoints, admin bootstrap smoke tests, and stronger production runbook requirements for rotating/removing bootstrap admins.
+- Risks: platform-admin credentials are high privilege; secrets/passwords must never be logged, and frontend must not expose workspace-only assumptions for this role.
+- Next recommended step: add platform-admin management endpoints with audit events for create/update/delete/deactivate operations.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: high-privilege platform access is split between bootstrap-only `super_admin`, limited `admin`, and read-oriented `tester`.
+- Completed: platform user create/update operations are permission-gated and audited; normal admins cannot grant admin access; sensitive admin-metric field masking helper is available for future metrics endpoints.
+- Pending: password reset/invite flow, deactivation, MFA/session revocation, and mandatory use of metric masking in platform metrics APIs.
+- Risks: direct password creation is acceptable for internal bootstrap/foundation only; production should move admin/tester creation to invitation or reset-token flows.
+- Next recommended step: implement invite/password-reset lifecycle before production admin onboarding.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: platform governance reads now load scopes server-side and mask sensitive metric fields for non-super roles.
+- Completed: added `maskSensitiveMetricFields` coverage and platform scope enforcement for usage metrics/modules/policies.
+- Pending: e2e forbidden tests, sensitive-key inventory review, and ensuring future platform metrics use the masker by default.
+- Risks: sensitive metric key coverage must evolve as new financial/provider fields are introduced.
+- Next recommended step: centralize all future admin metric serializers behind the masker.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: platform module/policy writes are audited and scope-bound.
+- Completed: mutations run behind permission guards, tenantless route metadata, server-side scope checks, DTO validation, and audit records.
+- Pending: forbidden-action audit fixtures for scoped denials.
+- Risks: policy metadata is accepted as JSON and should stay non-secret; secrets must never be stored in feature-flag metadata.
+- Next recommended step: add metadata schema allowlists for policy domains before wider admin use.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: security tests now include platform governance forbidden audit and sensitive metrics masking.
+- Completed: `AUTH_FORBIDDEN` is asserted for route permission denials and service scope denials; sensitive metric fields are masked for granular admins.
+- Pending: CI execution of persisted audit assertions.
+- Risks: audit persistence failures remain best-effort by design and need operational monitoring.
+- Next recommended step: add operational monitoring for audit persist failures.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: persisted audit assertions now exist for platform governance scope denials and successful writes.
+- Completed: DB fixture verifies forbidden audit records for out-of-scope module/policy attempts and success audit records for scoped writes.
+- Pending: route-level e2e audit persistence through real HTTP + database.
+- Risks: current DB fixture calls service methods directly, not full HTTP stack; dev reset flow is destructive.
+- Next recommended step: add end-to-end HTTP + DB fixture after test app database wiring is standardized.

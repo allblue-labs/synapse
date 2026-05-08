@@ -549,6 +549,34 @@ Frontend rules:
 - Do not imply provider execution is live unless backend orchestration/callbacks are wired.
 - Most users should see read-only state; transition/cancel surfaces should be restricted.
 
+## Auth Session Contract Update
+
+- `GET /v1/users/me` may return `role: "super_admin"`, `"admin"`, `"tester"`, or legacy `"platform_admin"` with no `tenant`.
+- Tenant workspace users still return a tenant role plus `tenant`.
+- Platform admin UI must branch from platform roles and must not assume workspace context exists.
+- Tenant-scoped API calls still require a tenant boundary; platform admins use backend-controlled platform routes or an explicit tenant context where supported.
+
+Platform user-management contracts:
+
+- `GET /v1/platform/users` requires `platform:users:read`.
+- `POST /v1/platform/users/admins` requires `platform:users:manage_admins`; intended for `super_admin` only.
+- `POST /v1/platform/users/testers` requires `platform:users:manage_testers`.
+- `POST /v1/platform/users/customers` requires `platform:users:manage_customers`.
+- `PATCH /v1/platform/users/:userId/platform-access` requires `platform:users:manage_admins`; cannot grant `SUPER_ADMIN`.
+- Granular platform admins include selected scopes: `{ "metrics": [], "modules": [], "policies": [] }`.
+- Testers must not see admin metrics. Granular admins must not see sensitive metric fields unless the backend explicitly returns unredacted data.
+
+Platform governance contracts:
+
+- `GET /v1/platform/metrics/usage?billingPeriod=YYYY-MM&module=relay&tenantId=...` requires `platform:metrics:read`; backend enforces `platformScopes.metrics` and `platformScopes.modules`; non-super roles receive sensitive fields masked.
+- `GET /v1/platform/modules?module=relay` requires `platform:modules:manage`; backend filters by `platformScopes.modules`.
+- `GET /v1/platform/policies?policy=billing.plan.pro.commercial` requires `platform:policies:manage`; backend filters by `platformScopes.policies`.
+- `PATCH /v1/platform/modules/:module/governance` requires `platform:modules:manage`; body may include `active`, `status`, `visibility`, `rolloutState`, `tier`; backend enforces `platformScopes.modules`.
+- `PATCH /v1/platform/policies/:policy` requires `platform:policies:manage`; body is `{ "enabled": boolean, "metadata"?: object }`; backend enforces `platformScopes.policies`.
+- Treat omitted records as out-of-scope, not as proof they do not exist.
+- Frontend must handle `403` for testers, tenant workspace roles, and scoped admins attempting out-of-scope platform governance actions.
+- Backend has opt-in DB fixtures proving persisted `platformScopes` filter modules, policies, and usage metrics; frontend should present platform governance lists as scoped views.
+
 ## Error Handling
 
 Expected backend errors:

@@ -288,8 +288,56 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
-- Changed: first-admin bootstrap uses `light` as the initial `BillingAccount.planKey`.
-- Completed: removed retired `starter` reference that violated `BillingAccount_planKey_fkey`.
-- Pending: smoke test for admin bootstrap against a migrated database.
-- Risks: `light` must exist in `billing_plans`; this is seeded by billing core migration/startup seeders.
-- Next recommended step: rerun admin bootstrap after rebuilding the API image.
+- Changed: superseded by platform-admin bootstrap; `admin:create` no longer creates a `BillingAccount`.
+- Completed: removed retired `starter` reference from tenant/customer billing creation paths.
+- Pending: smoke test for platform-admin bootstrap against a migrated database.
+- Risks: tenant/customer provisioning still requires valid billing plan seed data.
+- Next recommended step: rerun platform-admin bootstrap after rebuilding the API image.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: `admin:create` no longer creates billing accounts or chooses a customer plan.
+- Completed: platform-admin bootstrap is independent from billing-plan seed data; tenant billing remains attached to tenant/customer creation flows.
+- Pending: audited platform billing administration APIs for support operations and customer plan changes.
+- Risks: older docs/runbooks that expect `ADMIN_TENANT_*` variables are obsolete.
+- Next recommended step: keep customer tenant provisioning and platform-admin provisioning as separate operational runbook steps.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: granular platform admins can create tenant customer users but cannot grant other admin roles.
+- Completed: platform-created customer users attach to an explicit tenant and role; no billing account is created by platform user creation.
+- Pending: billing support APIs that distinguish customer billing visibility from platform sensitive financial metrics.
+- Risks: admin-visible customer metrics must redact sensitive fields unless the actor is `super_admin`.
+- Next recommended step: apply sensitive metric masking to future platform billing/metrics summaries.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: platform usage metrics are now aggregated through a redacted governance endpoint.
+- Completed: non-super platform roles receive sensitive metric fields masked; current response is usage-oriented and avoids raw Stripe/provider values.
+- Pending: platform billing metrics endpoint with rated/revenue summaries and explicit sensitive-field policy.
+- Risks: rated financial data should not be exposed through generic usage metrics without a separate permission and redaction review.
+- Next recommended step: design `platform:metrics:sensitive.read` usage before adding financial summaries.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: policy toggles can update billing feature flags through platform governance.
+- Completed: `PATCH /v1/platform/policies/:policy` can enable/disable a feature flag and update metadata with policy-scope enforcement.
+- Pending: dedicated commercial-plan policy model and stricter metadata schema.
+- Risks: billing feature flags are commercially sensitive; production use should require strong audit review.
+- Next recommended step: add policy-specific DTOs for plan activation and module entitlement changes.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: policy/feature-flag governance now has service fixture coverage.
+- Completed: tests assert policy updates write audit events for `BillingFeatureFlag` resources.
+- Pending: commercial-plan policy DTOs.
+- Risks: generic policy metadata remains flexible until domain-specific schemas are added.
+- Next recommended step: add policy-specific DTOs for commercial plan activation.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: persisted billing feature-flag policy updates now have opt-in DB coverage.
+- Completed: DB fixture verifies scoped policy update, persisted enabled state, and forbidden audit for out-of-scope policy attempts.
+- Pending: plan-specific policy validation.
+- Risks: flexible metadata remains intentionally broad for now; local reset flow clears billing state before migrations/seeders recreate it.
+- Next recommended step: constrain metadata per policy domain.

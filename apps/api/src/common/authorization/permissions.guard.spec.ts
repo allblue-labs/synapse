@@ -59,6 +59,83 @@ describe('PermissionsGuard', () => {
     await expect(guard.canActivate(createContext({ role: 'OPERATOR' }))).resolves.toBe(true);
   });
 
+  it('allows super admins to satisfy platform-wide permissions', async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn((key) => {
+        if (key === IS_PUBLIC_KEY) return false;
+        if (key === PERMISSIONS_KEY) return ['users:role.assign', 'modules:manage', 'billing:manage'];
+        return undefined;
+      }),
+    } as unknown as Reflector;
+    const guard = new PermissionsGuard(reflector, audit as never);
+
+    await expect(
+      guard.canActivate(createContext({ role: 'super_admin', sub: 'admin_1' })),
+    ).resolves.toBe(true);
+  });
+
+  it('allows granular admins to manage customers/testers but not admins', async () => {
+    const allowedReflector = {
+      getAllAndOverride: jest.fn((key) => {
+        if (key === IS_PUBLIC_KEY) return false;
+        if (key === PERMISSIONS_KEY) {
+          return ['platform:users:manage_customers', 'platform:users:manage_testers'];
+        }
+        return undefined;
+      }),
+    } as unknown as Reflector;
+    const deniedReflector = {
+      getAllAndOverride: jest.fn((key) => {
+        if (key === IS_PUBLIC_KEY) return false;
+        if (key === PERMISSIONS_KEY) return ['platform:users:manage_admins'];
+        return undefined;
+      }),
+    } as unknown as Reflector;
+
+    await expect(
+      new PermissionsGuard(allowedReflector, audit as never).canActivate(
+        createContext({ role: 'admin', sub: 'admin_1' }),
+      ),
+    ).resolves.toBe(true);
+    await expect(
+      new PermissionsGuard(deniedReflector, audit as never).canActivate(
+        createContext({ role: 'admin', sub: 'admin_1' }),
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects testers from admin metrics permissions', async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn((key) => {
+        if (key === IS_PUBLIC_KEY) return false;
+        if (key === PERMISSIONS_KEY) return ['platform:metrics:read'];
+        return undefined;
+      }),
+    } as unknown as Reflector;
+
+    await expect(
+      new PermissionsGuard(reflector, audit as never).canActivate(
+        createContext({ role: 'tester', sub: 'tester_1' }),
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('rejects tenant roles from platform user read permissions', async () => {
+    const reflector = {
+      getAllAndOverride: jest.fn((key) => {
+        if (key === IS_PUBLIC_KEY) return false;
+        if (key === PERMISSIONS_KEY) return ['platform:users:read'];
+        return undefined;
+      }),
+    } as unknown as Reflector;
+
+    await expect(
+      new PermissionsGuard(reflector, audit as never).canActivate(
+        createContext({ role: 'OWNER', tenantId: 'tenant_a', sub: 'owner_1' }),
+      ),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
   it('rejects viewers from mutating Pulse entries and records forbidden audit', async () => {
     const reflector = {
       getAllAndOverride: jest.fn((key) => {

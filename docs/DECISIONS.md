@@ -678,14 +678,126 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 
 ## 2026-05-08 — Admin bootstrap uses the Light plan
 
-**Decision:** The first-admin provisioning script creates the initial tenant billing account with plan key `light`.
+**Decision:** Superseded by the later platform-admin bootstrap decision below; first-admin provisioning no longer creates a tenant billing account.
 
 **Reason:** `starter` is a retired pre-billing-core default. Current commercial plans are Light, Pro, and Premium, and `BillingAccount.planKey` is constrained to `billing_plans.key`.
 
-**Consequence:** `npm run admin:create` works after billing migrations seed the `light` plan.
+**Consequence:** Tenant/customer creation paths must use current billing plan keys; `npm run admin:create` is now independent of tenant billing plans.
 
 **Status:** Completed.
 
 **Risk:** Running the script before migrations complete will still fail correctly.
 
-**Next recommended step:** add a container smoke test for first-admin provisioning.
+**Next recommended step:** add a container smoke test for platform-admin provisioning.
+
+---
+
+## 2026-05-08 — Admin bootstrap creates a platform admin, not a tenant owner
+
+**Decision:** `npm run admin:create` provisions `User.platformRole = PLATFORM_ADMIN` and does not create a tenant, billing account, or tenant membership.
+
+**Reason:** The first administrator must administer Synapse itself, including future admin/tester/customer lifecycle operations. A tenant `OWNER` is a customer workspace role and should not be confused with platform administration.
+
+**Consequence:** Platform admins log in with `role: "platform_admin"` and no default `tenantId`; `/users/me` returns no `tenant` unless an explicit tenant boundary is supplied for tenant-scoped operations.
+
+**Status:** Completed for bootstrap/auth/RBAC foundation.
+
+**Risk:** Frontend platform screens must treat `tenant` as optional for platform admins.
+
+**Next recommended step:** add audited platform user-management APIs.
+
+---
+
+## 2026-05-08 — Platform roles are granular and tenantless
+
+**Decision:** Platform users use `super_admin`, `admin`, and `tester` semantics, stored in `User.platformRole` and constrained further by `User.platformScopes`.
+
+**Reason:** Synapse needs a bootstrap role with full control, limited admins with selected metrics/modules/policies, and testers with broad read access but no admin metrics.
+
+**Consequence:** `admin:create` provisions only `SUPER_ADMIN`; normal platform admins are created through audited backend APIs and cannot create other admins.
+
+**Status:** Completed for role/scopes foundation and user-management APIs.
+
+**Risk:** Scope data must be consumed by future platform metrics/modules/policies APIs before it becomes a complete enforcement story.
+
+**Next recommended step:** implement platform admin metric APIs with scope checks and sensitive-field redaction.
+
+---
+
+## 2026-05-08 — Platform governance reads must enforce stored scopes
+
+**Decision:** Platform metrics/modules/policies are exposed through dedicated tenantless platform routes that load `User.platformScopes` server-side.
+
+**Reason:** Granular admins must not rely on frontend filtering. The backend must decide which metrics, modules, and policies are visible.
+
+**Consequence:** `super_admin` sees all platform governance reads; granular admins are restricted to selected scopes; testers do not have platform metric permission.
+
+**Status:** Completed for read-side usage metrics, module list, and policy list.
+
+**Risk:** Write-side governance is still pending and must reuse the same scope boundary.
+
+**Next recommended step:** add audited write APIs for policy/module governance.
+
+---
+
+## 2026-05-08 — Platform governance writes are audited and scope-bound
+
+**Decision:** Module rollout governance and policy flag changes are allowed only through platform routes that enforce both `platform:*` permissions and stored `platformScopes`.
+
+**Reason:** Granular admins may control only selected modules/policies; write-side controls must not depend on frontend filtering.
+
+**Consequence:** Every module/policy governance mutation records an audit event with previous/next governance state or policy update metadata.
+
+**Status:** Completed for module catalog governance and billing feature-flag policies.
+
+**Risk:** More complex policy domains may need dedicated models instead of overloading billing feature flags.
+
+**Next recommended step:** add database-backed scoped mutation fixtures.
+
+---
+
+## 2026-05-08 — Platform governance needs both HTTP and service fixtures
+
+**Decision:** Cover platform governance with fast HTTP guard fixtures plus service-level scope/audit fixtures before adding slower DB-backed cases.
+
+**Reason:** Permission regressions and scope regressions fail at different layers; testing them separately keeps feedback fast and precise.
+
+**Consequence:** Jest now validates route-level forbidden audit behavior and service-level scope denial audit behavior without requiring PostgreSQL.
+
+**Status:** Completed for fast fixture layer.
+
+**Risk:** Persistence-specific edge cases still require database-backed tests.
+
+**Next recommended step:** add opt-in DB fixtures for persisted `platformScopes` and module/policy writes.
+
+---
+
+## 2026-05-08 — Persisted platform scopes require opt-in DB fixtures
+
+**Decision:** Add `platform-governance.database-fixtures.spec.ts` behind `RUN_DATABASE_TESTS=1`.
+
+**Reason:** Mock tests prove guard/service behavior, but persisted JSON scopes, Prisma enum values, module catalog writes, policy writes, and audit records need real database validation.
+
+**Consequence:** Normal test runs stay fast while Ninja/CI can validate platform governance against PostgreSQL.
+
+**Status:** Completed.
+
+**Risk:** The fixture is skipped until a migrated test database is available.
+
+**Next recommended step:** run the DB fixture in Docker/CI.
+
+---
+
+## 2026-05-08 — Dev DB fixtures use the current disposable Docker Postgres
+
+**Decision:** In development, reset the existing Docker Postgres volume and run DB fixtures against that database instead of provisioning a second test database.
+
+**Reason:** The project is still in local/dev mode and a full disposable test database lifecycle is not necessary yet.
+
+**Consequence:** The approved flow is `docker compose down -v`, `docker compose up --build`, then `docker compose exec api-synapse npm run test:db:dev-reset`.
+
+**Status:** Documented and supported by an API npm script.
+
+**Risk:** This destroys local Docker data and must not be used in shared or production-like environments.
+
+**Next recommended step:** run this flow before Ninja's manual QA pass.

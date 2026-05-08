@@ -51,6 +51,28 @@ git add prisma/migrations/<ts>_<name>
 npx prisma migrate deploy
 ```
 
+### Local dev — disposable database reset + DB fixtures
+
+During early development we use the current Docker Postgres as disposable
+state instead of maintaining a second test Postgres. This is destructive and
+intended only for local/dev environments.
+
+```sh
+cd infra/docker
+docker compose down -v
+docker compose up --build
+
+# In another terminal, after api-synapse is healthy:
+docker compose exec api-synapse npm run test:db:dev-reset
+```
+
+What this does:
+
+- removes the current Postgres/Redis volumes
+- recreates the stack from migrations
+- runs opt-in database fixtures with `RUN_DATABASE_TESTS=1`
+- lets each DB fixture clean up its own seeded tenants/users/modules/policies
+
 ### Production deploy
 
 The Docker `migrate-synapse` service runs `prisma migrate deploy` once before

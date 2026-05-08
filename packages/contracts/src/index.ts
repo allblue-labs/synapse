@@ -7,13 +7,19 @@ export type TenantStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING_SETUP';
 
 export type UserRole = 'OWNER' | 'ADMIN' | 'OPERATOR' | 'VIEWER';
 export type SynapseRole =
+  | 'super_admin'
   | 'platform_admin'
+  | 'admin'
+  | 'tester'
   | 'tenant_owner'
   | 'tenant_admin'
   | 'tenant_operator'
   | 'tenant_viewer';
 
 export const USER_ROLES = ['OWNER', 'ADMIN', 'OPERATOR', 'VIEWER'] as const;
+export const PLATFORM_ROLES = ['super_admin', 'admin', 'tester', 'platform_admin'] as const;
+
+export type AuthRole = UserRole | SynapseRole;
 
 /**
  * Action-shaped permission catalogue. Every route that needs authorisation
@@ -32,6 +38,15 @@ export type Permission =
   | 'users:invite'
   | 'users:remove'
   | 'users:role.assign'
+  // Platform administration
+  | 'platform:users:manage_admins'
+  | 'platform:users:manage_customers'
+  | 'platform:users:manage_testers'
+  | 'platform:users:read'
+  | 'platform:metrics:read'
+  | 'platform:metrics:sensitive.read'
+  | 'platform:modules:manage'
+  | 'platform:policies:manage'
   // Agents
   | 'agents:read'
   | 'agents:write'
@@ -77,6 +92,10 @@ export type Permission =
 export const ALL_PERMISSIONS: ReadonlyArray<Permission> = [
   'tenant:read', 'tenant:update', 'tenant:delete',
   'users:read', 'users:invite', 'users:remove', 'users:role.assign',
+  'platform:users:manage_admins', 'platform:users:manage_customers', 'platform:users:manage_testers',
+  'platform:users:read',
+  'platform:metrics:read', 'platform:metrics:sensitive.read',
+  'platform:modules:manage', 'platform:policies:manage',
   'agents:read', 'agents:write', 'agents:delete', 'agents:deploy',
   'conversations:read', 'conversations:respond',
   'channels:read', 'channels:connect', 'channels:disconnect',
@@ -89,6 +108,10 @@ export const ALL_PERMISSIONS: ReadonlyArray<Permission> = [
   'billing:read', 'billing:manage',
 ] as const;
 
+export const TENANT_PERMISSIONS: ReadonlyArray<Permission> = ALL_PERMISSIONS.filter(
+  (permission) => !permission.startsWith('platform:'),
+);
+
 /**
  * Role → permission matrix.
  *
@@ -98,9 +121,9 @@ export const ALL_PERMISSIONS: ReadonlyArray<Permission> = [
  *  VIEWER    read-only across the platform
  */
 export const ROLE_PERMISSIONS: Readonly<Record<UserRole, ReadonlyArray<Permission>>> = Object.freeze({
-  OWNER: ALL_PERMISSIONS,
+  OWNER: TENANT_PERMISSIONS,
 
-  ADMIN: ALL_PERMISSIONS.filter(
+  ADMIN: TENANT_PERMISSIONS.filter(
     (p) => p !== 'tenant:delete' && p !== 'billing:manage',
   ),
 
@@ -133,21 +156,69 @@ export const ROLE_PERMISSIONS: Readonly<Record<UserRole, ReadonlyArray<Permissio
   ],
 });
 
+export const TENANT_ROLE_TO_SYNAPSE_ROLE: Readonly<Record<UserRole, SynapseRole>> = Object.freeze({
+  OWNER: 'tenant_owner',
+  ADMIN: 'tenant_admin',
+  OPERATOR: 'tenant_operator',
+  VIEWER: 'tenant_viewer',
+});
+
+export const SYNAPSE_ROLE_PERMISSIONS: Readonly<Record<SynapseRole, ReadonlyArray<Permission>>> = Object.freeze({
+  super_admin: ALL_PERMISSIONS,
+  platform_admin: ALL_PERMISSIONS,
+  admin: [
+    'users:read',
+    'platform:users:read',
+    'platform:users:manage_customers',
+    'platform:users:manage_testers',
+    'platform:metrics:read',
+    'platform:modules:manage',
+    'platform:policies:manage',
+    'modules:read',
+    'modules:manage',
+    'audit:read',
+    'billing:read',
+    'runtime:executions:read',
+  ],
+  tester: [
+    'platform:users:read',
+    'tenant:read',
+    'users:read',
+    'agents:read',
+    'conversations:read',
+    'channels:read',
+    'pulse:read',
+    'modules:read',
+    'tickets:read',
+    'integrations:read',
+    'runtime:executions:read',
+    'billing:read',
+    'audit:read',
+  ],
+  tenant_owner: ROLE_PERMISSIONS.OWNER,
+  tenant_admin: ROLE_PERMISSIONS.ADMIN,
+  tenant_operator: ROLE_PERMISSIONS.OPERATOR,
+  tenant_viewer: ROLE_PERMISSIONS.VIEWER,
+});
+
+function normalizeRole(role: AuthRole): SynapseRole {
+  return TENANT_ROLE_TO_SYNAPSE_ROLE[role as UserRole] ?? (role as SynapseRole);
+}
+
 /** Resolves the full permission set for a role. */
-export function permissionsForRole(role: UserRole): ReadonlyArray<Permission> {
-  return ROLE_PERMISSIONS[role] ?? [];
+export function permissionsForRole(role: AuthRole): ReadonlyArray<Permission> {
+  return SYNAPSE_ROLE_PERMISSIONS[normalizeRole(role)] ?? [];
 }
 
 /** Does a role grant a specific permission? */
-export function roleHasPermission(role: UserRole, permission: Permission): boolean {
-  return ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+export function roleHasPermission(role: AuthRole, permission: Permission): boolean {
+  return permissionsForRole(role).includes(permission);
 }
 
 /** Does a role grant *all* of the given permissions? */
-export function roleHasAllPermissions(role: UserRole, required: ReadonlyArray<Permission>): boolean {
+export function roleHasAllPermissions(role: AuthRole, required: ReadonlyArray<Permission>): boolean {
   if (required.length === 0) return true;
-  const granted = ROLE_PERMISSIONS[role];
-  if (!granted) return false;
+  const granted = permissionsForRole(role);
   return required.every((p) => granted.includes(p));
 }
 export type AgentStatus = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED';
@@ -333,8 +404,8 @@ export type AuthSession = {
   user: {
     id: string;
     email: string;
-    tenantId: string;
-    role: UserRole;
+    tenantId?: string;
+    role: AuthRole;
   };
 };
 
@@ -343,9 +414,9 @@ export type CurrentUser = {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  role: AuthRole;
   permissions: ReadonlyArray<Permission>;
-  tenant: {
+  tenant?: {
     id: string;
     name: string;
     slug: string;

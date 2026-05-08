@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { ExecutionContext } from '@nestjs/common';
 import { IS_PUBLIC_KEY } from '../authorization/public.decorator';
+import { ALLOW_TENANTLESS_KEY } from '../authorization/tenantless.decorator';
 import { TenantGuard } from './tenant.guard';
 
 function createContext(input: {
@@ -51,6 +52,66 @@ describe('TenantGuard', () => {
 
     expect(guard.canActivate(context)).toBe(true);
     expect(request).toMatchObject({ tenantId: 'tenant_a' });
+  });
+
+  it('allows platform admins without a tenant context for explicitly tenantless routes', () => {
+    const request = {
+      user: { role: 'super_admin', sub: 'admin_1' },
+      headers: {},
+    };
+    const context = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: jest.fn(() => ({
+        getRequest: jest.fn(() => request),
+      })),
+    } as unknown as ExecutionContext;
+    const reflector = {
+      getAllAndOverride: jest.fn((key) => {
+        if (key === IS_PUBLIC_KEY) return false;
+        if (key === ALLOW_TENANTLESS_KEY) return true;
+        return undefined;
+      }),
+    } as unknown as Reflector;
+    const guard = new TenantGuard(reflector);
+
+    expect(guard.canActivate(context)).toBe(true);
+    expect(request).not.toHaveProperty('tenantId');
+  });
+
+  it('rejects tenantless platform admins on tenant-scoped routes', () => {
+    const request = {
+      user: { role: 'admin', sub: 'admin_1' },
+      headers: {},
+    };
+    const context = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: jest.fn(() => ({
+        getRequest: jest.fn(() => request),
+      })),
+    } as unknown as ExecutionContext;
+    const guard = createGuard();
+
+    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+  });
+
+  it('uses x-tenant-id as the explicit tenant boundary for platform admins', () => {
+    const request = {
+      user: { role: 'super_admin', sub: 'admin_1' },
+      headers: { 'x-tenant-id': 'tenant_b' },
+    };
+    const context = {
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
+      switchToHttp: jest.fn(() => ({
+        getRequest: jest.fn(() => request),
+      })),
+    } as unknown as ExecutionContext;
+    const guard = createGuard();
+
+    expect(guard.canActivate(context)).toBe(true);
+    expect(request).toMatchObject({ tenantId: 'tenant_b' });
   });
 
   it('rejects authenticated requests without tenant context', () => {

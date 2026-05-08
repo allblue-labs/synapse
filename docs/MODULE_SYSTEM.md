@@ -323,8 +323,56 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
-- Changed: no module registry behavior changed.
-- Completed: admin bootstrap aligns with current platform billing plans required before module entitlement checks.
+- Changed: no module registry behavior changed; later platform-admin bootstrap removes tenant billing from `admin:create`.
+- Completed: module entitlement checks still depend on current billing/module registry seed state.
 - Pending: smoke test after module registry and billing seeders run.
 - Risks: module enablement still depends on billing/module registry seed state.
-- Next recommended step: verify module list after admin bootstrap in Docker QA.
+- Next recommended step: verify module list separately from platform-admin bootstrap in Docker QA.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: module administration can now be represented by `platform_admin` instead of overloading tenant `OWNER`.
+- Completed: shared permissions let `platform_admin` satisfy `modules:*` and billing/module-management gates from the backend contract.
+- Pending: platform admin module-store operations for public/private visibility, rollout state, and tenant entitlements.
+- Risks: module enablement for a tenant still needs an explicit tenant boundary; platform admins should not mutate tenant module state without a validated tenant scope.
+- Next recommended step: implement platform module-management APIs with explicit tenant/platform scopes.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: granular admins can carry selected module scopes in `User.platformScopes.modules`.
+- Completed: platform admin creation/update APIs persist selected module scopes for future module-store governance.
+- Pending: module registry routes that enforce selected module scope before exposing management actions to granular admins.
+- Risks: existing tenant module routes still rely on tenant permissions and do not yet consume platform scope selections.
+- Next recommended step: add platform module-management endpoints that require both `platform:modules:manage` and matching module scope.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: added `GET /v1/platform/modules` for scope-aware platform module governance reads.
+- Completed: granular admins only see modules listed in `platformScopes.modules`; `super_admin` can see all modules.
+- Pending: platform mutations for active/visibility/rollout state and module scope fixtures.
+- Risks: route currently exposes module metadata/read counts but does not mutate module state.
+- Next recommended step: add audited module rollout update commands with explicit scope checks.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: added module governance mutation endpoint for active/status/visibility/rollout/tier.
+- Completed: module updates enforce `platformScopes.modules` and record previous/next governance state in audit.
+- Pending: runtime impact propagation when module active/visibility changes should invalidate tenant runtime specs.
+- Risks: global module changes do not yet trigger downstream runtime cache invalidation.
+- Next recommended step: wire module governance changes to runtime/module registry refresh events.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: module governance mutation behavior now has service fixture coverage.
+- Completed: tests assert previous/next module governance state is included in audit events.
+- Pending: runtime-state invalidation fixture.
+- Risks: module governance changes still do not invalidate runtime/module caches.
+- Next recommended step: add runtime-state invalidation on module governance mutation.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: persisted module catalog governance now has opt-in DB coverage.
+- Completed: DB fixture updates module rollout state and verifies the persisted row and audit record.
+- Pending: cache/runtime propagation checks.
+- Risks: changing global module governance can still leave runtime state stale; local DB reset clears module state completely.
+- Next recommended step: emit module governance events for runtime/module registry refresh.

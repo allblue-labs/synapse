@@ -15,6 +15,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { UsageModule } from './modules/usage/usage.module';
+import { PlatformGovernanceModule } from './modules/platform/platform-governance.module';
 import { HealthModule } from './modules/health/health.module';
 import { QueueModule } from './modules/queue/queue.module';
 import { CoreIntelligenceModule } from './core/intelligence/core-intelligence.module';
@@ -56,6 +57,7 @@ import { RuntimeModule } from './core/runtime/runtime.module';
     AuthModule,
     TenantsModule,
     UsersModule,
+    PlatformGovernanceModule,
     AgentsModule,
     CoreIntelligenceModule,
     CoreOrchestrationModule,

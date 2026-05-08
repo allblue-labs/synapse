@@ -2,11 +2,12 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { Reflector } from '@nestjs/core';
 import { AuthenticatedUser } from '../types/authenticated-user';
 import { IS_PUBLIC_KEY } from '../authorization/public.decorator';
+import { ALLOW_TENANTLESS_KEY } from '../authorization/tenantless.decorator';
 
 /**
- * Verifies that an authenticated request carries a tenant context. Public
- * routes (those marked `@Public()`) are skipped because they may run before
- * a tenant is established (login, register, health probes).
+ * Verifies authenticated tenant context. Tenant users are locked to their JWT
+ * tenant. Platform admins are tenantless by default and may pass x-tenant-id
+ * when intentionally operating inside a tenant boundary.
  *
  * Optionally cross-checks the `x-tenant-id` header so a token issued for
  * tenant A cannot be used to address tenant B's resources.
@@ -22,17 +23,35 @@ export class TenantGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
+    const allowTenantless = this.reflector.getAllAndOverride<boolean>(ALLOW_TENANTLESS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
     const request = context.switchToHttp().getRequest<{
       user?: AuthenticatedUser;
       tenantId?: string;
       headers: Record<string, string | undefined>;
     }>();
 
-    if (!request.user?.tenantId) {
+    if (!request.user) {
       throw new UnauthorizedException('Tenant context is required.');
     }
 
     const requestedTenantId = request.headers['x-tenant-id'];
+    if (['super_admin', 'platform_admin', 'admin', 'tester'].includes(request.user.role)) {
+      if (requestedTenantId) {
+        request.tenantId = requestedTenantId;
+        return true;
+      }
+      if (allowTenantless) return true;
+      throw new UnauthorizedException('Tenant context is required.');
+    }
+
+    if (!request.user.tenantId) {
+      throw new UnauthorizedException('Tenant context is required.');
+    }
+
     if (requestedTenantId && requestedTenantId !== request.user.tenantId) {
       throw new UnauthorizedException('Authenticated user cannot access this tenant.');
     }

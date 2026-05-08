@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuditStatus, UserRole } from '@prisma/client';
+import { AuditStatus, PlatformRole, UserRole } from '@prisma/client';
+import type { AuthRole } from '@synapse/contracts';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditService, AuditAction } from '../../common/audit/audit.service';
@@ -18,8 +19,8 @@ export interface IssuedSession {
   user: {
     id: string;
     email: string;
-    tenantId: string;
-    role: UserRole;
+    tenantId?: string;
+    role: AuthRole;
   };
 }
 
@@ -128,6 +129,21 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials.');
     }
 
+    const platformRole = this.toAuthRole(user.platformRole);
+    if (platformRole) {
+      await this.lockout.recordSuccess(email, ip);
+
+      await this.audit.record({
+        actorUserId: user.id,
+        action:      AuditAction.AUTH_LOGIN_SUCCEEDED,
+        status:      AuditStatus.SUCCESS,
+        ipAddress:   ip,
+        metadata:    { role: platformRole },
+      });
+
+      return this.issueSession(user.id, user.email, undefined, platformRole);
+    }
+
     const membership = user.memberships[0];
     if (!membership) {
       await this.audit.record({
@@ -159,7 +175,7 @@ export class AuthService {
    * clearing the cookie — this method only records the event and is
    * tolerant of an unauthenticated logout (idempotent client behaviour).
    */
-  async recordLogout(actor: {sub: string; tenantId: string} | null, ip?: string): Promise<void> {
+  async recordLogout(actor: {sub: string; tenantId?: string} | null, ip?: string): Promise<void> {
     if (!actor) return;
     await this.audit.record({
       tenantId:    actor.tenantId,
@@ -173,13 +189,13 @@ export class AuthService {
   private issueSession(
     userId: string,
     email: string,
-    tenantId: string,
-    role: UserRole,
+    tenantId: string | undefined,
+    role: AuthRole,
   ): IssuedSession {
     const token = this.jwtService.sign({
       sub: userId,
       email,
-      tenantId,
+      ...(tenantId ? { tenantId } : {}),
       role,
     });
 
@@ -188,9 +204,24 @@ export class AuthService {
       user: {
         id: userId,
         email,
-        tenantId,
+        ...(tenantId ? { tenantId } : {}),
         role,
       },
     };
+  }
+
+  private toAuthRole(role: PlatformRole | null): AuthRole | null {
+    switch (role) {
+      case PlatformRole.SUPER_ADMIN:
+        return 'super_admin';
+      case PlatformRole.ADMIN:
+        return 'admin';
+      case PlatformRole.TESTER:
+        return 'tester';
+      case PlatformRole.PLATFORM_ADMIN:
+        return 'super_admin';
+      default:
+        return null;
+    }
   }
 }

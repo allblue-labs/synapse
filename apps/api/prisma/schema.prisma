@@ -23,6 +23,9 @@ enum UserRole {
 
 enum PlatformRole {
   PLATFORM_ADMIN
+  SUPER_ADMIN
+  ADMIN
+  TESTER
 }
 
 enum AgentStatus {
@@ -323,10 +326,14 @@ model User {
   email         String           @unique
   name          String
   passwordHash  String
+  platformRole  PlatformRole?
+  platformScopes Json             @default("{}")
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
   memberships   UserMembership[]
   ownedMessages Message[]        @relation("HumanMessageAuthor")
+
+  @@index([platformRole])
 }
 
 model UserMembership {

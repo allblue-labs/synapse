@@ -397,8 +397,56 @@ Last updated: 2026-05-07
 
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
-- Changed: `npm run admin:create` now creates the first tenant billing account with plan key `light`.
-- Completed: removed the retired `starter` plan reference from the admin provisioning script.
-- Pending: container smoke test for first-admin provisioning after migrations.
-- Risks: provisioning still requires billing core migrations to be applied so the `light` plan exists.
-- Next recommended step: rebuild the API image and rerun `npm run admin:create` inside the container after migrations complete.
+- Changed: superseded by Platform Admin Bootstrap Foundation below.
+- Completed: retired `starter` remains removed from tenant/customer billing creation paths.
+- Pending: container smoke test for platform-admin bootstrap after migrations.
+- Risks: older runbooks may still describe `admin:create` as tenant bootstrap.
+- Next recommended step: use the platform-admin bootstrap section below as canonical.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: `npm run admin:create` is now platform-admin bootstrap, not tenant/customer bootstrap.
+- Completed: added `User.platformRole`, migration `20260508120000_platform_admin_user_role`, `platform_admin` contract permissions, tenantless platform-admin login/session support, explicit `@AllowTenantless()` route metadata, `/users/me` support for platform admins, and guard tests for platform-admin permission/tenant behavior.
+- Pending: dedicated platform user-management APIs for creating/updating/deleting admins, testers, and tenant customer users; frontend platform-admin routing must consume `role: "platform_admin"` and optional `tenant`.
+- Risks: existing users upgraded by email may still retain tenant memberships, but login prioritizes `platform_admin`; platform admins can intentionally enter a tenant boundary with `x-tenant-id`.
+- Next recommended step: implement backend platform user-management endpoints with audit events and forbidden-action tests.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: platform administration now distinguishes `super_admin`, granular `admin`, and `tester`; `admin:create` creates `SUPER_ADMIN`.
+- Completed: Prisma enum/JSON scope migration, auth role mapping, scoped RBAC contracts, platform user-management APIs for admins/testers/customers, super-admin platform-access update API, audit events, and sensitive admin-metric masking helper.
+- Pending: apply platform scope checks to future platform metrics/modules/policies endpoints and add HTTP/database fixtures for platform user lifecycle.
+- Risks: granular scopes are stored and audited, but only future platform-specific module/metrics/policy APIs will consume them for per-resource filtering.
+- Next recommended step: implement platform metrics/module/policy read APIs that enforce `platformScopes` and call the sensitive metrics masker.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: added backend platform governance read APIs for usage metrics, module catalog governance, and policy/feature-flag visibility.
+- Completed: `GET /v1/platform/metrics/usage`, `GET /v1/platform/modules`, and `GET /v1/platform/policies` are tenantless platform routes gated by `platform:*` permissions, filtered through `User.platformScopes`, and metric responses pass through sensitive-field masking for non-super roles.
+- Pending: mutation APIs for platform module rollout/policy changes, database-backed fixtures for scoped admins, and richer metrics beyond usage aggregation.
+- Risks: current metrics endpoint is usage-focused and intentionally does not expose raw financial/provider payloads.
+- Next recommended step: add HTTP fixtures proving granular admins only see scoped modules/policies/metrics and testers cannot access platform metrics.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: added audited write-side platform governance for module rollout settings and policy flags.
+- Completed: `PATCH /v1/platform/modules/:module/governance` updates active/status/visibility/rollout/tier with module-scope enforcement; `PATCH /v1/platform/policies/:policy` updates policy enabled state/metadata with policy-scope enforcement; both emit audit events.
+- Pending: HTTP/database fixtures for scoped mutation denial and full admin dashboard integration.
+- Risks: policy mutation currently targets `BillingFeatureFlag` keys; future policy domains may need their own model before broader governance.
+- Next recommended step: add fixture coverage for scoped platform mutations and forbidden audit records.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: added focused backend fixtures for platform governance authorization and scope behavior.
+- Completed: HTTP tests cover super-admin module mutation, granular-admin policy mutation handoff to service scope checks, tester denial from platform metrics, tenant-owner denial from platform governance, and forbidden audit logging; service tests cover scoped module mutation audit, scoped mutation denial audit, and policy update audit.
+- Pending: CI database provisioning for running the opt-in fixtures automatically.
+- Risks: database fixtures remain skipped unless `RUN_DATABASE_TESTS=1` is set.
+- Next recommended step: wire a disposable PostgreSQL test database for CI/Ninja validation.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: added opt-in Prisma/PostgreSQL fixtures for persisted `platformScopes`.
+- Completed: `platform-governance.database-fixtures.spec.ts` seeds two scoped platform admins, two modules, two policies, usage events, verifies scoped reads/writes, persisted forbidden audit records, and redacted usage metrics.
+- Pending: broader fixtures for policy metadata schemas.
+- Risks: dev DB fixture runs are destructive when preceded by `docker compose down -v`; do not use this flow outside local/dev.
+- Next recommended step: reset the Docker stack and run `docker compose exec api-synapse npm run test:db:dev-reset`.

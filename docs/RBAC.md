@@ -288,7 +288,55 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
 - Changed: no RBAC contract changed.
-- Completed: first-admin bootstrap still assigns `OWNER`; billing plan fix only corrects tenant billing account creation.
-- Pending: smoke test proving bootstrap creates tenant, user, membership, and billing account.
+- Completed: superseded by platform-admin bootstrap; first-admin no longer assigns `OWNER`.
+- Pending: smoke test proving bootstrap creates or upgrades a tenantless platform admin.
 - Risks: admin credentials remain env-driven and must not be logged.
 - Next recommended step: add bootstrap verification to operational runbooks.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: `admin:create` no longer assigns tenant `OWNER`; RBAC now accepts both tenant roles (`OWNER`, `ADMIN`, `OPERATOR`, `VIEWER`) and canonical Synapse roles (`platform_admin`, `tenant_owner`, `tenant_admin`, `tenant_operator`, `tenant_viewer`).
+- Completed: `platform_admin` maps to all current backend permissions; guards evaluate permissions through the shared contract without hardcoded controller role checks.
+- Pending: platform user-management role matrix and possible platform-only permissions for admin/tester/customer lifecycle APIs.
+- Risks: older runbooks may still describe first admin as tenant owner; `platform_admin` is broad by design and must stay protected by audit and secure bootstrap.
+- Next recommended step: add HTTP role-matrix tests for platform admin versus tenant roles.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: platform RBAC now includes `super_admin`, `admin`, and `tester`.
+- Completed: tenant roles now derive from `TENANT_PERMISSIONS` and cannot inherit `platform:*`; `super_admin` has all permissions; granular `admin` can manage customers/testers and selected metrics/modules/policies; `tester` has broad platform read permissions but no `platform:metrics:read`; platform user listing uses `platform:users:read` instead of tenant `users:read`.
+- Pending: route-level fixtures for platform user-management and platform scope enforcement decorators/helpers on future admin resources.
+- Risks: `platform_admin` remains as a legacy alias for `super_admin` to avoid breaking local databases created during the earlier bootstrap step.
+- Next recommended step: add tests proving `admin` cannot call `platform:users:manage_admins` and `tester` cannot read admin metrics.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: platform governance read routes now require platform permissions plus stored scope checks.
+- Completed: `platform:metrics:read`, `platform:modules:manage`, and `platform:policies:manage` are enforced before scope filtering; tenant roles cannot inherit `platform:*`.
+- Pending: fine-grained mutation permission split, such as platform module read vs rollout update.
+- Risks: `platform:modules:manage` currently gates read-side module governance because no separate read permission exists yet.
+- Next recommended step: introduce explicit platform governance read/write permission pairs before adding mutations.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: write-side module/policy governance reuses `platform:modules:manage` and `platform:policies:manage` plus stored scope checks.
+- Completed: granular admins can mutate only assigned module/policy keys; tenant roles remain unable to reach platform routes.
+- Pending: split read/write permissions before expanding mutation surface.
+- Risks: current permission names are coarse for a mature admin console.
+- Next recommended step: add `platform:modules:read`, `platform:modules:update`, `platform:policies:read`, and `platform:policies:update` in a compatibility pass.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: RBAC fixtures now cover platform governance routes.
+- Completed: tests prove testers cannot read platform metrics and tenant owners cannot access platform governance; granular admins can reach policy mutation routes before service scope checks.
+- Pending: read/write permission split is still pending.
+- Risks: scope checks rely on `platformScopes` being valid JSON arrays.
+- Next recommended step: add role matrix coverage again after splitting platform read/write permissions.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: persisted RBAC scope behavior now has opt-in database coverage.
+- Completed: two granular admins with different module/policy scopes are tested against real Prisma reads and writes.
+- Pending: invalid/malformed `platformScopes` fixtures.
+- Risks: malformed scope JSON currently normalizes to empty scopes; dev DB fixture runs are destructive if using the reset flow.
+- Next recommended step: add validation when updating platform scopes.

@@ -12,7 +12,31 @@ export class UsersService {
    * `@synapse/contracts` map — the API is the only authority on permissions
    * so the UI cannot drift.
    */
-  async getMe(tenantId: string, userId: string): Promise<CurrentUser> {
+  async getMe(tenantId: string | undefined, userId: string): Promise<CurrentUser> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, platformRole: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const platformRole = this.toAuthRole(user.platformRole);
+    if (platformRole && !tenantId) {
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: platformRole,
+        permissions: permissionsForRole(platformRole),
+      };
+    }
+
+    if (!tenantId) {
+      throw new NotFoundException('User membership not found.');
+    }
+
     const membership = await this.prisma.userMembership.findUnique({
       where: {
         tenantId_userId: { tenantId, userId },
@@ -45,5 +69,19 @@ export class UsersService {
         slug: membership.tenant.slug,
       },
     };
+  }
+
+  private toAuthRole(role: string | null): 'super_admin' | 'admin' | 'tester' | null {
+    switch (role) {
+      case 'SUPER_ADMIN':
+      case 'PLATFORM_ADMIN':
+        return 'super_admin';
+      case 'ADMIN':
+        return 'admin';
+      case 'TESTER':
+        return 'tester';
+      default:
+        return null;
+    }
   }
 }

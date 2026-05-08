@@ -339,8 +339,64 @@ This document records backend-facing UX contracts only. Frontend visual architec
 
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
-- Changed: no frontend files or UX contracts changed.
-- Completed: initial tenant provisioning can create a valid billing account for frontend billing/module surfaces.
-- Pending: frontend should still handle missing billing account states defensively.
-- Risks: if bootstrap is not run, authenticated workspace state may not exist yet.
-- Next recommended step: verify login/workspace after admin bootstrap succeeds.
+- Changed: superseded by platform-admin bootstrap; frontend session contracts now need to handle platform admins without workspace tenants.
+- Completed: no frontend files were changed by backend.
+- Pending: frontend should still handle missing billing account states defensively for customer tenants.
+- Risks: if customer tenant provisioning is not run, workspace state may not exist yet.
+- Next recommended step: verify platform-admin login separately from customer workspace login.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: backend session shape for platform admins returns `role: "platform_admin"` and may omit `tenant`.
+- Completed: frontend contract implication is documented here only; backend changed auth/contracts and did not implement frontend pages.
+- Pending: frontend owner must route platform admins to platform administration surfaces rather than workspace-only views.
+- Risks: any UI assuming `CurrentUser.tenant` always exists will misroute or crash for platform admins.
+- Next recommended step: frontend should branch by `user.role === "platform_admin"` and treat workspace tenant as optional.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: frontend contracts must treat `super_admin`, `admin`, and `tester` as distinct platform roles.
+- Completed: backend exposes platform user-management contracts only; no frontend UX was changed.
+- Pending: frontend admin surfaces must hide admin creation from granular admins and hide admin metrics from testers.
+- Risks: frontend must not rely on UI hiding for security; backend permissions and future scope checks remain authoritative.
+- Next recommended step: frontend should consume `/v1/users/me` role/permissions and later `platformScopes` from platform user APIs.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: backend now has scoped platform read APIs for future admin dashboards.
+- Completed: frontend may consume platform usage metrics/modules/policies through backend only; no frontend implementation was changed.
+- Pending: frontend admin dashboards must display scoped/partial states honestly for granular admins.
+- Risks: UI must not infer hidden modules/policies exist when backend omits them by scope.
+- Next recommended step: frontend handoff should add scoped empty states and forbidden states for platform admin surfaces.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: frontend contract now has backend mutation APIs for platform module and policy governance.
+- Completed: no frontend files changed; backend exposes mutation endpoints for future admin surfaces.
+- Pending: frontend should show mutation controls only when permissions/scopes allow and handle `403` as expected state.
+- Risks: rollout/policy changes are global and should not be presented as tenant-local controls.
+- Next recommended step: frontend handoff should place these actions in platform admin, not workspace module settings.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: backend tests now document which platform admin states the frontend must handle.
+- Completed: tester/tenant-owner forbidden states and scoped admin handoff behavior are covered.
+- Pending: frontend can later mirror DB-backed scope-limited states.
+- Risks: frontend must still treat backend `403` as authoritative.
+- Next recommended step: include these cases in the frontend admin-dashboard handoff.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: backend now proves persisted scope-limited states for admin dashboard data.
+- Completed: DB fixture validates that scoped admins receive only assigned module/policy/usage data.
+- Pending: frontend empty-state language for out-of-scope data.
+- Risks: UI must not claim unscoped modules/policies do not exist globally.
+- Next recommended step: frontend should label these views as scoped to assigned permissions.
+
+## 2026-05-08 Dev Database Reset Flow
+
+- Changed: backend dev QA can use the current Docker Postgres as disposable state.
+- Completed: documented reset-and-run flow; no frontend behavior changed.
+- Pending: frontend can run after reset only once platform/customer seed/admin bootstrap are recreated.
+- Risks: reset removes all local sessions and workspace data.
+- Next recommended step: coordinate reset timing before frontend manual validation.

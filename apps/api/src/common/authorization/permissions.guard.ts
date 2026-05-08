@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Permission, roleHasAllPermissions, UserRole } from '@synapse/contracts';
+import { Permission, roleHasAllPermissions } from '@synapse/contracts';
 import { AuthenticatedUser } from '../types/authenticated-user';
 import { AuditAction, AuditService } from '../audit/audit.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
@@ -55,7 +55,7 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Authentication required.');
     }
 
-    const granted = roleHasAllPermissions(user.role as UserRole, required);
+    const granted = roleHasAllPermissions(user.role, required);
     if (!granted) {
       await this.audit.record({
         tenantId: user.tenantId,

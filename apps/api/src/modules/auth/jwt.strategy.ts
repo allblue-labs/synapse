@@ -33,7 +33,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: AuthenticatedUser): AuthenticatedUser {
-    if (!payload.sub || !payload.tenantId || !payload.email || !payload.role) {
+    if (!payload.sub || !payload.email || !payload.role) {
+      throw new UnauthorizedException('Invalid token payload.');
+    }
+
+    const isPlatformRole = ['super_admin', 'platform_admin', 'admin', 'tester'].includes(payload.role);
+    if (!isPlatformRole && !payload.tenantId) {
       throw new UnauthorizedException('Invalid token payload.');
     }
 

@@ -442,8 +442,56 @@ Last updated: 2026-05-07
 
 ## 2026-05-08 Admin Bootstrap Billing Plan Fix
 
-- Changed: first-admin provisioning now aligns with Light/Pro/Premium billing plans.
-- Completed: admin bootstrap uses `light` for the initial tenant billing account.
+- Changed: superseded by Platform Admin Bootstrap Foundation below.
+- Completed: retired plan-key cleanup remains valid for tenant/customer billing creation paths.
 - Pending: automated smoke coverage for `admin:create`.
-- Risks: bootstrap can still fail if migrations did not seed billing plans.
-- Next recommended step: add a Docker smoke test for migration + admin provisioning.
+- Risks: older roadmap notes may still imply platform admin equals tenant owner.
+- Next recommended step: add a Docker smoke test for migration + platform-admin provisioning.
+
+## 2026-05-08 Platform Admin Bootstrap Foundation
+
+- Changed: first-admin provisioning moved from tenant OWNER bootstrap to platform administrator bootstrap.
+- Completed: platform admins are represented by `User.platformRole = PLATFORM_ADMIN`, shared contracts expose `platform_admin`, and auth can issue tenantless platform sessions.
+- Pending: platform administration API surface for admin/tester/customer lifecycle, role assignment, tenant assignment, deactivation, and audit search.
+- Risks: platform admin UI must not assume `CurrentUser.tenant` exists.
+- Next recommended step: build backend `platform-users` operational APIs gated by `users:*` permissions and audited as platform events.
+
+## 2026-05-08 Granular Platform Administration Foundation
+
+- Changed: the next backend step moved from bootstrap-only admin to granular platform administration.
+- Completed: `super_admin` can create granular platform admins, testers, and tenant customer users; granular admins can create testers/customers but cannot create admins.
+- Pending: scope-aware platform metrics/modules/policies endpoints and fixture coverage.
+- Risks: selected scopes must be enforced at every future platform admin read/write boundary, not only in the UI.
+- Next recommended step: add platform metrics APIs with redacted sensitive fields for non-super roles.
+
+## 2026-05-08 Platform Governance Scope Enforcement
+
+- Changed: scope-aware platform reads moved from pending to implemented foundation.
+- Completed: platform usage metrics, module governance list, and policy list now enforce stored platform scopes.
+- Pending: write-side governance for module rollout states, policy toggles, admin metric dashboards, and fixtures.
+- Risks: platform module and policy routes are read-only in this slice.
+- Next recommended step: implement audited platform mutations for module rollout and policy toggles, restricted to `super_admin` or matching scoped admins.
+
+## 2026-05-08 Platform Governance Mutations
+
+- Changed: audited mutation layer for platform module/policy governance is now implemented.
+- Completed: module governance patch and policy patch endpoints reuse permission gates and `platformScopes`.
+- Pending: fixtures, platform admin UX contracts for mutation forms, and future policy-domain modeling.
+- Risks: without HTTP fixtures, scoped-denial regressions are only partially covered by unit tests.
+- Next recommended step: implement HTTP role/scope matrix tests for platform governance endpoints.
+
+## 2026-05-08 Platform Governance Test Fixtures
+
+- Changed: platform governance test coverage now includes HTTP guard fixtures and service scope/audit fixtures.
+- Completed: route permission denials, scope denials, and audit records are covered in fast Jest tests.
+- Pending: automated DB execution in CI.
+- Risks: mock fixtures can still drift if opt-in DB fixtures are not run.
+- Next recommended step: wire CI database execution.
+
+## 2026-05-08 Platform Governance Database Fixtures
+
+- Changed: `npm run test:db` now has platform governance scope matrix coverage when `RUN_DATABASE_TESTS=1`; dev can use the current Docker Postgres as disposable state.
+- Completed: persisted scope loading, module mutation, policy mutation, out-of-scope denials, forbidden audit, and scoped usage metrics are covered.
+- Pending: seed migration checks and policy metadata fixtures.
+- Risks: local developers may miss DB-only regressions if they only run normal unit tests.
+- Next recommended step: use the reset flow in `apps/api/prisma/MIGRATIONS.md` before container QA.

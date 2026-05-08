@@ -22,5 +22,8 @@ export const envSchema = z.object({
   BILLING_REDIRECT_ALLOWED_ORIGINS: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   CORS_ORIGINS: z.string().optional(),
-  REQUEST_BODY_LIMIT: z.string().default('1mb')
+  REQUEST_BODY_LIMIT: z.string().default('1mb'),
+  SYNAPSE_RUNTIME_URL: z.string().url().optional(),
+  SYNAPSE_RUNTIME_SHARED_SECRET: z.string().min(32).optional(),
+  SYNAPSE_RUNTIME_KEY_ID: z.string().default('platform')
 });

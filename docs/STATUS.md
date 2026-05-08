@@ -343,3 +343,37 @@ Last updated: 2026-05-07
 - Pending: CI test database provisioning, HTTP-level role-matrix fixtures, forbidden-action audit fixture coverage, and broader Pulse read/timeline database fixtures.
 - Risks: database fixtures are skipped in normal unit mode until a real test database is supplied.
 - Next recommended step: wire a disposable PostgreSQL test database for Ninja/CI and run `npm run test:db` before external runtime callback work.
+
+## 2026-05-08 Platform Runtime Client Signer Update
+
+- Changed: added NestJS-side infrastructure for signed calls to the isolated Go Runtime.
+- Completed: `RuntimeSignatureService` creates the Go Runtime canonical HMAC headers; `RuntimeHttpClient` maps persisted Synapse execution requests into `POST /executions`; env validation now includes runtime URL, shared secret, and key id; lifecycle callback shape is defined as a contract only.
+- Pending: wiring module execution paths to call the HTTP client, runtime callback endpoint/auth, service-actor permission model, idempotent submission policy, and end-to-end platform/runtime tests.
+- Risks: the HTTP client is available but not yet invoked by product modules or lifecycle orchestration.
+- Next recommended step: add a governed runtime submission use case that creates a lifecycle record, transitions it to queued/running, submits to the isolated runtime, and handles response transitions.
+
+## 2026-05-08 Frontend Contract Pack Update
+
+- Changed: added `docs/FRONTEND_CONTRACT_PACK.md` as the backend-owned integration handoff for the Next.js frontend owner.
+- Completed: documented Pulse queue, channels, conversations, tickets, lifecycle actions, timelines, knowledge context, scheduling prepare contracts, module registry, billing, usage, runtime governance, RBAC permission gates, error handling, and the recommended first frontend milestone.
+- Pending: generated OpenAPI, real response examples from database-backed fixtures, and future updates when runtime orchestration/callbacks are wired.
+- Risks: the pack is a static handoff and must be kept in sync with backend route changes.
+- Next recommended step: deliver the pack to the frontend LLM and start with Pulse ticket detail plus timeline and lifecycle actions.
+
+## 2026-05-08 Frontend Stage 1B — Batch 1 (Pulse operational UX)
+
+- Changed (frontend, owned by Claude Opus): the highest-value Pulse surfaces are now real — ticket detail, tickets list, and inbox redesigned as an operational queue.
+- Completed: design-system primitives for operational surfaces.
+  - `components/pulse/confidence-meter.tsx` — inline + block variants, three confidence bands (high/medium/low) driven by the same thresholds the auto-approve gate will use.
+  - `components/pulse/operational-timeline.tsx` — vertical timeline with kind-driven icons, actor-typed avatar tones, inline ConfidenceMeter on AI events, structured-payload key/value chip strip, low-confidence escalation marker.
+  - `components/pulse/status-pills.tsx` — TicketStatusPill, SkillPill, PriorityPill, TicketTypePill, ChannelPill, ConversationStatePill, EscalationBadge — one base look so a stack of pills reads as a single unit.
+  - `.bar-progress` utility in globals.css — data-driven horizontal progress bars now consume `--w` from a CSS custom property instead of inline `width:` strings.
+- Completed: typed Pulse UI contracts + dev fixtures.
+  - `lib/pulse/types.ts` — `PulseTicketDetail`, `PulseTicketRow`, `PulseTimelineEvent`, plus the canonical state/skill/priority unions.
+  - `lib/pulse/fixtures.ts` — five well-shaped mock tickets with full timelines covering scheduling/support/operator-review/sales/resolved cases. Single integration seam: every Stage 1B Pulse screen calls `loadInboxTickets` / `loadTicketDetail` / `loadAllTickets` here.
+- Completed (screens): `/workspace/modules/pulse/tickets/[ticketId]` (full detail — header card, timeline, workflow + extracted-context + lifecycle side panels, RBAC-gated approve/reject/escalate/resolve buttons), `/workspace/modules/pulse/tickets` (bucketed list: Operator queue / Active / Resolved + headline counters), `/workspace/modules/pulse/inbox` (operational queue with three lanes: Operator queue → Active → Watching, plus headline counters).
+- Completed: legacy `inbox/queue-client.tsx` removed (was wired to the old `PulseEntry` shape; replaced by ticket-driven UX). Auth-gated buttons on the ticket detail use the existing `<Can permission="pulse:validate" | "pulse:reject" | "tickets:assign" | "tickets:resolve">` gates so RBAC is honoured even before the backend wires action handlers.
+- Pending (Stage 1B subsequent batches): playbooks visual editor; knowledge / catalog / campaigns operational UX; Pulse metrics premium dashboard; module store premium UI; platform admin operational dashboards; marketing landing premium redesign; RBAC restricted-state UX + plan-based upgrade prompts.
+- Pending (cross-cutting): backend Pulse DTO/OpenAPI examples — when they ship, `lib/pulse/fixtures.ts` becomes a one-file swap to real `api.pulse.*` calls; nothing in the UI layer changes.
+- Risks: every page using fixtures shows a "Pending backend integration" badge in its PageHeader actions slot so the deferred wire-up is greppable.
+- Next recommended step: ship Batch 2 with the playbooks visual editor and the Pulse metrics dashboard — both compose against the same fixture seam.

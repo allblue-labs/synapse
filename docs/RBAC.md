@@ -268,3 +268,19 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: HTTP role-matrix fixtures for runtime request/read/transition/cancel and Pulse ticket commands.
 - Risks: database fixtures do not replace route-level forbidden tests.
 - Next recommended step: add HTTP role-matrix tests with forbidden audit assertions.
+
+## 2026-05-08 Platform Runtime Client Signer Update
+
+- Changed: no human-facing RBAC permissions changed.
+- Completed: runtime client request mapping carries backend-derived actor and permission context for the isolated runtime.
+- Pending: service-actor permissions for automated submission/callback transitions.
+- Risks: runtime callback authorization must not reuse broad human permissions.
+- Next recommended step: define dedicated service actor permission boundaries for runtime submission and callbacks.
+
+## 2026-05-08 Frontend Contract Pack Update
+
+- Changed: frontend permission gates are documented as backend contracts.
+- Completed: mapped Pulse, tickets, integrations, modules, billing, usage, and runtime permissions to expected UI affordances.
+- Pending: HTTP role-matrix examples and generated permission metadata.
+- Risks: UI permission gates are advisory; backend remains final authority.
+- Next recommended step: frontend should hide/disable actions by permission and always handle `403`.

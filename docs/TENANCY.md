@@ -283,3 +283,19 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: database-backed fixtures for Pulse timelines, knowledge context, scheduling integrations, module registry, billing, and usage summaries.
 - Risks: fixtures require a migrated PostgreSQL database and are skipped by default.
 - Next recommended step: run `npm run test:db` in a disposable test database and expand coverage to Pulse timeline reads.
+
+## 2026-05-08 Platform Runtime Client Signer Update
+
+- Changed: platform-to-runtime requests are built from server-owned `TenantExecutionContext`.
+- Completed: runtime request body maps `tenantId`, module slug, actor, permissions, request id, and operational metadata from backend context rather than client-supplied transport data.
+- Pending: cross-tenant runtime submission fixtures and callback tenant validation.
+- Risks: future callback handling must validate tenant id against the persisted execution record before transition.
+- Next recommended step: include platform/runtime submission and callback attempts in the two-tenant fixture plan.
+
+## 2026-05-08 Frontend Contract Pack Update
+
+- Changed: frontend tenant-handling rules are now documented in the contract pack.
+- Completed: documented that tenant resources are server-scoped, `404` can represent not-found or blocked cross-tenant access, and tenant/session changes must clear scoped caches.
+- Pending: concrete multi-tenant HTTP fixture examples.
+- Risks: stale frontend caches can simulate cross-tenant leakage if not cleared on tenant/session changes.
+- Next recommended step: include cache invalidation expectations in frontend implementation review.

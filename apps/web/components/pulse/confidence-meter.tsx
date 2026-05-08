@@ -76,8 +76,8 @@ export function ConfidenceMeter({value, variant = 'inline', label, className}: C
       >
         <span className="relative inline-block h-1.5 w-8 overflow-hidden rounded-full bg-zinc-200/70 dark:bg-zinc-700/50">
           <span
-            className={cn('absolute left-0 top-0 h-full', band.bar)}
-            style={{width: `${pct}%`}}
+            className={cn('bar-progress absolute left-0 top-0 h-full', band.bar)}
+            style={{['--w' as string]: `${pct}%`} as React.CSSProperties}
           />
         </span>
         {pct}%
@@ -102,8 +102,8 @@ export function ConfidenceMeter({value, variant = 'inline', label, className}: C
       </div>
       <div className="relative h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
         <div
-          className={cn('absolute left-0 top-0 h-full transition-[width] duration-500', band.bar)}
-          style={{width: `${pct}%`}}
+          className={cn('bar-progress absolute left-0 top-0 h-full transition-[width] duration-500', band.bar)}
+          style={{['--w' as string]: `${pct}%`} as React.CSSProperties}
         />
       </div>
     </div>

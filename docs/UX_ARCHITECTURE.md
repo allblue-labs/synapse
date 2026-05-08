@@ -285,3 +285,41 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: API examples/OpenAPI and frontend-owned handling of forbidden/cross-tenant states.
 - Risks: UI should still rely on backend errors and permissions; fixture coverage does not create new frontend affordances.
 - Next recommended step: publish route examples after HTTP role-matrix fixtures land.
+
+## 2026-05-08 Platform Runtime Client Signer Update
+
+- Changed: no frontend files were changed.
+- Completed: backend can now prepare signed runtime submissions internally; no new frontend contract is exposed.
+- Pending: UI-facing runtime status examples after orchestration and callbacks exist.
+- Risks: frontend must not imply external runtime execution is active until backend orchestration is wired.
+- Next recommended step: keep runtime UI labels as governance/lifecycle state only.
+
+## 2026-05-08 Frontend Contract Pack Update
+
+- Changed: added a frontend implementation handoff without changing frontend files.
+- Completed: `docs/FRONTEND_CONTRACT_PACK.md` defines the first frontend milestone as Pulse ticket detail, operational timeline, permission-gated lifecycle actions, and safe event rendering.
+- Pending: OpenAPI/examples and frontend-owned implementation.
+- Risks: frontend should not treat Pulse as chat UI or call the isolated Go Runtime directly.
+- Next recommended step: frontend owner should implement the first milestone from the contract pack.
+
+## 2026-05-08 Frontend Stage 1B Batch 1 — Pulse operational UX
+
+- Changed (frontend, Claude Opus): the three highest-value Pulse surfaces — ticket detail, tickets list, inbox — now ship real operational UX. Fixture-backed; backend integration deferred per directive.
+- Completed: design-system additions for operational surfaces.
+  - `ConfidenceMeter` (inline + block) — three confidence bands tied to the eventual auto-approve threshold.
+  - `OperationalTimeline` — kind-driven icons, actor-typed avatar tones, inline confidence on AI events, structured-payload chip strip, low-confidence escalation marker.
+  - `status-pills` — TicketStatus / Skill / Priority / TicketType / Channel / ConversationState / EscalationBadge sharing one base look.
+- Completed: typed Pulse UI contracts at `apps/web/lib/pulse/types.ts` (`PulseTicketDetail`, `PulseTicketRow`, `PulseTimelineEvent`, plus canonical state/skill/priority unions). Dev fixtures at `apps/web/lib/pulse/fixtures.ts` — five well-shaped tickets with full timelines covering scheduling / support / operator-review / sales / resolved. Every screen calls `loadInboxTickets` / `loadTicketDetail` / `loadAllTickets` so the swap-in to real `api.pulse.*` is one file.
+- Completed: `/workspace/modules/pulse/tickets/[ticketId]` — header card with status/skill/type/priority/channel pills + ConfidenceMeter (block); AI-summary callout; "why this needs review" rationale when status === PENDING_REVIEW; 2-col body with OperationalTimeline left and workflow/extracted-context/lifecycle panels right. Approve/Reject/Escalate/Resolve actions are wrapped in `<Can permission="...">` so RBAC is honoured even pre-backend.
+- Completed: `/workspace/modules/pulse/tickets` — bucketed list (Operator queue / Active / Resolved) + 4-tile headline counter strip.
+- Completed: `/workspace/modules/pulse/inbox` redesigned as a real operational queue. Three lanes:
+  - Operator queue (top-priority, items handed off because confidence dropped or playbook required a human)
+  - In flow (active conversations the AI is handling — watch passively)
+  - Watching (waiting on customer)
+  Plus headline counters: Needs review / In flow / Waiting customer / Auto-handled.
+- Completed: legacy `inbox/queue-client.tsx` removed — was tied to the old `PulseEntry` shape.
+- Pending (Batch 2): playbooks visual editor, Pulse metrics premium dashboard, knowledge / catalog / campaigns / integrations operational UX.
+- Pending (Batch 3): module store premium UI, platform admin operational dashboards, marketing landing premium redesign, RBAC restricted-state UX, animated synapse bg refinements.
+- Pending (backend integration, deferred to Stage 1C): Pulse DTO/OpenAPI examples → swap `lib/pulse/fixtures.ts` for `api.pulse.*` calls.
+- Risks: pages using fixtures show a "Pending backend integration" badge in their PageHeader so the deferred wire-up is greppable.
+- Next recommended step: Batch 2 — start with the playbooks visual editor (highest operational value next) and the metrics dashboard.

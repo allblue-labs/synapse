@@ -87,7 +87,198 @@ export interface RegisterPayload {
   tenantSlug: string;
 }
 
-// ─── Pulse ───────────────────────────────────────────────────────────
+// ─── Pulse — record shapes mirror backend Prisma records ─────────────
+//
+// `data: …` arrays + pagination fields match the
+// `IPulseTicketRepository.list` shape and the analogous channels /
+// conversations / events / timeline list endpoints.
+
+export interface Paginated<T> {
+  data: ReadonlyArray<T>;
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export type PulseChannelProvider = 'WHATSAPP' | 'TELEGRAM';
+export type PulseChannelStatus =
+  | 'ACTIVE'
+  | 'DISCONNECTED'
+  | 'NEEDS_ATTENTION'
+  | 'DISABLED';
+export type PulseConversationState =
+  | 'NEW'
+  | 'IN_FLOW'
+  | 'WAITING_CUSTOMER'
+  | 'WAITING_OPERATOR'
+  | 'RESOLVED'
+  | 'CANCELLED';
+export type PulseOperationalStatus =
+  | 'ACTIVE'
+  | 'NEEDS_REVIEW'
+  | 'ESCALATED'
+  | 'CLOSED';
+export type PulseTicketType =
+  | 'SUPPORT'
+  | 'SALES'
+  | 'SCHEDULING'
+  | 'MARKETING'
+  | 'OPERATOR_REVIEW'
+  | 'KNOWLEDGE_REQUEST';
+export type PulseTicketStatus =
+  | 'OPEN'
+  | 'PENDING_REVIEW'
+  | 'WAITING_CUSTOMER'
+  | 'RESOLVED'
+  | 'CANCELLED';
+export type PulseTimelineCategory =
+  | 'entry'
+  | 'ticket_lifecycle'
+  | 'operator_action'
+  | 'escalation'
+  | 'confidence'
+  | 'workflow_state';
+
+export interface PulseChannelRecord {
+  id: string;
+  tenantId: string;
+  provider: PulseChannelProvider;
+  status: PulseChannelStatus;
+  displayName: string;
+  externalId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PulseConversationRecord {
+  id: string;
+  tenantId: string;
+  channelId: string;
+  externalContactId: string;
+  contactDisplayName: string | null;
+  state: PulseConversationState;
+  operationalStatus: PulseOperationalStatus;
+  startedAt: string;
+  lastEventAt: string | null;
+  closedAt: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface PulseTicketRecord {
+  id: string;
+  tenantId: string;
+  conversationId: string | null;
+  type: PulseTicketType;
+  status: PulseTicketStatus;
+}
+
+export interface PulseTicketDetailRecord extends PulseTicketRecord {
+  assignedUserId: string | null;
+  confidence: number | null;
+  metadata: Record<string, unknown> | null;
+  priority: number;
+  resolvedAt: string | null;
+}
+
+export interface PulseEventRecord {
+  id: string;
+  tenantId: string;
+  conversationId: string | null;
+  ticketId: string | null;
+  type: string;
+  occurredAt: string;
+  payload: Record<string, unknown> | null;
+}
+
+// ─── Knowledge contexts ──────────────────────────────────────────────
+
+export type PulseKnowledgeContextType =
+  | 'FAQ'
+  | 'BUSINESS_DESCRIPTION'
+  | 'OPERATIONAL_INSTRUCTION'
+  | 'PRODUCT_SERVICE'
+  | 'CAMPAIGN_PROMOTION';
+
+export type PulseKnowledgeContextStatus = 'ACTIVE' | 'ARCHIVED';
+
+export interface PulseKnowledgeContextRecord {
+  id: string;
+  tenantId: string;
+  type: PulseKnowledgeContextType;
+  status: PulseKnowledgeContextStatus;
+  title: string;
+  body: string;
+  metadata?: Record<string, unknown>;
+  publishedAt: string;
+  archivedAt: string | null;
+}
+
+// ─── Scheduling integrations ─────────────────────────────────────────
+
+export type IntegrationProvider = 'GOOGLE_CALENDAR' | 'OUTLOOK_CALENDAR' | 'CALENDLY';
+export type IntegrationStatus = 'ACTIVE' | 'DISCONNECTED' | 'NEEDS_ATTENTION' | 'DISABLED';
+
+export interface PulseSchedulingIntegrationRecord {
+  id: string;
+  tenantId: string;
+  provider: IntegrationProvider;
+  status: IntegrationStatus;
+  displayName: string;
+  externalAccountId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Lifecycle commands — request bodies ─────────────────────────────
+
+export interface AssignTicketBody       {assignedUserId: string; note?: string}
+export interface ResolveTicketBody      {resolutionSummary?: string}
+export interface ReopenTicketBody       {reason?: string}
+export interface EscalateTicketBody     {reason?: string; priority?: number}
+export interface CancelTicketBody       {reason?: string}
+export interface SubmitOperatorReviewBody {
+  approved: boolean;
+  notes?: string;
+  confidenceOverride?: number;
+}
+export interface AdvanceFlowStateBody {targetState: string; reason?: string}
+
+// ─── List filters ────────────────────────────────────────────────────
+
+export interface PulsePagination {
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PulseChannelListParams extends PulsePagination {
+  provider?: PulseChannelProvider;
+  status?: PulseChannelStatus;
+}
+
+export interface PulseConversationListParams extends PulsePagination {
+  state?: PulseConversationState;
+  operationalStatus?: PulseOperationalStatus;
+}
+
+export interface PulseTicketListParams extends PulsePagination {
+  type?: PulseTicketType;
+  status?: PulseTicketStatus;
+}
+
+export interface PulseEventListParams extends PulsePagination {
+  type?: string;
+  category?: PulseTimelineCategory;
+  from?: string;
+  to?: string;
+}
+
+export interface PulseTimelineListParams extends PulsePagination {
+  category?: PulseTimelineCategory;
+  from?: string;
+  to?: string;
+}
+
+// ─── Legacy queue (still backed by the original entries flow) ────────
 
 export type PulseEntryStatus =
   | 'processing'
@@ -130,12 +321,7 @@ export interface PulseEntry {
   updatedAt: string;
 }
 
-export interface PulseListResponse {
-  data: PulseEntry[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+export type PulseListResponse = Paginated<PulseEntry>;
 
 // ─── Internal request primitive ──────────────────────────────────────
 
@@ -237,6 +423,25 @@ function safeParseJson(text: string): unknown {
   }
 }
 
+/**
+ * Build a `?key=value&...` suffix from an object of optional params.
+ * Skips entries whose value is `undefined`, `null`, or `''`. Numbers
+ * are coerced to strings; everything else is passed through `String()`.
+ *
+ * Returns `''` when no params survive — so callers can always do
+ * `` `/path${qs(params)}` `` without checking.
+ */
+function qs(params?: object): string {
+  if (!params) return '';
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
+    if (value === undefined || value === null || value === '') continue;
+    search.set(key, String(value));
+  }
+  const out = search.toString();
+  return out ? `?${out}` : '';
+}
+
 function pickString(obj: unknown, keys: readonly string[]): string | undefined {
   if (!obj || typeof obj !== 'object') return undefined;
   const record = obj as Record<string, unknown>;
@@ -273,38 +478,91 @@ export const api = {
   },
 
   pulse: {
-    list: (params?: {status?: string; page?: number}) => {
-      const qs = new URLSearchParams();
-      if (params?.status) qs.set('status', params.status);
-      if (params?.page) qs.set('page', String(params.page));
-      const suffix = qs.toString() ? `?${qs}` : '';
-      return request<PulseListResponse>(`/pulse/queue${suffix}`);
-    },
+    // ─── Channels ──────────────────────────────────────────────────
+    listChannels: (params?: PulseChannelListParams) =>
+      request<Paginated<PulseChannelRecord>>(`/pulse/channels${qs(params)}`),
+    getChannel: (id: string) =>
+      request<PulseChannelRecord>(`/pulse/channels/${id}`),
 
-    get: (id: string) =>
+    // ─── Conversations ─────────────────────────────────────────────
+    listConversations: (params?: PulseConversationListParams) =>
+      request<Paginated<PulseConversationRecord>>(`/pulse/conversations${qs(params)}`),
+    getConversation: (id: string) =>
+      request<PulseConversationRecord>(`/pulse/conversations/${id}`),
+    listConversationEvents: (id: string, params?: PulseEventListParams) =>
+      request<Paginated<PulseEventRecord>>(`/pulse/conversations/${id}/events${qs(params)}`),
+    listConversationTimeline: (id: string, params?: PulseTimelineListParams) =>
+      request<Paginated<PulseEventRecord>>(`/pulse/conversations/${id}/timeline${qs(params)}`),
+
+    // ─── Tickets ───────────────────────────────────────────────────
+    listTickets: (params?: PulseTicketListParams) =>
+      request<Paginated<PulseTicketRecord>>(`/pulse/tickets${qs(params)}`),
+    getTicket: (id: string) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}`),
+    listTicketEvents: (id: string, params?: PulseEventListParams) =>
+      request<Paginated<PulseEventRecord>>(`/pulse/tickets/${id}/events${qs(params)}`),
+    listTicketTimeline: (id: string, params?: PulseTimelineListParams) =>
+      request<Paginated<PulseEventRecord>>(`/pulse/tickets/${id}/timeline${qs(params)}`),
+
+    // ─── Ticket lifecycle commands ─────────────────────────────────
+    assignTicket: (id: string, body: AssignTicketBody) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}/assign`, {method: 'POST', json: body}),
+    resolveTicket: (id: string, body?: ResolveTicketBody) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}/resolve`, {method: 'POST', json: body ?? {}}),
+    reopenTicket: (id: string, body?: ReopenTicketBody) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}/reopen`, {method: 'POST', json: body ?? {}}),
+    escalateTicket: (id: string, body?: EscalateTicketBody) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}/escalate`, {method: 'POST', json: body ?? {}}),
+    cancelTicket: (id: string, body?: CancelTicketBody) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}/cancel`, {method: 'POST', json: body ?? {}}),
+    submitOperatorReview: (id: string, body: SubmitOperatorReviewBody) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}/operator-review`, {method: 'POST', json: body}),
+    advanceFlowState: (id: string, body: AdvanceFlowStateBody) =>
+      request<PulseTicketDetailRecord>(`/pulse/tickets/${id}/flow/advance`, {method: 'POST', json: body}),
+
+    // ─── Knowledge ─────────────────────────────────────────────────
+    listKnowledge: (params?: PulsePagination & {type?: PulseKnowledgeContextType; status?: PulseKnowledgeContextStatus}) =>
+      request<Paginated<PulseKnowledgeContextRecord>>(`/pulse/knowledge${qs(params)}`),
+    getKnowledge: (id: string) =>
+      request<PulseKnowledgeContextRecord>(`/pulse/knowledge/${id}`),
+    queryKnowledge: (body: {query: string; type?: PulseKnowledgeContextType; limit?: number}) =>
+      request<{matches: ReadonlyArray<PulseKnowledgeContextRecord>}>(`/pulse/knowledge/query`, {
+        method: 'POST',
+        json: body,
+      }),
+    publishKnowledge: (body: {
+      type: PulseKnowledgeContextType;
+      title: string;
+      body: string;
+      metadata?: Record<string, unknown>;
+    }) =>
+      request<PulseKnowledgeContextRecord>(`/pulse/knowledge`, {method: 'POST', json: body}),
+    archiveKnowledge: (id: string) =>
+      request<PulseKnowledgeContextRecord>(`/pulse/knowledge/${id}/archive`, {method: 'POST'}),
+
+    // ─── Scheduling integrations (read + prepare) ──────────────────
+    listSchedulingIntegrations: (params?: PulsePagination) =>
+      request<Paginated<PulseSchedulingIntegrationRecord>>(`/pulse/integrations/scheduling${qs(params)}`),
+    getSchedulingIntegration: (id: string) =>
+      request<PulseSchedulingIntegrationRecord>(`/pulse/integrations/scheduling/${id}`),
+    prepareSchedulingAvailability: (body: Record<string, unknown>) =>
+      request<unknown>(`/pulse/scheduling/availability/prepare`, {method: 'POST', json: body}),
+    prepareSchedulingBooking: (body: Record<string, unknown>) =>
+      request<unknown>(`/pulse/scheduling/bookings/prepare`, {method: 'POST', json: body}),
+
+    // ─── Legacy queue (entries) — kept while the operational ticket
+    // surfaces stabilise. Remove once tickets fully replace queue UX. ──
+    listEntries: (params?: {status?: string; page?: number; pageSize?: number}) =>
+      request<PulseListResponse>(`/pulse/queue${qs(params)}`),
+    getEntry: (id: string) =>
       request<PulseEntry>(`/pulse/queue/${id}`),
-
-    validate: (
-      id: string,
-      data: {extractedData?: PulseExtractedData; scheduledAt?: string},
-    ) =>
-      request<PulseEntry>(`/pulse/queue/${id}/validate`, {
-        method: 'POST',
-        json: data,
-      }),
-
-    reject: (id: string, reason?: string) =>
-      request<PulseEntry>(`/pulse/queue/${id}/reject`, {
-        method: 'POST',
-        json: {reason},
-      }),
-
-    retry: (id: string) =>
-      request<PulseEntry>(`/pulse/queue/${id}/retry`, {
-        method: 'POST',
-      }),
-
-    errors: () =>
-      request<PulseListResponse>('/pulse/errors'),
+    validateEntry: (id: string, data: {extractedData?: PulseExtractedData; scheduledAt?: string}) =>
+      request<PulseEntry>(`/pulse/queue/${id}/validate`, {method: 'POST', json: data}),
+    rejectEntry: (id: string, reason?: string) =>
+      request<PulseEntry>(`/pulse/queue/${id}/reject`, {method: 'POST', json: {reason}}),
+    retryEntry: (id: string) =>
+      request<PulseEntry>(`/pulse/queue/${id}/retry`, {method: 'POST'}),
+    listEntryErrors: () =>
+      request<PulseListResponse>(`/pulse/errors`),
   },
 };

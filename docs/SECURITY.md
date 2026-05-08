@@ -328,3 +328,19 @@ Not yet configured. Required before production:
 - Pending: forbidden route audit fixtures, service actor auth fixtures, and HTTP role-matrix database fixtures.
 - Risks: unit-mode skips these specs; AppSec signoff must include `RUN_DATABASE_TESTS=1`.
 - Next recommended step: add forbidden-action audit fixtures once service-actor authorization is defined.
+
+## 2026-05-08 Platform Runtime Client Signer Update
+
+- Changed: outbound Runtime calls now have a platform-side HMAC signing service.
+- Completed: signatures cover method, path, Unix timestamp, and raw JSON body; runtime shared secret is required before signing; tests lock the canonical format.
+- Pending: inbound callback signature validation, secret rotation, service actor permissions, replay/idempotency persistence, and signed e2e tests.
+- Risks: shared secrets must be provisioned outside source control and never logged.
+- Next recommended step: implement signed callback validation before accepting external runtime state transitions.
+
+## 2026-05-08 Frontend Contract Pack Update
+
+- Changed: frontend AppSec expectations are now documented in the contract pack.
+- Completed: documented permission-gated UI, `401`/`403`/`404` handling, no direct Go Runtime calls, no raw provider payload rendering, no chain-of-thought exposure, and tenant cache-clearing expectations.
+- Pending: route-level forbidden examples and generated error schemas.
+- Risks: frontend must treat backend authorization as final even when UI hides actions.
+- Next recommended step: add API error examples after HTTP role-matrix fixtures land.

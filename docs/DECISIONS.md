@@ -641,3 +641,35 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** These fixtures will not execute unless a migrated PostgreSQL database is configured.
 
 **Next recommended step:** provision a disposable test database and expand fixtures to HTTP role matrices.
+
+---
+
+## 2026-05-08 — Platform signs isolated Runtime requests
+
+**Decision:** The NestJS platform owns the outbound HMAC signer and HTTP client for Stage 1 Go Runtime submissions.
+
+**Reason:** The Runtime is an isolated execution service and should reject unsigned execution requests. The SaaS platform remains the control plane and must submit tenant-aware execution requests with signed, auditable context.
+
+**Consequence:** `RuntimeHttpClient` can call `POST /executions` with the same canonical signature format enforced by the Go Runtime, but no product module invokes it yet.
+
+**Status:** Completed for client/signature foundation.
+
+**Risk:** Runtime callbacks and service-actor authorization are still pending.
+
+**Next recommended step:** add governed lifecycle orchestration around client submission before wiring Pulse to runtime execution.
+
+---
+
+## 2026-05-08 — Frontend integration starts from a backend contract pack
+
+**Decision:** Provide `docs/FRONTEND_CONTRACT_PACK.md` as the canonical frontend handoff before additional frontend integration.
+
+**Reason:** The frontend owner needs stable backend route, permission, state, and error contracts without guessing from controller code or touching backend/runtime internals.
+
+**Consequence:** Next.js integration can start with Pulse ticket detail, operational timeline, and lifecycle actions while respecting RBAC, tenancy, billing, and runtime-governance boundaries.
+
+**Status:** Completed for current backend surface.
+
+**Risk:** The pack is static until OpenAPI/generated contracts exist.
+
+**Next recommended step:** keep the pack updated after every backend API change and add generated API examples later.

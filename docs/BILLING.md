@@ -269,3 +269,19 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: rated usage, billing summary, Stripe report, and plan-limit database fixtures.
 - Risks: usage fixture coverage is narrow and currently limited to Pulse ticket operation side effects.
 - Next recommended step: add usage summary and plan-limit fixtures after route-level RBAC coverage.
+
+## 2026-05-08 Platform Runtime Client Signer Update
+
+- Changed: no billing behavior changed.
+- Completed: runtime HTTP response mapping preserves provider, model, usage, and latency metadata for future metering.
+- Pending: billing/usage writes around runtime submission, completion, failure, cancellation, and timeout.
+- Risks: runtime provider usage metadata is not billable until transformed into governed usage events.
+- Next recommended step: define usage metering boundaries in the runtime submission use case.
+
+## 2026-05-08 Frontend Contract Pack Update
+
+- Changed: billing and usage frontend contracts are documented in the handoff pack.
+- Completed: documented billing account/plans, checkout, portal, usage summary, rated summary, rates, Stripe meters, and usage metric types.
+- Pending: response examples and plan-limit display contracts.
+- Risks: frontend must not display usage as charged unless backend rated/metered data indicates it.
+- Next recommended step: add billing response examples after seeded billing fixtures exist.

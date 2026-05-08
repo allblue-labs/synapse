@@ -1,42 +1,63 @@
 /**
- * Pulse — frontend UI contracts.
+ * Pulse — frontend view models.
  *
- * These shapes are *UI-facing view models* — what each operational
- * screen needs to render. They are intentionally a superset of the
- * backend Prisma entities so a single fetch can drive a screen
- * without N+1 round-trips. When the backend ships matching DTO/OpenAPI
- * contracts (Stage 1C), each `loadX(...)` in `fixtures.ts` becomes a
- * one-liner against the real API client.
+ * Two layers:
  *
- * Naming follows the canonical product schema:
- *   - PulseTicket / PulseTicketEvent  → from `PulseTicket` + `PulseOperationalEvent`
- *   - confidence                       → 0..1, never a percent
- *   - state                            → workflow position (FSM), distinct from `status`
+ *   1. Backend record types (re-exported from `lib/api.ts`) — these
+ *      are the *source of truth*. They mirror the backend Prisma
+ *      records and only carry fields the API actually returns.
+ *
+ *   2. UI view models (`PulseTicketRow`, `PulseTicketDetailVM`,
+ *      `PulseTimelineEventVM`) — composed by the adapter in
+ *      `lib/pulse/loaders.ts` from one or more record fetches. The
+ *      adapter is the *only* place that translates wire shapes into
+ *      view shapes; pages stay simple consumers.
+ *
+ * Rule: never import `PulseTicketRecord`/etc. directly into a page —
+ * always go through the loader so any backend churn is absorbed in
+ * one place.
  */
 
-import type {Permission, UserRole} from '@synapse/contracts';
+import type {
+  PulseChannelProvider,
+  PulseChannelRecord,
+  PulseConversationRecord,
+  PulseConversationState,
+  PulseEventRecord,
+  PulseOperationalStatus,
+  PulseTicketDetailRecord,
+  PulseTicketRecord,
+  PulseTicketStatus,
+  PulseTicketType,
+} from '@/lib/api';
 
-// ─── Re-export the backend contract enums we use in the UI ─────────────
+export type {
+  PulseChannelProvider,
+  PulseChannelRecord,
+  PulseConversationRecord,
+  PulseConversationState,
+  PulseEventRecord,
+  PulseOperationalStatus,
+  PulseTicketDetailRecord,
+  PulseTicketRecord,
+  PulseTicketStatus,
+  PulseTicketType,
+};
 
-export type {Permission, UserRole};
+// ─── UI-only types kept local to the frontend ─────────────────────────
 
-// Mirror of @synapse/contracts.PulseTicketStatus — re-exported so consumer
-// code only needs to import from here.
-export type PulseTicketStatus =
-  | 'OPEN'
-  | 'PENDING_REVIEW'
-  | 'WAITING_CUSTOMER'
-  | 'RESOLVED'
-  | 'CANCELLED';
+/**
+ * Numeric backend `priority` (0..100, lower = more urgent on backend
+ * convention) projected into named buckets the UI uses across pills,
+ * counters and sort order.
+ */
+export type Priority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
 
-export type PulseTicketType =
-  | 'SUPPORT'
-  | 'SALES'
-  | 'SCHEDULING'
-  | 'MARKETING'
-  | 'OPERATOR_REVIEW'
-  | 'KNOWLEDGE_REQUEST';
-
+/**
+ * Skill is *derived* from ticket type until the backend exposes a
+ * skill column directly. Driven by the rule: ticket type → skill.
+ * This keeps existing pill/icon mappings stable.
+ */
 export type PulseSkillType =
   | 'SCHEDULER'
   | 'SALES'
@@ -45,26 +66,48 @@ export type PulseSkillType =
   | 'MARKETING'
   | 'OPERATOR';
 
+/**
+ * Actor type for timeline event avatars. Resolved from the wire `type`
+ * string by the adapter (see `lib/pulse/loaders.ts`).
+ */
 export type PulseActorType = 'SYSTEM' | 'USER' | 'CUSTOMER' | 'AI' | 'INTEGRATION';
 
-export type PulseConversationState =
-  | 'NEW'
-  | 'IN_FLOW'
-  | 'WAITING_CUSTOMER'
-  | 'WAITING_OPERATOR'
-  | 'RESOLVED'
-  | 'CANCELLED';
+// ─── View models ─────────────────────────────────────────────────────
 
-export type PulseChannelProvider = 'WHATSAPP' | 'TELEGRAM';
-
-export type Priority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
-
-// ─── Domain shapes ───────────────────────────────────────────────────
-
-/** One row in the operational timeline. */
-export interface PulseTimelineEvent {
+/** Slim row for inbox / tickets list. Composed from ticket + conversation. */
+export interface PulseTicketRow {
   id: string;
-  /** Stable kind for filtering / icon mapping. */
+  type: PulseTicketType;
+  status: PulseTicketStatus;
+  /** Bucketed from backend numeric `priority`. */
+  priority: Priority;
+  /** Derived from `type` until the backend exposes skill directly. */
+  skill: PulseSkillType;
+  /** 0..1, or `null` when the backend hasn't computed one yet. */
+  confidence: number | null;
+  customer: {
+    handle: string;
+    displayName: string | null;
+    channel: PulseChannelProvider | null;
+  };
+  /** Best-effort 1-line preview. May be empty pre-enrichment. */
+  preview: string;
+  /** Flag rows that need operator action. Drives the queue layout. */
+  needsReview: boolean;
+  /** Currently true only when priority bucket = URGENT and status = PENDING_REVIEW. */
+  escalated: boolean;
+  updatedAt: string;
+}
+
+/**
+ * Single timeline event projected to the renderer. The `kind` union
+ * mirrors the OperationalTimeline icon table — unknown wire types
+ * fall through to `'note.added'` so the UI stays robust.
+ */
+export interface PulseTimelineEventVM {
+  id: string;
+  /** Original wire `type` (`pulse.entry.received`, etc.) — kept for tooltips. */
+  rawType: string;
   kind:
     | 'ticket.opened'
     | 'message.inbound'
@@ -81,66 +124,61 @@ export interface PulseTimelineEvent {
     | 'note.added';
   actor: {
     type: PulseActorType;
-    /** Display name. For AI events, the model + skill (e.g. "gpt-4.1-mini · Scheduler"). */
     label: string;
   };
-  /** Plain-language summary of the event. */
   summary: string;
-  /** Optional structured payload (extracted fields, tool args, etc.). */
   payload?: Record<string, string | number | boolean | null>;
-  /** AI-only: 0..1 confidence for the decision/extraction. */
   confidence?: number;
   occurredAt: string;
 }
 
-/** Single operational ticket — what the detail screen renders against. */
-export interface PulseTicketDetail {
+/** Ticket detail view — composes ticket detail + conversation + events. */
+export interface PulseTicketDetailVM {
   id: string;
   type: PulseTicketType;
   status: PulseTicketStatus;
   priority: Priority;
   skill: PulseSkillType;
-  confidence: number;
+  confidence: number | null;
+  assignedUserId: string | null;
+  resolvedAt: string | null;
 
   customer: {
     handle: string;
-    displayName?: string;
-    channel: PulseChannelProvider;
+    displayName: string | null;
+    channel: PulseChannelProvider | null;
   };
 
-  /** Latest extracted context the AI captured. Free-form by intent. */
+  /**
+   * Workflow snapshot. `state` reflects the conversation FSM (when a
+   * conversation exists). `playbookStep` is reserved — the backend
+   * doesn't expose it yet; the adapter leaves it `null`.
+   */
+  workflow: {
+    state: PulseConversationState | null;
+    playbookStep: null;
+  };
+
+  /** Reserved for future enrichment. The adapter currently emits empty fields. */
   extracted: {
-    intent?: string;
+    intent: string | null;
     fields: ReadonlyArray<{label: string; value: string}>;
   };
 
-  workflow: {
-    state: PulseConversationState;
-    /** Active playbook step, when a playbook is bound to the ticket. */
-    playbookStep?: {
-      playbookName: string;
-      stepIndex: number;
-      stepCount: number;
-      stepLabel: string;
-    };
-  };
-
-  /** Quick AI summary of the conversation so far. */
-  aiSummary?: string;
-
-  /** Pending operator review reasoning when status === 'PENDING_REVIEW'. */
-  reviewRationale?: string;
-
-  timeline: ReadonlyArray<PulseTimelineEvent>;
-
-  createdAt: string;
-  updatedAt: string;
+  /** Summary string from ticket metadata when present. Always render with care. */
+  aiSummary: string | null;
 
   /**
-   * Permissions required to take operator actions on this ticket.
-   * Pre-resolved server-side once contracts ship; carrying them here
-   * keeps the UI decoupled from the role→permission map.
+   * Why is this in operator review? Populated from event/metadata when
+   * the ticket is in `PENDING_REVIEW`. Null otherwise.
    */
+  reviewRationale: string | null;
+
+  timeline: ReadonlyArray<PulseTimelineEventVM>;
+
+  /** Source-of-truth permission checks live in `<Can>` against the user's
+   *  permissions; this struct is a hint to disable buttons that would
+   *  break the FSM regardless of role. */
   capabilities: {
     canApprove: boolean;
     canReject: boolean;
@@ -148,27 +186,4 @@ export interface PulseTicketDetail {
     canResolve: boolean;
     canReopen: boolean;
   };
-}
-
-/** A row in the inbox / tickets list — slimmer view of the ticket. */
-export interface PulseTicketRow {
-  id: string;
-  type: PulseTicketType;
-  status: PulseTicketStatus;
-  priority: Priority;
-  skill: PulseSkillType;
-  confidence: number;
-  customer: {
-    handle: string;
-    displayName?: string;
-    channel: PulseChannelProvider;
-  };
-  /** A 1-line summary for the row preview (extracted by the AI). */
-  preview: string;
-  /** Tag emitted when the operator must intervene — drives the badge. */
-  needsReview: boolean;
-  /** True if a playbook step has escalated. */
-  escalated: boolean;
-  createdAt: string;
-  updatedAt: string;
 }

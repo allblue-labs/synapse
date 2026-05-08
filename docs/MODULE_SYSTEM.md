@@ -304,3 +304,19 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: module registry enablement fixtures and module-to-runtime request convention fixtures.
 - Risks: shared fixture helpers must stay generic and not pull Pulse semantics into core modules.
 - Next recommended step: add module registry database fixtures after Pulse timeline fixture coverage.
+
+## 2026-05-08 Platform Runtime Client Signer Update
+
+- Changed: isolated runtime client remains in core runtime infrastructure, not in Pulse.
+- Completed: product modules can later submit execution requests through core runtime contracts without knowing the Go Runtime signing protocol.
+- Pending: module-owned execution request conventions and capability registration.
+- Risks: product modules must not create direct provider/runtime clients.
+- Next recommended step: add a core runtime submission use case before Pulse invokes external execution.
+
+## 2026-05-08 Frontend Contract Pack Update
+
+- Changed: module registry frontend contracts are documented in the handoff pack.
+- Completed: documented `GET /v1/modules`, enable/disable routes, module entitlement guidance, and Pulse slug expectations.
+- Pending: marketplace purchase examples and generated module response examples.
+- Risks: frontend must not invent module availability or commercial activation state.
+- Next recommended step: add concrete module registry response fixtures before marketplace UI expansion.

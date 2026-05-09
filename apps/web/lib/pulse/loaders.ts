@@ -14,7 +14,18 @@
  *     UI projections. It never invents data the backend didn't send.
  */
 
-import {api, ApiError, type PulseEventRecord, type PulseTicketDetailRecord, type PulseTicketRecord, type PulseTicketListParams} from '@/lib/api';
+import {
+  api,
+  ApiError,
+  type PulseEventRecord,
+  type PulseKnowledgeContextRecord,
+  type PulseKnowledgeContextStatus,
+  type PulseKnowledgeContextType,
+  type PulseSchedulingIntegrationRecord,
+  type PulseTicketDetailRecord,
+  type PulseTicketListParams,
+  type PulseTicketRecord,
+} from '@/lib/api';
 import type {
   Priority,
   PulseActorType,
@@ -129,6 +140,115 @@ export async function loadInboxLanes(): Promise<LoadResult<InboxLanes>> {
       kind: 'ok',
       data: {needsReview: needsRows, open: openRows, waiting: waitingRows},
     };
+  } catch (err) {
+    return mapError(err);
+  }
+}
+
+// ─── Knowledge ──────────────────────────────────────────────────────
+
+export interface KnowledgeFacets {
+  total: number;
+  active: number;
+  archived: number;
+  byType: Readonly<Record<PulseKnowledgeContextType, number>>;
+}
+
+export interface KnowledgePage {
+  rows: ReadonlyArray<PulseKnowledgeContextRecord>;
+  total: number;
+  page: number;
+  pageSize: number;
+  facets: KnowledgeFacets;
+}
+
+const KNOWLEDGE_TYPES: ReadonlyArray<PulseKnowledgeContextType> = [
+  'FAQ',
+  'BUSINESS_DESCRIPTION',
+  'OPERATIONAL_INSTRUCTION',
+  'PRODUCT_SERVICE',
+  'CAMPAIGN_PROMOTION',
+];
+
+/**
+ * List knowledge contexts. Pulls active + archived in parallel so the
+ * page can render counters without a second round-trip; archived counts
+ * are best-effort (failures don't fail the page).
+ */
+export async function loadKnowledgeContexts(params?: {
+  type?: PulseKnowledgeContextType;
+  status?: PulseKnowledgeContextStatus;
+  page?: number;
+  pageSize?: number;
+}): Promise<LoadResult<KnowledgePage>> {
+  try {
+    const [main, archivedTotal] = await Promise.all([
+      api.pulse.listKnowledge({pageSize: 50, ...params}),
+      api.pulse.listKnowledge({status: 'ARCHIVED', pageSize: 1}).catch(() => null),
+    ]);
+
+    // Build facets from a quick by-type scan. We approximate using the
+    // first page (typically <= 50 active items) — exact counts ship when
+    // the backend exposes facets.
+    const byType: Record<PulseKnowledgeContextType, number> = {
+      FAQ: 0,
+      BUSINESS_DESCRIPTION: 0,
+      OPERATIONAL_INSTRUCTION: 0,
+      PRODUCT_SERVICE: 0,
+      CAMPAIGN_PROMOTION: 0,
+    };
+    for (const r of main.data) byType[r.type] = (byType[r.type] ?? 0) + 1;
+
+    const archivedCount = archivedTotal?.total ?? 0;
+    const activeCount = main.data.filter((r) => r.status === 'ACTIVE').length;
+
+    return {
+      kind: 'ok',
+      data: {
+        rows: main.data,
+        total: main.total,
+        page: main.page,
+        pageSize: main.pageSize,
+        facets: {
+          total: main.total + archivedCount,
+          active: params?.status === 'ARCHIVED' ? main.total - main.data.length + activeCount : main.total,
+          archived: archivedCount,
+          byType,
+        },
+      },
+    };
+  } catch (err) {
+    return mapError(err);
+  }
+}
+
+export {KNOWLEDGE_TYPES};
+
+// ─── Scheduling integrations ────────────────────────────────────────
+
+export interface SchedulingFacets {
+  total: number;
+  active: number;
+  needsAttention: number;
+  disconnected: number;
+}
+
+export interface SchedulingPage {
+  rows: ReadonlyArray<PulseSchedulingIntegrationRecord>;
+  total: number;
+  facets: SchedulingFacets;
+}
+
+export async function loadSchedulingIntegrations(): Promise<LoadResult<SchedulingPage>> {
+  try {
+    const page = await api.pulse.listSchedulingIntegrations({pageSize: 50});
+    const facets: SchedulingFacets = {
+      total: page.total,
+      active:         page.data.filter((r) => r.status === 'ACTIVE').length,
+      needsAttention: page.data.filter((r) => r.status === 'NEEDS_ATTENTION').length,
+      disconnected:   page.data.filter((r) => r.status === 'DISCONNECTED' || r.status === 'DISABLED').length,
+    };
+    return {kind: 'ok', data: {rows: page.data, total: page.total, facets}};
   } catch (err) {
     return mapError(err);
   }

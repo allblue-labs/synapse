@@ -76,6 +76,19 @@ export default async function PulseInboxPage() {
     );
   }
 
+  if (result.kind === 'not_found') {
+    return (
+      <div className="space-y-8">
+        <Hero needsReview={0} inFlow={0} waiting={0} autoRate={null} dim />
+        <LoadState
+          variant="empty"
+          title="No inbox available."
+          description="The Pulse inbox endpoint returned not found for this tenant."
+        />
+      </div>
+    );
+  }
+
   const {needsReview, open, waiting} = result.data;
   const total = needsReview.length + open.length + waiting.length;
   const autoRate = total === 0 ? null : Math.round((open.length / Math.max(total, 1)) * 100);

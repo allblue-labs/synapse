@@ -11,15 +11,11 @@ import {AUDIO_TRANSCRIBER, IAudioTranscriber} from '../../domain/ports/audio-tra
 import {ConfidenceScore} from '../../domain/value-objects/confidence-score.vo';
 import {ProcessPulseJob} from '../../contracts/pulse.contracts';
 import {UsageMeteringService, UsageMetricType} from '../../../../modules/usage/usage-metering.service';
+import { PULSE_QUEUES } from '../queues/pulse-queue.contracts';
+import { PULSE_DEFAULT_JOB_OPTIONS } from '../queues/pulse-queue.service';
 
-export const PULSE_QUEUE = 'pulse-processing';
-
-export const DEFAULT_JOB_OPTIONS = {
-  attempts: 3,
-  backoff: {type: 'exponential' as const, delay: 3_000},
-  removeOnComplete: {age: 60 * 60 * 24, count: 500},
-  removeOnFail: false,
-};
+export const PULSE_QUEUE = PULSE_QUEUES.INBOUND;
+export const DEFAULT_JOB_OPTIONS = PULSE_DEFAULT_JOB_OPTIONS;
 
 @Processor(PULSE_QUEUE)
 export class PulseProcessor extends WorkerHost {

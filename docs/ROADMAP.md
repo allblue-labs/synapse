@@ -506,3 +506,83 @@ Last updated: 2026-05-07
 - Pending UI work (Batch 4): tenant member picker, playbook step indicator, knowledge management surface, scheduling integrations surface, Pulse metrics dashboard.
 - Risks: list-fanout enrichment in `loaders.toRow` is unchanged; revalidation-based refresh shows a brief "Working…" pending state on slow networks.
 - Next recommended step: Batch 4 — knowledge management UI + scheduling integrations UI on top of the already-exposed `/v1/pulse/*` client surface.
+
+## 2026-05-09 Stage 1 — Module Context Ownership Review
+
+- Changed: backend roadmap now separates Pulse cognitive context ownership from Synapse governance responsibilities.
+- Completed: Stage 1 review documented that module-specific context must live in module code, while Synapse validates tenants, module enablement, RBAC, plans, usage, execution governance, audit, and context contract shape.
+- Pending: Stage 2 Pulse Context Pack foundation; Stage 3 async queue split; Stage 4 index/RLS/Redis hardening; Stage 5 runtime-ready contract refinement.
+- Risks: current Pulse processing still has legacy single-worker behavior and a compatibility `PulseEntry` path.
+- Next recommended step: build `PulseContextPack` contracts and `PulseContextAssembler` before changing runtime submission.
+
+## 2026-05-09 Stage 2 — Pulse Context Pack Foundation
+
+- Changed: Stage 2 context foundation is now implemented inside the Pulse module boundary.
+- Completed: module-local contract, port, repository, and use case produce an internal `PulseContextPack` for future runtime execution requests without moving Pulse semantics into Synapse core.
+- Pending: runtime-governance mapping, async context queue boundary, persisted execution request submission, DB fixtures, and optional RLS/index hardening.
+- Risks: the pack is a foundation, not a runtime submission endpoint; callers must still pass through Synapse governance before any future provider execution.
+- Next recommended step: Stage 3 async pipeline foundation with `pulse.context` jobs invoking the assembler after inbound event persistence.
+
+## 2026-05-09 Stage 3 — Pulse Async Pipeline Foundation
+
+- Changed: Stage 3 queue boundaries are now represented in backend code.
+- Completed: Pulse has queue names, payload contracts, retry defaults, idempotent job ids, and a publisher service. The current entry-processing path uses `pulse.inbound`.
+- Pending: real processors for `pulse.context`, `pulse.execution`, `pulse.actions`, `pulse.timeline`, and `pulse.failed`; execution-governance persistence; DB fixtures for idempotent retries.
+- Risks: adding worker logic too quickly could re-create one large worker across multiple queues; each queue must keep a narrow responsibility.
+- Next recommended step: build the `pulse.context` processor only, then verify context assembly, idempotency, and failure capture before adding execution/action workers.
+
+## 2026-05-09 Stage 3B — Pulse Context Worker
+
+- Changed: `pulse.context` is now the first active bounded worker after `pulse.inbound`.
+- Completed: worker assembles Pulse context asynchronously, persists governed execution request records, emits operational events, and captures failures.
+- Pending: execution governance policy checks, `pulse.execution` worker, runtime queue handoff, and provider-call implementation in a later runtime stage.
+- Risks: execution requests are prepared but not executed; downstream consumers must treat `REQUESTED` as pending governance/runtime work.
+- Next recommended step: build a lightweight execution-governance service that validates module enablement, plan/usage limits, and allowed execution type before queueing runtime work.
+
+## 2026-05-09 Stage 3C — Execution Governance + Store Visibility
+
+- Changed: execution governance and store commercialization controls are now implemented foundations.
+- Completed: prepared Pulse execution requests are advanced to `QUEUED` only after module enablement and request-type validation. Module catalog has a `storeVisible` switch controlled by super admins.
+- Pending: actor permission propagation into async jobs, usage-limit enforcement, and `pulse.execution` worker.
+- Risks: store visibility is a commercial/display flag, not a security or runtime-disable flag.
+- Next recommended step: add DB fixtures proving hidden modules do not appear in store or plan commercial counts, while enabled internal modules can still be governed/executed.
+
+## 2026-05-09 Stage 3D — Pulse Execution Worker Foundation
+
+- Changed: `pulse.execution` is now active as a lifecycle-only worker.
+- Completed: queued execution requests can be consumed and marked as dispatch-prepared without provider calls.
+- Pending: runtime-provider boundary, provider result ingestion, real `pulse.timeline` worker, usage metering, and DB fixtures.
+- Risks: current execution completion is a placeholder lifecycle completion and must not be presented as AI/provider output.
+- Next recommended step: define the provider handoff/result contract and then decide whether the external Go Runtime or queue transport owns the first real execution implementation.
+
+## 2026-05-09 Stage 3E — Pulse Timeline Worker Foundation
+
+- Changed: `pulse.timeline` is now active for async operational event projection.
+- Completed: execution dispatch events are queued to timeline and persisted by a dedicated worker.
+- Pending: action worker, broader event projection migration, replay tooling, and DB fixtures for timeline segregation.
+- Risks: timeline is partly direct-write and partly queue-projected until older use cases are migrated.
+- Next recommended step: build `pulse.actions` as the next bounded processor.
+
+## 2026-05-09 Stage 3F — Pulse Actions Worker Foundation
+
+- Changed: all target Pulse queue boundaries now have foundation code.
+- Completed: `pulse.actions` validates and projects action lifecycle without real side effects.
+- Pending: typed action handler contracts, first real internal action, integration action stubs, DB fixtures, and usage metering on real action completion.
+- Risks: the queue is active but handler implementation is intentionally not complete.
+- Next recommended step: implement a typed internal action handler for one safe ticket workflow action.
+
+## 2026-05-09 Stage 3G — First Typed Action Handler
+
+- Changed: `ticket.advance_flow` moved from prepared-only to real internal handler.
+- Completed: typed handler contract and unit tests cover tenant-scoped flow advancement and missing actor rejection.
+- Pending: per-action permission enforcement and more handlers.
+- Risks: runtime-generated actions must not enqueue this handler without governance validation.
+- Next recommended step: build action job creation service that validates runtime output schema and permission snapshot before enqueue.
+
+## 2026-05-09 Stage 3H — Action Enqueue Governance
+
+- Changed: action job creation has a governance service.
+- Completed: `ticket.advance_flow` requires actor metadata plus `tickets:write` permission snapshot before enqueue.
+- Pending: runtime output validator, handler registry, and DB fixtures.
+- Risks: existing internal callers could still use the lower-level queue service if not disciplined.
+- Next recommended step: connect runtime output validation to the governance service instead of direct queue publication.

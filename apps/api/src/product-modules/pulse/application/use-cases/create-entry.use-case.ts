@@ -1,6 +1,4 @@
 import {Inject, Injectable, NotFoundException} from '@nestjs/common';
-import {InjectQueue} from '@nestjs/bullmq';
-import {Queue} from 'bullmq';
 import {PulseChannelProvider} from '@prisma/client';
 import {UsageMeteringService, UsageMetricType} from '../../../../modules/usage/usage-metering.service';
 import {
@@ -20,8 +18,7 @@ import {
   PULSE_CONVERSATION_REPOSITORY,
 } from '../../domain/ports/pulse-conversation-repository.port';
 import {PULSE_EVENT_TYPES} from '../../domain/pulse-event-types';
-import {PULSE_QUEUE, DEFAULT_JOB_OPTIONS} from '../../infrastructure/processors/pulse.processor';
-import {ProcessPulseJob} from '../../contracts/pulse.contracts';
+import {PulseQueueService} from '../../infrastructure/queues/pulse-queue.service';
 
 export interface CreateEntryInput {
   tenantId: string;
@@ -41,8 +38,7 @@ export class CreateEntryUseCase {
   constructor(
     @Inject(PULSE_REPOSITORY)
     private readonly repository: IPulseRepository,
-    @InjectQueue(PULSE_QUEUE)
-    private readonly queue: Queue<ProcessPulseJob>,
+    private readonly queues: PulseQueueService,
     private readonly usage: UsageMeteringService,
     @Inject(PULSE_OPERATIONAL_EVENT_REPOSITORY)
     private readonly events: IPulseOperationalEventRepository,
@@ -59,11 +55,12 @@ export class CreateEntryUseCase {
       conversationId,
     });
 
-    await this.queue.add(
-      'process',
-      {tenantId: input.tenantId, entryId: entry.id},
-      {...DEFAULT_JOB_OPTIONS, jobId: `pulse:${entry.id}`},
-    );
+    await this.queues.enqueueInbound({
+      tenantId: input.tenantId,
+      entryId: entry.id,
+      conversationId: entry.conversationId,
+      idempotencyKey: `pulse.inbound:${input.tenantId}:${entry.id}`,
+    });
 
     await this.usage.record({
       tenantId: input.tenantId,

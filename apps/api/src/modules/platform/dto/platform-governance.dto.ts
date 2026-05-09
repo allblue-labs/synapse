@@ -45,6 +45,10 @@ export class UpdatePlatformModuleGovernanceDto {
   active?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  storeVisible?: boolean;
+
+  @IsOptional()
   @IsEnum(ModuleCatalogStatus)
   status?: ModuleCatalogStatus;
 

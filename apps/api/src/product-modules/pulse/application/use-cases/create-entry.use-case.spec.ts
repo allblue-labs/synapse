@@ -16,8 +16,8 @@ describe('CreateEntryUseCase', () => {
     const repository = {
       create: jest.fn().mockResolvedValue(createEntry()),
     };
-    const queue = {
-      add: jest.fn(),
+    const queues = {
+      enqueueInbound: jest.fn(),
     };
     const usage = {
       record: jest.fn(),
@@ -34,7 +34,7 @@ describe('CreateEntryUseCase', () => {
     };
     const useCase = new CreateEntryUseCase(
       repository as never,
-      queue as never,
+      queues as never,
       usage as never,
       events as never,
       channels as never,
@@ -53,11 +53,12 @@ describe('CreateEntryUseCase', () => {
     expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({
       conversationId: 'conversation_1',
     }));
-    expect(queue.add).toHaveBeenCalledWith(
-      'process',
-      { tenantId: 'tenant_a', entryId: 'entry_1' },
-      expect.objectContaining({ jobId: 'pulse:entry_1' }),
-    );
+    expect(queues.enqueueInbound).toHaveBeenCalledWith({
+      tenantId: 'tenant_a',
+      entryId: 'entry_1',
+      conversationId: 'conversation_1',
+      idempotencyKey: 'pulse.inbound:tenant_a:entry_1',
+    });
     expect(usage.record).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: 'tenant_a',
       moduleSlug: 'pulse',
@@ -91,8 +92,8 @@ describe('CreateEntryUseCase', () => {
     const repository = {
       create: jest.fn().mockResolvedValue(createEntry()),
     };
-    const queue = {
-      add: jest.fn(),
+    const queues = {
+      enqueueInbound: jest.fn(),
     };
     const usage = {
       record: jest.fn(),
@@ -109,7 +110,7 @@ describe('CreateEntryUseCase', () => {
     };
     const useCase = new CreateEntryUseCase(
       repository as never,
-      queue as never,
+      queues as never,
       usage as never,
       events as never,
       channels as never,
@@ -154,8 +155,8 @@ describe('CreateEntryUseCase', () => {
     const repository = {
       create: jest.fn(),
     };
-    const queue = {
-      add: jest.fn(),
+    const queues = {
+      enqueueInbound: jest.fn(),
     };
     const usage = {
       record: jest.fn(),
@@ -172,7 +173,7 @@ describe('CreateEntryUseCase', () => {
     };
     const useCase = new CreateEntryUseCase(
       repository as never,
-      queue as never,
+      queues as never,
       usage as never,
       events as never,
       channels as never,
@@ -186,7 +187,7 @@ describe('CreateEntryUseCase', () => {
     })).rejects.toThrow('Pulse conversation conversation_from_other_tenant not found');
 
     expect(repository.create).not.toHaveBeenCalled();
-    expect(queue.add).not.toHaveBeenCalled();
+    expect(queues.enqueueInbound).not.toHaveBeenCalled();
     expect(usage.record).not.toHaveBeenCalled();
     expect(events.record).not.toHaveBeenCalled();
   });

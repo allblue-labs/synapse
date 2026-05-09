@@ -5,6 +5,7 @@ import { RuntimeService } from './runtime.service';
 import { RuntimeHttpClient } from './runtime-http.client';
 import { RuntimeExecutionController } from './runtime-execution.controller';
 import { RuntimeExecutionLifecycleService } from './runtime-execution-lifecycle.service';
+import { RuntimeExecutionGovernanceService } from './runtime-execution-governance.service';
 import { RuntimeSignatureService } from './runtime-signature.service';
 import { StubPainClient } from './pain/stub-pain.client';
 
@@ -14,6 +15,7 @@ import { StubPainClient } from './pain/stub-pain.client';
     RuntimeService,
     RuntimeHttpClient,
     RuntimeExecutionLifecycleService,
+    RuntimeExecutionGovernanceService,
     RuntimeSignatureService,
     StubPainClient,
     LocalExecutor,
@@ -23,6 +25,7 @@ import { StubPainClient } from './pain/stub-pain.client';
     RuntimeService,
     RuntimeHttpClient,
     RuntimeExecutionLifecycleService,
+    RuntimeExecutionGovernanceService,
     RuntimeSignatureService,
     LocalExecutor,
     PainExecutor,

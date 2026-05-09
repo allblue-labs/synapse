@@ -81,7 +81,7 @@ export class BillingService implements OnModuleInit {
       orderBy: { displayName: 'asc' },
     });
     const publicModuleCount = await this.prisma.moduleCatalogItem.count({
-      where: { status: ModuleCatalogStatus.PUBLIC },
+      where: { status: ModuleCatalogStatus.PUBLIC, storeVisible: true },
     });
     const flags = await this.prisma.billingFeatureFlag.findMany();
     const flagByKey = new Map(flags.map((flag) => [flag.key, flag]));
@@ -307,7 +307,7 @@ export class BillingService implements OnModuleInit {
       where: { slug: moduleSlug },
     });
 
-    if (!module || module.status !== ModuleCatalogStatus.PUBLIC) {
+    if (!module || module.status !== ModuleCatalogStatus.PUBLIC || !module.storeVisible) {
       return false;
     }
 
@@ -468,7 +468,7 @@ export class BillingService implements OnModuleInit {
     }
 
     const publicModuleCount = await this.prisma.moduleCatalogItem.count({
-      where: { status: ModuleCatalogStatus.PUBLIC },
+      where: { status: ModuleCatalogStatus.PUBLIC, storeVisible: true },
     });
 
     return publicModuleCount >= plan.requiredPublicModules;

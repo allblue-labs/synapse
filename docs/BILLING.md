@@ -341,3 +341,83 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: plan-specific policy validation.
 - Risks: flexible metadata remains intentionally broad for now; local reset flow clears billing state before migrations/seeders recreate it.
 - Next recommended step: constrain metadata per policy domain.
+
+## 2026-05-09 Stage 1 — Context Governance Billing Review
+
+- Changed: reviewed billing/usage responsibilities for future module context and runtime execution.
+- Completed: Synapse remains owner of plan checks, module entitlements, usage metering, and usage-limit enforcement; Pulse must only attach `usageHints` to its context/execution request.
+- Pending: Stage 2/5 contracts must define how Pulse declares expected metering dimensions without owning billing logic.
+- Risks: letting modules directly rate usage or check commercial plan state would couple modules to platform billing.
+- Next recommended step: add `usageHints` to Pulse Context Pack and validate them in platform execution governance.
+
+## 2026-05-09 Stage 2 — Pulse Usage Hints
+
+- Changed: `PulseContextPack` now includes module-owned `usageHints` for future metering candidates.
+- Completed: hints identify module `pulse`, tenant id, optional conversation/ticket ids, and expected candidates such as `ai_execution` and `workflow_run`. Pulse does not rate, bill, or enforce plan limits.
+- Pending: Synapse execution governance must validate plan/module entitlement and convert approved execution results into durable usage events.
+- Risks: hints are advisory until the governed execution request flow consumes them.
+- Next recommended step: Stage 5 should formalize execution request metadata so usage metering can be recorded after runtime completion.
+
+## 2026-05-09 Stage 3 — Queue Usage Metering Boundary
+
+- Changed: Pulse queue publication is separated from billing/rating logic.
+- Completed: existing entry creation still records message/automation usage; current inbound processing still records AI call and audio transcription usage when those operations occur.
+- Pending: future `pulse.context` and `pulse.execution` processors must convert approved execution outcomes into durable usage events through Synapse usage metering.
+- Risks: enqueueing a job is not billable by itself; metering should happen on accepted operational usage or completed execution, with idempotency keys.
+- Next recommended step: define usage event idempotency keys for context assembly, execution request, and workflow action completion.
+
+## 2026-05-09 Stage 3B — Execution Request Usage Boundary
+
+- Changed: Pulse context jobs persist execution requests with context `usageHints`, but do not meter AI execution yet.
+- Completed: `pulse.context.assembled` events include `usageCandidate: ai_execution` for future billing integration.
+- Pending: usage metering should occur when execution is approved/queued/completed, depending on final billing policy.
+- Risks: billing on prepared requests could overcharge failed or denied executions.
+- Next recommended step: decide whether AI execution is metered at queue acceptance, provider call start, or provider completion.
+
+## 2026-05-09 Stage 3C — Store Visibility Billing Impact
+
+- Changed: commercial plan activation counts now use public modules that are also `storeVisible`.
+- Completed: hidden/internal modules do not satisfy public-module thresholds for Light/Pro/Premium commercial activation and cannot be enabled through store-based billing checks.
+- Pending: usage-limit governance before runtime execution and a policy for billing internal modules.
+- Risks: hiding a module from store can make commercial plans inactive if public module thresholds are no longer met.
+- Next recommended step: add admin warning/preview before changing `storeVisible` on modules that affect plan activation.
+
+## 2026-05-09 Stage 3D — Execution Worker Billing Boundary
+
+- Changed: `pulse.execution` currently records no billable provider usage.
+- Completed: placeholder dispatch output explicitly sets `providerCalls: false`.
+- Pending: meter AI executions only when the future provider/runtime boundary accepts or completes a real provider call.
+- Risks: billing the placeholder execution would overcount usage.
+- Next recommended step: add usage metering at provider-call start/completion, not at no-provider dispatch preparation.
+
+## 2026-05-09 Stage 3E — Timeline Billing Boundary
+
+- Changed: timeline projection records operational events only; it does not meter usage.
+- Completed: no billing side effects were added to `pulse.timeline`.
+- Pending: usage metering remains tied to operational usage and future provider/runtime events.
+- Risks: using timeline event count as billing proxy would be inaccurate.
+- Next recommended step: keep billing metrics explicit and idempotent, separate from timeline projection.
+
+## 2026-05-09 Stage 3F — Actions Billing Boundary
+
+- Changed: `pulse.actions` does not meter usage while side effects are disabled.
+- Completed: no billing events are emitted for prepared action lifecycle.
+- Pending: meter automation/workflow usage when a real action handler accepts or completes an action.
+- Risks: billing prepared actions would overcount usage.
+- Next recommended step: define idempotency keys per action handler before enabling usage metering.
+
+## 2026-05-09 Stage 3G — Real Action Billing Boundary
+
+- Changed: `ticket.advance_flow` uses existing ticket lifecycle usage metering for workflow transitions.
+- Completed: no duplicate action-level billing was added.
+- Pending: decide whether future action handlers should meter separately from workflow lifecycle.
+- Risks: double-billing if both action handler and lifecycle use case meter the same operation.
+- Next recommended step: centralize action metering policy before adding more real handlers.
+
+## 2026-05-09 Stage 3H — Governed Action Billing Boundary
+
+- Changed: action governance does not meter enqueue by itself.
+- Completed: usage remains tied to the lifecycle handler for `ticket.advance_flow`.
+- Pending: action acceptance/completion metering policy for future handlers.
+- Risks: enqueue-time billing would overcount denied or failed actions.
+- Next recommended step: meter only after handler acceptance/completion with idempotency keys.

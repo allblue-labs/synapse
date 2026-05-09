@@ -55,6 +55,7 @@ describe('PlatformGovernanceService scope/audit behavior', () => {
       id: 'module_1',
       slug: 'pulse',
       active: true,
+      storeVisible: true,
       status: 'PUBLIC',
       visibility: 'PUBLIC',
       rolloutState: 'PILOT',
@@ -65,6 +66,7 @@ describe('PlatformGovernanceService scope/audit behavior', () => {
       slug: 'pulse',
       displayName: 'Pulse',
       active: true,
+      storeVisible: true,
       status: 'PUBLIC',
       visibility: 'PUBLIC',
       rolloutState: 'GA',
@@ -86,6 +88,35 @@ describe('PlatformGovernanceService scope/audit behavior', () => {
         slug: 'pulse',
         previous: expect.objectContaining({ rolloutState: 'PILOT' }),
         next: expect.objectContaining({ rolloutState: 'GA' }),
+      }),
+    }));
+  });
+
+  it('allows only super_admin to change module store visibility', async () => {
+    scopes.scopesFor.mockResolvedValue({ metrics: [], modules: ['pulse'], policies: [] });
+    scopes.assertAllowed.mockReturnValue(undefined);
+    prisma.moduleCatalogItem.findUnique.mockResolvedValue({
+      id: 'module_1',
+      slug: 'pulse',
+      active: true,
+      storeVisible: true,
+      status: 'PUBLIC',
+      visibility: 'PUBLIC',
+      rolloutState: 'GA',
+      tier: 'PRO',
+    });
+
+    await expect(
+      service.updateModuleGovernance(actor, 'pulse', { storeVisible: false }),
+    ).rejects.toThrow(ForbiddenException);
+    expect(prisma.moduleCatalogItem.update).not.toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({
+      action: AuditAction.AUTH_FORBIDDEN,
+      resourceType: 'ModuleCatalogItem',
+      resourceId: 'pulse',
+      metadata: expect.objectContaining({
+        field: 'storeVisible',
+        reason: 'super_admin_required',
       }),
     }));
   });

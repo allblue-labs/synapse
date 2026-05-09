@@ -21,6 +21,7 @@ const registeredPulse = {
   visibility: ModuleVisibility.PUBLIC,
   rolloutState: ModuleRolloutState.GA,
   active: true,
+  storeVisible: true,
   permissions: ['pulse:read', 'pulse:write'],
   actions: [
     {
@@ -54,6 +55,7 @@ function createCatalogRecord(overrides: Record<string, unknown> = {}) {
     rolloutState: ModuleRolloutState.GA,
     featureFlag: null,
     active: true,
+    storeVisible: true,
     permissions: ['pulse:read', 'pulse:write'],
     actions: registeredPulse.actions,
     events: registeredPulse.events,
@@ -128,6 +130,7 @@ describe('ModuleRegistryService', () => {
           visibility: ModuleVisibility.PUBLIC,
           rolloutState: ModuleRolloutState.GA,
           active: true,
+          storeVisible: true,
         }),
         update: expect.objectContaining({
           displayName: 'Synapse Pulse',
@@ -157,6 +160,7 @@ describe('ModuleRegistryService', () => {
         status: ModuleCatalogStatus.PUBLIC,
         active: true,
         visibility: ModuleVisibility.PUBLIC,
+        storeVisible: true,
       },
       include: {
         installations: {
@@ -174,6 +178,7 @@ describe('ModuleRegistryService', () => {
         visibility: ModuleVisibility.PUBLIC,
         rolloutState: ModuleRolloutState.GA,
         active: true,
+        storeVisible: true,
         enabled: true,
       }),
     ]);

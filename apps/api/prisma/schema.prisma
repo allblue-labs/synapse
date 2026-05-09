@@ -570,6 +570,7 @@ model ModuleCatalogItem {
   rolloutState ModuleRolloutState  @default(DRAFT)
   featureFlag  String?
   active       Boolean             @default(false)
+  storeVisible Boolean             @default(true)
   permissions  Json                @default("[]")
   actions      Json                @default("[]")
   events       Json                @default("[]")
@@ -585,6 +586,7 @@ model ModuleCatalogItem {
   @@index([status, displayName])
   @@index([tier, visibility, rolloutState])
   @@index([active, visibility])
+  @@index([storeVisible, active, visibility])
   @@map("module_catalog_items")
 }
 

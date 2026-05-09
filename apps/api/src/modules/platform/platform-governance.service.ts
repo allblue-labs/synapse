@@ -96,6 +96,7 @@ export class PlatformGovernanceService {
         rolloutState: true,
         featureFlag: true,
         active: true,
+        storeVisible: true,
         permissions: true,
         metadata: true,
         registeredAt: true,
@@ -120,6 +121,7 @@ export class PlatformGovernanceService {
           ...(policies ? { featureFlag: { in: policies } } : { featureFlag: { not: null } }),
           status: ModuleCatalogStatus.PUBLIC,
           visibility: ModuleVisibility.PUBLIC,
+          storeVisible: true,
         },
         select: {
           slug: true,
@@ -127,6 +129,7 @@ export class PlatformGovernanceService {
           featureFlag: true,
           rolloutState: true,
           active: true,
+          storeVisible: true,
         },
         orderBy: { slug: 'asc' },
       }),
@@ -141,6 +144,7 @@ export class PlatformGovernanceService {
           displayName: module.displayName,
           rolloutState: module.rolloutState,
           active: module.active,
+          storeVisible: module.storeVisible,
         });
         return acc;
       },
@@ -170,6 +174,7 @@ export class PlatformGovernanceService {
         id: true,
         slug: true,
         active: true,
+        storeVisible: true,
         status: true,
         visibility: true,
         rolloutState: true,
@@ -179,11 +184,15 @@ export class PlatformGovernanceService {
     if (!existing) {
       throw new NotFoundException('Module not found.');
     }
+    if (dto.storeVisible !== undefined) {
+      await this.assertSuperAdminOnly(actor, moduleSlug, 'storeVisible');
+    }
 
     const updated = await this.prisma.moduleCatalogItem.update({
       where: { slug: moduleSlug },
       data: {
         active: dto.active ?? existing.active,
+        storeVisible: dto.storeVisible ?? existing.storeVisible,
         status: dto.status ?? existing.status,
         visibility: dto.visibility ?? existing.visibility,
         rolloutState: dto.rolloutState ?? existing.rolloutState,
@@ -194,6 +203,7 @@ export class PlatformGovernanceService {
         slug: true,
         displayName: true,
         active: true,
+        storeVisible: true,
         status: true,
         visibility: true,
         rolloutState: true,
@@ -213,6 +223,7 @@ export class PlatformGovernanceService {
         previous: existing,
         next: {
           active: updated.active,
+          storeVisible: updated.storeVisible,
           status: updated.status,
           visibility: updated.visibility,
           rolloutState: updated.rolloutState,
@@ -225,6 +236,30 @@ export class PlatformGovernanceService {
       ...updated,
       updatedAt: updated.updatedAt.toISOString(),
     };
+  }
+
+  private async assertSuperAdminOnly(
+    actor: AuthenticatedUser,
+    moduleSlug: string,
+    field: string,
+  ) {
+    if (actor.role === 'super_admin' || actor.role === 'platform_admin') {
+      return;
+    }
+
+    await this.audit.record({
+      actorUserId: actor.sub,
+      action: AuditAction.AUTH_FORBIDDEN,
+      status: AuditStatus.FAILURE,
+      resourceType: 'ModuleCatalogItem',
+      resourceId: moduleSlug,
+      metadata: {
+        role: actor.role,
+        field,
+        reason: 'super_admin_required',
+      },
+    });
+    throw new ForbiddenException('Only super_admin can change module store visibility.');
   }
 
   async updatePolicy(

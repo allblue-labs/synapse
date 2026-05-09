@@ -355,3 +355,83 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: fixture for explicit `tenantId` filtering across two tenants.
 - Risks: current fixture validates module scope more deeply than tenant-filter behavior; local reset flow destroys all current dev tenants.
 - Next recommended step: add tenant-filtered platform metrics fixture.
+
+## 2026-05-09 Stage 1 — Pulse Tenant Boundary Review
+
+- Changed: reviewed tenant-scoped Pulse persistence and repository strategy before context-pack work.
+- Completed: existing Pulse models include required `tenantId` and Pulse repositories generally accept tenant id as the first boundary argument. Current Pulse tables remain in the main schema but are strongly separated by `Pulse*` model names and `pulse_*` table names.
+- Pending: add Stage 2 context assembly tests for cross-tenant rejection across channel, conversation, ticket, playbook, knowledge, skill, integration setting, and operational event reads.
+- Risks: RLS is not enabled yet; any new Pulse repository method that reads by raw id without `tenantId` would be a leakage risk.
+- Next recommended step: require every Pulse context repository method to accept `tenantId` and test negative cross-tenant reads.
+
+## 2026-05-09 Stage 2 — Pulse Context Tenant Isolation
+
+- Changed: Pulse Context Pack loading uses a dedicated repository where every Prisma query is scoped by `tenantId`.
+- Completed: requested `conversationId`, `ticketId`, and `playbookKey` are treated as tenant-scoped resources; missing or cross-tenant ids return not found through the use case. Unit coverage asserts tenant filters on conversation, ticket, knowledge, integration, and timeline context reads.
+- Pending: real PostgreSQL fixture for cross-tenant context rejection and future RLS prototype.
+- Risks: RLS remains disabled; application-level tenant enforcement is still the active boundary.
+- Next recommended step: add DB fixtures after Stage 3 queue contracts stabilize.
+
+## 2026-05-09 Stage 3 — Pulse Queue Tenant Scope
+
+- Changed: Pulse queue contracts carry `tenantId` as a required field and use tenant-scoped job ids.
+- Completed: entry creation and retry enqueue `pulse.inbound` jobs with tenant id, entry id, conversation id, and idempotency key. The worker still reloads entries by `tenantId` and entry id before processing.
+- Pending: tenant-scoped validation for future `pulse.context`, `pulse.execution`, `pulse.actions`, and `pulse.timeline` processors.
+- Risks: BullMQ job ids prevent duplicate enqueue patterns but do not replace database tenant isolation.
+- Next recommended step: add worker tests that reject cross-tenant ids after the `pulse.context` processor lands.
+
+## 2026-05-09 Stage 3B — Context Worker Tenant Scope
+
+- Changed: `pulse.context` creates execution requests using the job tenant id and Pulse assembler tenant-scoped reads.
+- Completed: tests cover malformed tenant payload rejection and context-to-execution persistence with tenant id preserved.
+- Pending: PostgreSQL fixture proving another tenant's conversation/ticket id cannot create an execution request.
+- Risks: application-level tenant enforcement remains mandatory until RLS is implemented.
+- Next recommended step: add DB fixture after execution-governance service is introduced.
+
+## 2026-05-09 Stage 3C — Tenant Module Execution Governance
+
+- Changed: execution governance validates tenant module installation before queueing execution.
+- Completed: a tenant must have the module installed/enabled for an execution request to move to `QUEUED`.
+- Pending: DB fixtures for two tenants, one enabled and one disabled, proving denied execution cannot cross tenant boundaries.
+- Risks: module store visibility does not imply tenant enablement; each tenant remains independently governed.
+- Next recommended step: add two-tenant execution-governance fixtures.
+
+## 2026-05-09 Stage 3D — Execution Worker Tenant Scope
+
+- Changed: `pulse.execution` receives tenant id and execution request id and reloads lifecycle state through tenant-scoped runtime APIs.
+- Completed: worker tests cover queued dispatch, non-queued skip, malformed payload rejection, and failure capture.
+- Pending: database fixture proving one tenant cannot dispatch another tenant's execution request.
+- Risks: DB-level RLS remains deferred.
+- Next recommended step: add persisted tenant isolation fixtures for execution lifecycle.
+
+## 2026-05-09 Stage 3E — Timeline Tenant Scope
+
+- Changed: `pulse.timeline` requires tenant id and writes tenant-scoped operational events.
+- Completed: execution dispatch events carry tenant id through execution queue into timeline projection.
+- Pending: DB fixtures proving timeline projection cannot write cross-tenant conversation/ticket associations.
+- Risks: the worker trusts supplied conversation/ticket ids today; future projection should validate referenced ids when present.
+- Next recommended step: add tenant-scoped reference validation in timeline projection for ticket/conversation ids.
+
+## 2026-05-09 Stage 3F — Actions Tenant Scope
+
+- Changed: action jobs require tenant id and preserve ticket/conversation ids through timeline projection.
+- Completed: no tenant-scoped side effects are applied yet.
+- Pending: real action handlers must reload ticket/conversation/integration state by tenant id before mutation.
+- Risks: queued ids must not be trusted once real handlers are enabled.
+- Next recommended step: build action handlers around tenant-scoped repositories only.
+
+## 2026-05-09 Stage 3G — Action Tenant Scope
+
+- Changed: `ticket.advance_flow` handler passes tenant id and ticket id into `TicketLifecycleUseCase`, which reloads the ticket by tenant.
+- Completed: missing actor metadata is rejected before mutation.
+- Pending: DB fixture proving cross-tenant ticket ids cannot be advanced through action jobs.
+- Risks: RLS remains deferred, so repository tenant filtering remains critical.
+- Next recommended step: add cross-tenant action fixture.
+
+## 2026-05-09 Stage 3H — Action Enqueue Tenant Scope
+
+- Changed: action governance creates tenant-scoped idempotency keys for action jobs.
+- Completed: governed action enqueue includes tenant id, resource id, actor metadata, and permission snapshot.
+- Pending: DB fixtures for cross-tenant denied action execution.
+- Risks: tenant id still comes from caller context; future runtime-created actions must preserve original tenant context exactly.
+- Next recommended step: validate action tenant id against the originating execution request before enqueueing runtime-derived actions.

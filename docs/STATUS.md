@@ -464,3 +464,89 @@ Last updated: 2026-05-07
 - Pending UI work (Batch 4 candidates): tenant-side member picker (post backend endpoint), playbook-step indicator + progress bar in the Workflow side panel, structured `extracted.fields` rendering when the API exposes them, channel/conversation deeper drilldown views.
 - Risks: the action bar relies on `revalidatePath` from Server Actions to refresh ticket detail / tickets list / inbox. Tenants on aggressive client-side prefetch may see a brief stale flash; acceptable today but worth revisiting when the inbox grows long.
 - Next recommended step: Batch 4 — knowledge management UI + scheduling integrations UI, gated on contract-pack endpoints already exposed via `lib/api.ts`.
+
+## 2026-05-09 Stage 1 — Module Context Ownership Review
+
+- Changed: reviewed backend ownership boundaries for Synapse platform versus Pulse module context assembly.
+- Completed: confirmed Synapse owns governance/platform concerns; Pulse owns operational domain, context assembly, playbooks, knowledge, skills, timelines, and module execution request shape. Current persistence uses strongly separated `Pulse*` Prisma models mapped to `pulse_*` tables in the main Postgres schema.
+- Pending: Stage 2 must add a Pulse-owned Context Pack assembler/contract and keep module-specific cognitive context out of Synapse core. Stage 3 must split the current `pulse-processing` worker into bounded queues/pipelines.
+- Risks: Prisma/Postgres full schema separation (`platform.*`, `pulse.*`) is not enabled now to avoid migration/build risk; RLS is deferred until a safe session-variable strategy is implemented and tested.
+- Next recommended step: implement Pulse Context Pack contracts and module-local assembly service inside `src/product-modules/pulse`, with Synapse validating only governance and submitted context structure.
+
+## 2026-05-09 Stage 2 — Pulse Context Pack Foundation
+
+- Changed: added Pulse-owned Context Pack contracts, repository port, tenant-scoped Prisma repository, and assembly use case under `apps/api/src/product-modules/pulse`.
+- Completed: `PulseContextPack` now assembles conversation state, ticket state, playbook state, knowledge snippets, product/service context, campaign context, scheduling integration state, allowed actions, required output schema, security hints, and usage hints. Output is audit-safe: identifiers are masked and sensitive keys such as secrets, credentials, tokens, prompts, raw messages, audio, and media are redacted.
+- Completed: added tests for context assembly, sensitive field redaction, cross-tenant/missing requested context rejection, and repository tenant filters. No migration was required; existing Pulse tables already support this foundation.
+- Pending: expose this pack through the future execution-governance path, add DB-backed cross-tenant fixtures, enrich playbook/skill policies, and split Pulse queues in Stage 3.
+- Risks: RLS remains deferred; tenant isolation depends on repository filters and guard-level tenant context until Stage 4. Context Pack is internal/backend-only and must not be rendered raw in frontend debug UI.
+- Next recommended step: Stage 3 — add bounded Pulse queue contracts for `pulse.inbound`, `pulse.context`, `pulse.execution`, `pulse.actions`, `pulse.timeline`, and `pulse.failed` with idempotency and retry policy.
+
+## 2026-05-09 Stage 3 — Pulse Async Pipeline Foundation
+
+- Changed: added bounded Pulse queue contracts and a `PulseQueueService` for `pulse.inbound`, `pulse.context`, `pulse.execution`, `pulse.actions`, `pulse.timeline`, and `pulse.failed`.
+- Completed: entry creation and retry now enqueue through the Pulse queue publisher with tenant-scoped idempotency keys. The existing Pulse processor was moved from the broad `pulse-processing` queue to `pulse.inbound`, preserving current entry processing while preparing the split pipeline. All Pulse queues are registered in `PulseModule`.
+- Pending: implement dedicated context/execution/action/timeline processors, persist execution requests after context assembly, and route failures into `pulse.failed` from real worker error boundaries.
+- Risks: only `pulse.inbound` has an active processor today; the other queues are contracts/publishers for the next stages, not complete workers.
+- Next recommended step: implement the `pulse.context` worker to assemble `PulseContextPack` asynchronously and create governed platform `ExecutionRequest` records without calling providers.
+
+## 2026-05-09 Stage 3B — Pulse Context Worker + Execution Request Preparation
+
+- Changed: activated the `pulse.context` worker.
+- Completed: `PulseContextProcessor` validates queue payloads, assembles a `PulseContextPack`, persists an idempotent platform `ExecutionRequest` through `RuntimeExecutionLifecycleService`, and emits Pulse operational events for context assembly and runtime-request preparation.
+- Completed: failure handling now publishes a `pulse.failed` job and records `pulse.context.assembly_failed` before rethrowing to BullMQ retry handling.
+- Pending: `pulse.execution` worker, module/plan/usage governance checks before provider execution, and DB-backed fixtures for persisted context-to-execution records.
+- Risks: `ExecutionRequest` is created in `REQUESTED` state only; no runtime/provider call is made and no execution queue consumer exists yet.
+- Next recommended step: implement execution-governance validation for Pulse requests, then advance approved execution requests to `QUEUED` without calling providers.
+
+## 2026-05-09 Stage 3C — Execution Governance + Store Visibility
+
+- Changed: added runtime execution governance and separated module store visibility from module activation/visibility.
+- Completed: `RuntimeExecutionGovernanceService` validates that a module is active/public, enabled for the tenant, and that the request type is allowed for the module before advancing an `ExecutionRequest` from `REQUESTED` to `QUEUED`. `pulse.context` now creates the request and immediately asks governance to queue it, without provider/runtime calls.
+- Completed: added `ModuleCatalogItem.storeVisible` with migration `20260509110000_module_store_visibility`. Store listing, tenant module enablement through the store, plan commercial activation counts, and billing `canEnableModule` now consider only `storeVisible` public modules. Platform module governance can update `storeVisible`, but only `super_admin`/legacy `platform_admin` may change that flag.
+- Pending: actor-aware execution governance, per-tenant usage-limit checks before queueing, `pulse.execution` worker, and DB fixtures for store-hidden module behavior.
+- Risks: `storeVisible=false` hides/commercially excludes a module but does not disable already-installed/internal module execution; this is intentional for internal organizational modules.
+- Next recommended step: implement `pulse.execution` as a governance-approved worker that transitions queued requests without calling providers yet, plus DB fixtures for hidden-store modules.
+
+## 2026-05-09 Stage 3D — Pulse Execution Worker Foundation
+
+- Changed: activated the `pulse.execution` worker.
+- Completed: `pulse.context` now enqueues `pulse.execution` after governance queues a request. `PulseExecutionProcessor` validates the job, loads the tenant-scoped execution request, skips non-queued requests, transitions queued requests through `RUNNING` to `SUCCEEDED`, and records operational events for dispatch start/completion/skips/failures.
+- Completed: the worker output is explicit: `prepared: true`, `executable: false`, `reason: runtime_provider_not_implemented`, `providerCalls: false`. No Go Runtime, OpenAI, Claude, local model, or provider call exists.
+- Pending: replace the no-provider dispatch stub with external runtime handoff, add usage metering at provider-call boundaries, and add DB fixtures for queued execution lifecycle.
+- Risks: `SUCCEEDED` currently means the dispatch-preparation worker completed, not that an LLM provider completed cognitive execution.
+- Next recommended step: add a runtime-provider boundary interface/job result contract before wiring any real provider or external Go Runtime call.
+
+## 2026-05-09 Stage 3E — Pulse Timeline Worker Foundation
+
+- Changed: activated the `pulse.timeline` worker.
+- Completed: `PulseTimelineProcessor` validates timeline jobs and persists them as `PulseOperationalEvent` records. `pulse.execution` now publishes dispatch lifecycle events to `pulse.timeline` instead of writing them directly, keeping timeline projection out of BullMQ internals.
+- Completed: timeline projection failures publish to `pulse.failed`; malformed timeline jobs are rejected before persistence.
+- Pending: migrate more Pulse lifecycle writers to `pulse.timeline`, add replay/dead-letter handling, and implement `pulse.actions`.
+- Risks: some older Pulse use cases still write operational events directly; the timeline queue is now active but not yet universal.
+- Next recommended step: implement `pulse.actions` for approved operational side effects, then progressively route direct event writers through `pulse.timeline` where async projection is appropriate.
+
+## 2026-05-09 Stage 3F — Pulse Actions Worker Foundation
+
+- Changed: activated the `pulse.actions` worker.
+- Completed: `PulseActionsProcessor` validates action jobs, enforces an allowlist, projects allowed actions as `pulse.action.dispatched` and `pulse.action.completed`, skips unsupported actions as `pulse.action.skipped`, and captures dispatch failures to `pulse.failed` plus `pulse.action.failed`.
+- Completed: action completion is explicitly preparatory: `prepared: true`, `executable: false`, `reason: action_handler_not_implemented`, `sideEffectsApplied: false`.
+- Pending: real action handlers for ticket mutations, scheduling checks, operator review requests, and integration dispatch; actor metadata and permission snapshots; DB fixtures.
+- Risks: no real side effects are applied yet, by design. Consumers must not treat action completion as action execution.
+- Next recommended step: add typed action handler contracts and implement one narrow non-provider action, likely internal `ticket.advance_flow`, behind tenant/RBAC/governance checks.
+
+## 2026-05-09 Stage 3G — First Typed Action Handler
+
+- Changed: added the first real Pulse action handler: `ticket.advance_flow`.
+- Completed: `PulseActionHandler` contract exists and `PulseTicketAdvanceFlowActionHandler` applies the existing `TicketLifecycleUseCase.advanceFlowState` with tenant id, ticket id, supported flow state validation, and required actor metadata. `pulse.actions` now executes that handler and emits `pulse.action.completed` with `sideEffectsApplied: true`.
+- Pending: actor permission snapshot validation, additional handlers (`ticket.assign`, `ticket.escalate`, scheduling preparation), DB fixtures for action tenant isolation, and runtime-output-to-action validation.
+- Risks: `ticket.advance_flow` is now a real mutation when enqueued with valid actor metadata; action job creation must remain governed.
+- Next recommended step: add actor/governance metadata to the context/execution/action chain and enforce per-action permission checks before enqueueing action jobs.
+
+## 2026-05-09 Stage 3H — Action Enqueue Governance
+
+- Changed: added `PulseActionGovernanceService` as the safe factory for action jobs.
+- Completed: governed enqueue validates the action has a rule, requires actor metadata, requires permission snapshots, and currently enforces `tickets:write` before enqueueing `ticket.advance_flow`. Actor metadata is embedded into payload for handler audit attribution.
+- Pending: wire runtime-output-to-action creation through this service, add more action rules, and persist actor/governance metadata from the original request.
+- Risks: direct calls to `PulseQueueService.enqueueAction` can bypass governance; production action creation should use `PulseActionGovernanceService`.
+- Next recommended step: make runtime result parsing use `PulseActionGovernanceService` exclusively and add tests that unsafe direct action outputs are rejected before queueing.

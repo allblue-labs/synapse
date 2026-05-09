@@ -1,7 +1,5 @@
 import {BadRequestException, Inject, Injectable, NotFoundException} from '@nestjs/common';
 import {PulseStatus} from '@prisma/client';
-import {InjectQueue} from '@nestjs/bullmq';
-import {Queue} from 'bullmq';
 import {
   PULSE_REPOSITORY,
   IPulseRepository,
@@ -11,16 +9,14 @@ import {
   PULSE_OPERATIONAL_EVENT_REPOSITORY,
 } from '../../domain/ports/pulse-operational-event-repository.port';
 import {PULSE_EVENT_TYPES} from '../../domain/pulse-event-types';
-import {PULSE_QUEUE, DEFAULT_JOB_OPTIONS} from '../../infrastructure/processors/pulse.processor';
-import {ProcessPulseJob} from '../../contracts/pulse.contracts';
+import {PulseQueueService} from '../../infrastructure/queues/pulse-queue.service';
 
 @Injectable()
 export class RetryEntryUseCase {
   constructor(
     @Inject(PULSE_REPOSITORY)
     private readonly repository: IPulseRepository,
-    @InjectQueue(PULSE_QUEUE)
-    private readonly queue: Queue<ProcessPulseJob>,
+    private readonly queues: PulseQueueService,
     @Inject(PULSE_OPERATIONAL_EVENT_REPOSITORY)
     private readonly events: IPulseOperationalEventRepository,
   ) {}
@@ -42,7 +38,13 @@ export class RetryEntryUseCase {
       retryCount: entry.retryCount + 1,
     });
 
-    await this.queue.add('process', {tenantId, entryId: id}, DEFAULT_JOB_OPTIONS);
+    await this.queues.enqueueInbound({
+      tenantId,
+      entryId: id,
+      conversationId: updated.conversationId,
+      idempotencyKey: `pulse.inbound:${tenantId}:${id}:retry:${updated.retryCount}`,
+      source: 'pulse.retry',
+    });
 
     await this.events.record({
       tenantId,

@@ -42,6 +42,7 @@ export class ModuleRegistryService implements OnModuleInit {
         status: ModuleCatalogStatus.PUBLIC,
         active: true,
         visibility: ModuleVisibility.PUBLIC,
+        storeVisible: true,
       },
       include: {
         installations: {
@@ -69,7 +70,8 @@ export class ModuleRegistryService implements OnModuleInit {
       !module ||
       module.status !== ModuleCatalogStatus.PUBLIC ||
       !module.active ||
-      module.visibility !== ModuleVisibility.PUBLIC
+      module.visibility !== ModuleVisibility.PUBLIC ||
+      !module.storeVisible
     ) {
       return undefined;
     }
@@ -121,7 +123,8 @@ export class ModuleRegistryService implements OnModuleInit {
       !module ||
       module.status !== ModuleCatalogStatus.PUBLIC ||
       !module.active ||
-      module.visibility !== ModuleVisibility.PUBLIC
+      module.visibility !== ModuleVisibility.PUBLIC ||
+      !module.storeVisible
     ) {
       return undefined;
     }
@@ -173,6 +176,7 @@ export class ModuleRegistryService implements OnModuleInit {
         rolloutState: (module.rolloutState as ModuleRolloutState | undefined) ?? ModuleRolloutState.GA,
         featureFlag: module.featureFlag ?? null,
         active: module.active ?? true,
+        storeVisible: module.storeVisible ?? true,
         permissions: (module.permissions ?? []) as Prisma.InputJsonValue,
         actions: module.actions as unknown as Prisma.InputJsonValue,
         events: (module.events ?? []) as unknown as Prisma.InputJsonValue,
@@ -210,6 +214,7 @@ export class ModuleRegistryService implements OnModuleInit {
       rolloutState: ModuleRolloutState;
       featureFlag: string | null;
       active: boolean;
+      storeVisible: boolean;
       registeredAt: Date;
     },
     enabled: boolean,
@@ -224,6 +229,7 @@ export class ModuleRegistryService implements OnModuleInit {
       rolloutState: module.rolloutState,
       featureFlag: module.featureFlag,
       active: module.active,
+      storeVisible: module.storeVisible,
       permissions: module.permissions as string[],
       actions: module.actions as ModuleAction[],
       events: module.events as ModuleEvent[],

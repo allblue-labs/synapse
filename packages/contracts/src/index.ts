@@ -281,6 +281,17 @@ export type PulseEventType =
   | 'pulse.ticket.advance_flow_state'
   | 'pulse.knowledge.published'
   | 'pulse.knowledge.archived'
+  | 'pulse.context.assembled'
+  | 'pulse.runtime.execution_requested'
+  | 'pulse.runtime.execution_dispatched'
+  | 'pulse.runtime.execution_dispatch_completed'
+  | 'pulse.runtime.execution_dispatch_skipped'
+  | 'pulse.runtime.execution_dispatch_failed'
+  | 'pulse.action.dispatched'
+  | 'pulse.action.completed'
+  | 'pulse.action.skipped'
+  | 'pulse.action.failed'
+  | 'pulse.context.assembly_failed'
   | 'pulse.unsupported_message_type'
   | 'pulse.flow.transitioned';
 export type PulseTimelineCategory =
@@ -569,6 +580,7 @@ export type SynapseModuleManifest = {
   rolloutState?: ModuleRolloutState;
   featureFlag?: string | null;
   active?: boolean;
+  storeVisible?: boolean;
   actions: ModuleAction[];
   events?: ModuleEvent[];
   permissions?: string[];

@@ -376,3 +376,83 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: cache/runtime propagation checks.
 - Risks: changing global module governance can still leave runtime state stale; local DB reset clears module state completely.
 - Next recommended step: emit module governance events for runtime/module registry refresh.
+
+## 2026-05-09 Stage 1 — Module-Owned Context Architecture
+
+- Changed: clarified that Synapse validates and governs module execution, while modules assemble their own operational/cognitive context.
+- Completed: Pulse currently owns operational repositories/use cases under `src/product-modules/pulse`; schema is separated by `Pulse*` models and `pulse_*` tables; runtime execution records remain platform-owned `execution_requests`.
+- Pending: add `PulseContextPack` contract, `PulseContextAssembler`, and module-local context repository/query methods. Synapse should validate only tenant/module/RBAC/plan/usage/execution policy and submitted context structure.
+- Risks: moving context assembly into `src/core/intelligence` or `src/core/runtime` would make Pulse non-extractable.
+- Next recommended step: implement Stage 2 inside the Pulse module tree and expose only a governance-ready execution request contract to Synapse core.
+
+## 2026-05-09 Stage 2 — Pulse-Owned Context Pack
+
+- Changed: Pulse now owns `PulseContextPack` assembly under `src/product-modules/pulse`.
+- Completed: the module-level pack includes conversation/ticket state, playbook state, knowledge, products/services, campaigns, scheduling integration summary, allowed actions, output schema, security hints, and usage hints. Core Synapse code was not modified for Pulse-specific semantics.
+- Pending: module-to-runtime boundary should accept this pack only after platform governance validates tenant/module/RBAC/plan/usage constraints.
+- Risks: adding Pulse-specific conditionals to platform execution services would weaken extractable-first module boundaries.
+- Next recommended step: Stage 3 should enqueue context assembly as Pulse-owned work, then Stage 5 can map packs to generic execution requests.
+
+## 2026-05-09 Stage 3 — Pulse-Owned Async Boundaries
+
+- Changed: Pulse now defines its own operational queue names and payload contracts under the module tree.
+- Completed: queue ownership is module-local; Synapse core queues remain separate from Pulse queues. `PulseQueueService` is exported only as a module service for controlled publication.
+- Pending: processors should stay inside `src/product-modules/pulse` and communicate with platform execution governance through contracts, not direct domain leakage.
+- Risks: reusing generic platform queues for Pulse-specific stages would blur module extraction boundaries.
+- Next recommended step: keep each new processor in Pulse infrastructure and expose only governed execution records to Synapse platform modules.
+
+## 2026-05-09 Stage 3B — Pulse Context To Platform Execution Boundary
+
+- Changed: Pulse now hands its assembled context to platform runtime lifecycle persistence through the generic `ExecutionRequest` contract.
+- Completed: module-specific assembly remains inside Pulse; platform persistence stores tenant/module/request lifecycle only.
+- Pending: governance service must sit between prepared Pulse context and any runtime execution.
+- Risks: platform runtime services must not inspect Pulse domain tables directly.
+- Next recommended step: keep future execution policies generic and validate the pack structure rather than reassembling module context.
+
+## 2026-05-09 Stage 3C — Store Visibility + Execution Governance
+
+- Changed: module catalog now separates runtime availability from marketplace/store exposure through `storeVisible`.
+- Completed: module registry store listing requires status public, active, public visibility, and store visibility. Execution governance requires tenant module enablement and module request-type allowlist, not store display.
+- Pending: internal-module assignment flow for modules that are enabled by organization policy rather than marketplace purchase.
+- Risks: conflating `storeVisible` with `active` would break internal modules; keep them separate in all future APIs.
+- Next recommended step: add admin APIs/runbooks for assigning internal modules to tenants without marketplace exposure.
+
+## 2026-05-09 Stage 3D — Execution Worker Boundary
+
+- Changed: Pulse owns the execution queue worker, while platform runtime lifecycle owns execution request persistence.
+- Completed: module code does not call providers directly; it records a prepared dispatch result and leaves real runtime integration for the provider boundary.
+- Pending: define generic runtime provider result contracts that any module can consume without platform knowing module internals.
+- Risks: adding provider-specific branches inside Pulse would undermine the future external runtime path.
+- Next recommended step: keep provider dispatch in a generic runtime adapter layer.
+
+## 2026-05-09 Stage 3E — Timeline Projection Boundary
+
+- Changed: Pulse timeline projection is a module-owned worker that persists module-owned operational events.
+- Completed: platform runtime lifecycle remains generic; Pulse owns how execution lifecycle appears in its operational timeline.
+- Pending: event payload schema registry for Pulse event types.
+- Risks: generic platform audit should not replace Pulse operational timeline, and Pulse timeline should not replace platform audit.
+- Next recommended step: keep audit and operational timeline as separate ledgers with linked identifiers.
+
+## 2026-05-09 Stage 3F — Actions Boundary
+
+- Changed: Pulse now owns an action queue boundary for module-specific operational side effects.
+- Completed: the worker is module-local and projects action lifecycle to Pulse timeline.
+- Pending: action handler contracts should stay extractable-first and avoid importing platform internals except approved governance/runtime contracts.
+- Risks: direct controller-to-action mutation would bypass the intended async boundary.
+- Next recommended step: implement actions as module handlers behind ports.
+
+## 2026-05-09 Stage 3G — Typed Action Handler Boundary
+
+- Changed: Pulse action execution now uses a `PulseActionHandler` contract.
+- Completed: first handler stays inside Pulse and depends on Pulse lifecycle use case, preserving module ownership.
+- Pending: handler registry for multiple actions and clean handler discovery.
+- Risks: processor-level branching should not grow into a large action monolith.
+- Next recommended step: move to a registry/provider list before adding several handlers.
+
+## 2026-05-09 Stage 3H — Governed Action Creation Boundary
+
+- Changed: action creation is separated from queue infrastructure through `PulseActionGovernanceService`.
+- Completed: module code now has a clear place to validate action rules before enqueue.
+- Pending: replace processor branching with handler registry as actions grow.
+- Risks: exposing raw queue service as action creation surface would weaken module boundaries.
+- Next recommended step: treat `PulseActionGovernanceService` as the module API for real action creation.

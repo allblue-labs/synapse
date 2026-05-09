@@ -37,6 +37,8 @@ export const AuditAction = {
   BILLING_STRIPE_PORTAL_CREATED: 'billing.stripe_portal.created',
   BILLING_STRIPE_WEBHOOK_PROCESSED: 'billing.stripe_webhook.processed',
   RUNTIME_EXECUTION_REQUESTED: 'runtime.execution.requested',
+  RUNTIME_EXECUTION_GOVERNANCE_APPROVED: 'runtime.execution.governance.approved',
+  RUNTIME_EXECUTION_GOVERNANCE_DENIED: 'runtime.execution.governance.denied',
   RUNTIME_EXECUTION_TRANSITIONED: 'runtime.execution.transitioned',
   RUNTIME_EXECUTION_CANCELLED: 'runtime.execution.cancelled',
 } as const;

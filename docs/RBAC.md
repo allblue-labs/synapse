@@ -340,3 +340,83 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: invalid/malformed `platformScopes` fixtures.
 - Risks: malformed scope JSON currently normalizes to empty scopes; dev DB fixture runs are destructive if using the reset flow.
 - Next recommended step: add validation when updating platform scopes.
+
+## 2026-05-09 Stage 1 — Context Governance RBAC Review
+
+- Changed: documented RBAC boundary for future Pulse Context Pack assembly and execution requests.
+- Completed: Synapse will authorize who may request execution and which module/skill/action is allowed; Pulse will decide what operational context is assembled.
+- Pending: permission metadata for Pulse context/execution submission routes if Stage 2 exposes new APIs.
+- Risks: adding generic core context APIs could bypass module-specific permission and tenant checks.
+- Next recommended step: keep context assembly invoked from Pulse use cases guarded by `pulse:*`, `tickets:*`, and future runtime governance permissions.
+
+## 2026-05-09 Stage 2 — Pulse Context RBAC Boundary
+
+- Changed: Pulse context assembly is implemented as an internal use case, not a public generic context API.
+- Completed: no new route permission surface was added; future callers must invoke the use case from Pulse/runtime governance flows that already enforce tenant, module, role, plan, and usage policy.
+- Pending: define the permission gate for future execution-request submission, likely combining module access, ticket/workflow permission, and runtime execution governance.
+- Risks: exposing raw assembly directly over HTTP would bypass the intended governance layer.
+- Next recommended step: when adding `pulse.context` or execution-request endpoints, require explicit Pulse/module permissions and forbidden audit logging.
+
+## 2026-05-09 Stage 3 — Pulse Queue RBAC Boundary
+
+- Changed: queue publication remains inside existing Pulse use cases instead of adding public queue endpoints.
+- Completed: no new external RBAC surface was added. Existing API routes still authorize before use cases enqueue work.
+- Pending: future execution-request creation from `pulse.context` must verify runtime execution permissions and module enablement before persisting a governed request.
+- Risks: a worker cannot rely on the original HTTP permission check forever; long-running async work should persist actor/governance metadata where required.
+- Next recommended step: include actor/request metadata in the future `pulse.context` to `execution_requests` handoff.
+
+## 2026-05-09 Stage 3B — Execution Request RBAC Gap
+
+- Changed: `pulse.context` can persist `ExecutionRequest` records internally.
+- Completed: no new public route was added, so external RBAC surface remains unchanged.
+- Pending: queued context jobs should carry actor metadata and a future governance validator should verify `runtime:executions:create` plus Pulse/module permissions before execution transitions.
+- Risks: current internal jobs are system-originated; production flows need clear actor attribution for human-triggered executions.
+- Next recommended step: add actor/governance metadata to Pulse context job creation paths.
+
+## 2026-05-09 Stage 3C — Store Visibility RBAC
+
+- Changed: `storeVisible` is a super-admin-only module governance field.
+- Completed: granular admins can keep managing scoped module rollout/governance fields, but attempts to toggle store visibility are denied and audited unless the actor is `super_admin` or legacy `platform_admin`.
+- Pending: split platform module read/update/store-commercialization permissions for finer production control.
+- Risks: current compatibility allows legacy `platform_admin`; long-term UI should label this as super-admin authority.
+- Next recommended step: add `platform:modules:commercialize` or equivalent before production admin rollout.
+
+## 2026-05-09 Stage 3D — Execution Worker RBAC Boundary
+
+- Changed: `pulse.execution` is internal queue work and adds no public route.
+- Completed: request governance still occurs before queueing; execution worker only consumes already-queued lifecycle records.
+- Pending: actor metadata and permission snapshots for human-triggered async execution.
+- Risks: internal workers still need auditable actor attribution before production human-triggered runtime actions.
+- Next recommended step: carry actor id/permission snapshot from the originating use case into execution metadata.
+
+## 2026-05-09 Stage 3E — Timeline RBAC Boundary
+
+- Changed: timeline projection is internal queue work, not a public route.
+- Completed: no new external permission surface was added.
+- Pending: actor attribution propagation for human-triggered timeline events.
+- Risks: system-originated events are clear today, but future human actions need actor id snapshots.
+- Next recommended step: add actor metadata to action/context jobs before production use.
+
+## 2026-05-09 Stage 3F — Actions RBAC Boundary
+
+- Changed: `pulse.actions` adds no public API and does not execute side effects yet.
+- Completed: action allowlist prevents arbitrary action names from being treated as executable.
+- Pending: actor id, permission snapshot, and per-action RBAC gates before real side effects.
+- Risks: action queues without actor metadata are acceptable only for system-preparation events.
+- Next recommended step: require actor/governance metadata in action jobs before enabling handlers.
+
+## 2026-05-09 Stage 3G — Action RBAC Gap
+
+- Changed: `ticket.advance_flow` requires actor metadata but does not yet validate a permission snapshot in the handler.
+- Completed: lifecycle use case receives an actor for audit attribution.
+- Pending: action job creation must enforce `tickets:write` or equivalent before enqueueing.
+- Risks: direct queue writes could bypass route guards if worker-side permission snapshots are not added.
+- Next recommended step: include permissions in `PulseActionJob` metadata and validate them before handler execution.
+
+## 2026-05-09 Stage 3H — Action Enqueue RBAC
+
+- Changed: governed action enqueue now requires permission snapshots.
+- Completed: `ticket.advance_flow` requires `tickets:write` before a job is accepted.
+- Pending: worker-side defense-in-depth check using the same snapshot before executing real handlers.
+- Risks: enqueue-time checks protect approved paths; worker-side checks would protect against accidental internal bypasses.
+- Next recommended step: validate permission snapshot again inside real action handlers or processor before side effects.

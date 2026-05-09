@@ -400,3 +400,83 @@ Not yet configured. Required before production:
 - Pending: route-level e2e audit persistence through real HTTP + database.
 - Risks: current DB fixture calls service methods directly, not full HTTP stack; dev reset flow is destructive.
 - Next recommended step: add end-to-end HTTP + DB fixture after test app database wiring is standardized.
+
+## 2026-05-09 Stage 1 — Module Context Ownership + DB Security Review
+
+- Changed: reviewed Pulse context ownership, tenant isolation, RLS feasibility, and sensitive operational persistence rules.
+- Completed: decision is to keep app-level tenant enforcement mandatory and defer RLS until a tested `app.current_tenant_id` session-variable strategy exists. Pulse must not persist chain-of-thought, provider secrets, or raw mirrored chats as durable primary data.
+- Pending: Pulse Context Pack output validation, repository tenant-filter tests for every new context query, unsupported message-type event tests, and DB fixtures for cross-tenant context assembly rejection.
+- Risks: enabling RLS blindly would likely break Prisma queries/migrations; leaving it disabled means guard/repository tenant filtering remains critical.
+- Next recommended step: Stage 2 should add context assembler tests proving every query is tenant-scoped and output payloads are audit-safe.
+
+## 2026-05-09 Stage 2 — Pulse Context Pack AppSec
+
+- Changed: Pulse context assembly now redacts sensitive keys and masks participant/channel identifiers before producing a Context Pack.
+- Completed: tests cover audit-safe redaction of prompts/tokens/api keys, cross-tenant/missing requested context rejection, and tenant filters on repository queries. Scheduling context exposes `credentialsConfigured` only, not provider credential references.
+- Pending: DB-backed two-tenant fixture, output schema validation at runtime-governance boundary, and broader sensitive-key inventory review.
+- Risks: redaction is defensive but not a substitute for strict DTOs and tenant guards; raw Context Packs must remain internal.
+- Next recommended step: add a persisted fixture proving a context request using another tenant's conversation/ticket id returns not found.
+
+## 2026-05-09 Stage 3 — Pulse Queue AppSec
+
+- Changed: Pulse queue payloads now require tenant id, idempotency key, requested timestamp, and optional trace/source metadata.
+- Completed: inbound entry jobs use tenant-scoped idempotency keys; retry jobs include retry count in the key. Failure jobs are isolated to `pulse.failed` and configured for a single capture attempt.
+- Pending: payload validation pipes/classes for worker boundaries, forbidden/failure audit on worker-level denials, and dead-letter replay controls.
+- Risks: queue payloads are contracts, not authorization. Workers must reload tenant-scoped state from Postgres and enforce governance before side effects.
+- Next recommended step: validate `pulse.context` job payloads before assembly and never trust queued ids without tenant-scoped repository reads.
+
+## 2026-05-09 Stage 3B — Pulse Context Worker AppSec
+
+- Changed: `pulse.context` validates required job fields before persistence and reloads context through the tenant-scoped assembler.
+- Completed: runtime request persistence uses existing runtime masking/audit behavior; failure jobs include only operational identifiers and reason, not raw context packs or provider payloads.
+- Pending: governance validation for module enablement, plan/usage limits, and actor permissions before execution can move beyond `REQUESTED`.
+- Risks: queued jobs currently do not carry actor identity; future execution governance should include actor/request metadata for accountable decisions.
+- Next recommended step: extend context/execution job metadata with actor id and governance decision summaries.
+
+## 2026-05-09 Stage 3C — Execution Governance + Store AppSec
+
+- Changed: runtime execution requests now pass a governance service before reaching `QUEUED`.
+- Completed: governance denies inactive/non-public/not-enabled modules and request types outside the module allowlist, recording approval/denial audit events. `storeVisible` changes are restricted to `super_admin`/legacy `platform_admin` and forbidden attempts are audited.
+- Pending: actor-aware permission checks and usage-limit enforcement in async execution jobs.
+- Risks: `storeVisible` is not an access-control boundary; tenant installation/module enablement remains the runtime boundary.
+- Next recommended step: add actor metadata to Pulse queue payloads and test forbidden execution-governance denials with persisted audit records.
+
+## 2026-05-09 Stage 3D — Pulse Execution Worker AppSec
+
+- Changed: `pulse.execution` validates required payload fields and reloads execution state through the runtime lifecycle service.
+- Completed: non-queued execution requests are skipped rather than force-transitioned. Failures publish to `pulse.failed` and record dispatch-failed operational events.
+- Pending: provider-secret isolation and signed runtime callbacks before real runtime integration.
+- Risks: no provider payloads exist yet; future provider handoff must preserve this no-secret/no-chain-of-thought persistence rule.
+- Next recommended step: add signed callback validation before accepting external runtime results.
+
+## 2026-05-09 Stage 3E — Timeline Projection AppSec
+
+- Changed: timeline projection now validates tenant id, idempotency key, and event type before persistence.
+- Completed: timeline metadata includes source queue and idempotency key; projection failures go to `pulse.failed` without raw provider payloads.
+- Pending: schema allowlists for event payloads before broad migration of all event writers.
+- Risks: timeline payloads remain flexible JSON and must continue using audit-safe payload builders.
+- Next recommended step: introduce per-event payload schemas for high-risk timeline events.
+
+## 2026-05-09 Stage 3F — Actions Worker AppSec
+
+- Changed: `pulse.actions` validates required payload shape and enforces an action allowlist before projection.
+- Completed: unsupported actions are skipped rather than executed. Failures are captured without provider secrets or raw integration payloads.
+- Pending: per-action DTO validation, actor permission checks, tenant-scoped resource validation, and idempotent side-effect handlers.
+- Risks: current JSON payload validation is intentionally shallow while side effects are disabled.
+- Next recommended step: define strict DTOs before enabling any real action side effect.
+
+## 2026-05-09 Stage 3G — Real Action AppSec
+
+- Changed: `ticket.advance_flow` now requires actor metadata and validates supported flow state before mutation.
+- Completed: handler delegates to existing lifecycle use case, preserving tenant-scoped lookup, flow transition validation, audit event creation, operational event creation, and usage metering.
+- Pending: explicit permission snapshot validation inside queued action governance.
+- Risks: queued action payloads must not be accepted from untrusted runtime output without schema/governance checks.
+- Next recommended step: add an action job factory that verifies actor permissions and runtime output schema before enqueueing.
+
+## 2026-05-09 Stage 3H — Action Enqueue AppSec
+
+- Changed: governed action enqueue validates actor metadata and permission snapshot.
+- Completed: `ticket.advance_flow` cannot be enqueued through governance without `tickets:write`.
+- Pending: runtime output schema validation and signed/attributed runtime recommendation checks.
+- Risks: governance is only effective when callers use the governance service rather than raw queue publication.
+- Next recommended step: hide raw action enqueue behind module-internal APIs and add lint/review rule for real action paths.

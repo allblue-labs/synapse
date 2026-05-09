@@ -412,3 +412,83 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending UI work: tenant member picker, playbook step indicator + progress, knowledge management surface, scheduling integrations surface.
 - Risks: list pages still use per-row detail enrichment via `loaders.toRow`; nothing in this batch addresses that. The action bar uses optimistic-revalidate, not optimistic state — operators on slow networks see a brief "Working…" spinner; acceptable.
 - Next recommended step: Batch 4 — knowledge management surface + scheduling integrations surface, both gated on existing contract-pack endpoints in `lib/api.ts`.
+
+## 2026-05-09 Stage 1 — Context Pack UX Contract Note
+
+- Changed: documented backend implication for future frontend/runtime integration only; no frontend implementation changed.
+- Completed: Pulse Context Packs are backend/module-internal contracts and should not expose raw provider payloads, chain-of-thought, or unmasked sensitive context to UI surfaces.
+- Pending: frontend may later display high-level context summaries, playbook state, and required human-review reason fields after backend exposes audit-safe DTOs.
+- Risks: rendering raw context packs in admin/debug UI would leak operational or sensitive tenant data.
+- Next recommended step: expose separate audit-safe context preview DTOs if frontend needs context visibility.
+
+## 2026-05-09 Stage 2 — Pulse Context Pack Frontend Note
+
+- Changed: backend now has an internal Pulse Context Pack assembler; no frontend implementation is required for this stage.
+- Completed: the pack is intentionally audit-safe but still operationally rich, so it remains a backend/runtime contract rather than a UI DTO.
+- Pending: if frontend needs visibility later, backend should expose a separate preview endpoint with narrower fields and RBAC/audit controls.
+- Risks: using raw context packs as debug payloads in the browser could expose tenant operational data.
+- Next recommended step: frontend should continue integrating ticket/knowledge/scheduling APIs, not raw runtime context packs.
+
+## 2026-05-09 Stage 3 — Pulse Async UX Note
+
+- Changed: backend queue boundaries were added; no frontend changes are required.
+- Completed: existing API behavior for entry creation/retry remains asynchronous. The internal queue name changed to `pulse.inbound`, but frontend contracts stay stable.
+- Pending: when context/execution workers land, frontend may need status fields or timeline events rather than polling raw queue state.
+- Risks: exposing queue internals in UI would couple operators to implementation details.
+- Next recommended step: surface operational timeline/status DTOs, not BullMQ job data.
+
+## 2026-05-09 Stage 3B — Execution Request UX Note
+
+- Changed: backend now prepares runtime execution records from context jobs; no frontend changes are required.
+- Completed: operational events can later drive timeline/status UI without exposing raw context packs or queue jobs.
+- Pending: frontend-facing DTOs for execution status should be separate from internal `ExecutionRequest.context`.
+- Risks: showing raw prepared execution payloads would leak operational context.
+- Next recommended step: expose only timeline events and high-level execution status when the UI needs visibility.
+
+## 2026-05-09 Stage 3C — Store Visibility UX Contract
+
+- Changed: backend now exposes `storeVisible` on platform module governance records.
+- Completed: frontend admin should treat `storeVisible` as a commercial marketplace switch, separate from active/status/visibility/rollout.
+- Pending: frontend store should only show modules returned by backend store APIs; platform admin should restrict the control to super-admin users.
+- Risks: ambiguous labels could cause admins to hide a module from sales when they intended to disable runtime, or vice versa.
+- Next recommended step: admin UI should label this control as "Show in store" and explain that it does not disable installed/internal modules.
+
+## 2026-05-09 Stage 3D — Execution Status UX Note
+
+- Changed: execution records may now complete with a placeholder no-provider result.
+- Completed: backend output clearly marks `executable: false` and `reason: runtime_provider_not_implemented`.
+- Pending: frontend/admin surfaces should hide or label these placeholder results as backend/runtime preparation, not AI output.
+- Risks: displaying `SUCCEEDED` alone would mislead operators.
+- Next recommended step: expose a derived execution display status before showing runtime details in UI.
+
+## 2026-05-09 Stage 3E — Timeline UX Note
+
+- Changed: backend now projects execution dispatch lifecycle into Pulse operational events through `pulse.timeline`.
+- Completed: frontend should continue querying timeline APIs instead of queue/job internals.
+- Pending: frontend-safe DTOs may need labels that distinguish no-provider dispatch preparation from real runtime execution.
+- Risks: raw queue names should not become operator-facing UI concepts.
+- Next recommended step: add display-safe timeline labels once provider execution exists.
+
+## 2026-05-09 Stage 3F — Actions UX Note
+
+- Changed: backend now emits action lifecycle events, but they are preparatory.
+- Completed: UI should not show action completion as business completion while `reason: action_handler_not_implemented`.
+- Pending: display labels for prepared/skipped/failed action states.
+- Risks: presenting prepared actions as applied actions would mislead operators.
+- Next recommended step: frontend should wait for real action result DTOs before showing action outcome as completed.
+
+## 2026-05-09 Stage 3G — Real Action UX Note
+
+- Changed: `ticket.advance_flow` can now produce a real action completion with `sideEffectsApplied: true`.
+- Completed: timeline payload includes action result fields such as ticket id/status/confidence/priority.
+- Pending: frontend should distinguish real action completion from prepared-only completion by checking `sideEffectsApplied`.
+- Risks: mixing prepared and real action events requires clear UI labels.
+- Next recommended step: expose display-safe action result labels in timeline DTOs.
+
+## 2026-05-09 Stage 3H — Action Governance UX Note
+
+- Changed: backend can now distinguish action enqueue denial from action execution failure.
+- Completed: missing permission snapshots are rejected before queueing.
+- Pending: UI should surface permission/unsupported-action failures as governance denials, not runtime errors.
+- Risks: treating enqueue denials like worker failures would confuse operators.
+- Next recommended step: add frontend-safe error codes when action APIs are exposed.

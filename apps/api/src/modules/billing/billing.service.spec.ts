@@ -134,6 +134,7 @@ describe('BillingService', () => {
     prisma.moduleCatalogItem.findUnique.mockResolvedValue({
       id: 'module_pulse',
       status: ModuleCatalogStatus.PUBLIC,
+      storeVisible: true,
     });
     prisma.modulePurchase.findUnique.mockResolvedValue({
       status: ModulePurchaseStatus.ACTIVE,
@@ -148,6 +149,7 @@ describe('BillingService', () => {
     prisma.moduleCatalogItem.findUnique.mockResolvedValue({
       id: 'module_pulse',
       status: ModuleCatalogStatus.PUBLIC,
+      storeVisible: true,
     });
     prisma.modulePurchase.findUnique.mockResolvedValue(null);
     prisma.billingAccount.findUnique.mockResolvedValue({
@@ -175,6 +177,7 @@ describe('BillingService', () => {
     prisma.moduleCatalogItem.findUnique.mockResolvedValue({
       id: 'module_pulse',
       status: ModuleCatalogStatus.PUBLIC,
+      storeVisible: true,
     });
     prisma.modulePurchase.findUnique.mockResolvedValue(null);
     prisma.billingAccount.findUnique.mockResolvedValue({
@@ -201,6 +204,7 @@ describe('BillingService', () => {
     prisma.moduleCatalogItem.findUnique.mockResolvedValue({
       id: 'module_pulse',
       status: ModuleCatalogStatus.PUBLIC,
+      storeVisible: true,
     });
     prisma.modulePurchase.findUnique.mockResolvedValue(null);
     prisma.billingAccount.findUnique.mockResolvedValue({

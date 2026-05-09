@@ -5,6 +5,7 @@ import {ConversationsModule} from '../../modules/conversations/conversations.mod
 import {MessagesModule} from '../../modules/messages/messages.module';
 import {QueueModule} from '../../modules/queue/queue.module';
 import {UsageModule} from '../../modules/usage/usage.module';
+import {RuntimeModule} from '../../core/runtime/runtime.module';
 import {PulseController} from './pulse.controller';
 import {ListQueueUseCase} from './application/use-cases/list-queue.use-case';
 import {GetEntryUseCase} from './application/use-cases/get-entry.use-case';
@@ -24,6 +25,9 @@ import {RetryEntryUseCase} from './application/use-cases/retry-entry.use-case';
 import {TicketLifecycleUseCase} from './application/use-cases/ticket-lifecycle.use-case';
 import {PulseKnowledgeContextUseCase} from './application/use-cases/pulse-knowledge-context.use-case';
 import {PulseSchedulingIntegrationUseCase} from './application/use-cases/pulse-scheduling-integration.use-case';
+import {AssemblePulseContextUseCase} from './application/use-cases/assemble-pulse-context.use-case';
+import {PulseTicketAdvanceFlowActionHandler} from './application/actions/pulse-ticket-advance-flow-action.handler';
+import {PulseActionGovernanceService} from './application/actions/pulse-action-governance.service';
 import {PulseRepository} from './infrastructure/repositories/pulse.repository';
 import {PulseOperationalEventRepository} from './infrastructure/repositories/pulse-operational-event.repository';
 import {PulseTicketRepository} from './infrastructure/repositories/pulse-ticket.repository';
@@ -31,12 +35,16 @@ import {PulseChannelRepository} from './infrastructure/repositories/pulse-channe
 import {PulseConversationRepository} from './infrastructure/repositories/pulse-conversation.repository';
 import {PulseKnowledgeContextRepository} from './infrastructure/repositories/pulse-knowledge-context.repository';
 import {PulseIntegrationSettingRepository} from './infrastructure/repositories/pulse-integration-setting.repository';
+import {PulseContextRepository} from './infrastructure/repositories/pulse-context.repository';
+import {PulseQueueService} from './infrastructure/queues/pulse-queue.service';
+import {PULSE_QUEUES} from './infrastructure/queues/pulse-queue.contracts';
 import {AiExtractorAdapter} from './infrastructure/adapters/ai-extractor.adapter';
 import {AudioTranscriberAdapter} from './infrastructure/adapters/audio-transcriber.adapter';
-import {
-  PulseProcessor,
-  PULSE_QUEUE,
-} from './infrastructure/processors/pulse.processor';
+import {PulseProcessor} from './infrastructure/processors/pulse.processor';
+import {PulseContextProcessor} from './infrastructure/processors/pulse-context.processor';
+import {PulseExecutionProcessor} from './infrastructure/processors/pulse-execution.processor';
+import {PulseTimelineProcessor} from './infrastructure/processors/pulse-timeline.processor';
+import {PulseActionsProcessor} from './infrastructure/processors/pulse-actions.processor';
 import {PULSE_REPOSITORY} from './domain/ports/pulse-repository.port';
 import {PULSE_OPERATIONAL_EVENT_REPOSITORY} from './domain/ports/pulse-operational-event-repository.port';
 import {PULSE_TICKET_REPOSITORY} from './domain/ports/pulse-ticket-repository.port';
@@ -44,6 +52,7 @@ import {PULSE_CHANNEL_REPOSITORY} from './domain/ports/pulse-channel-repository.
 import {PULSE_CONVERSATION_REPOSITORY} from './domain/ports/pulse-conversation-repository.port';
 import {PULSE_KNOWLEDGE_CONTEXT_REPOSITORY} from './domain/ports/pulse-knowledge-context-repository.port';
 import {PULSE_INTEGRATION_SETTING_REPOSITORY} from './domain/ports/pulse-integration-setting-repository.port';
+import {PULSE_CONTEXT_REPOSITORY} from './domain/ports/pulse-context-repository.port';
 import {AI_EXTRACTOR} from './domain/ports/ai-extractor.port';
 import {AUDIO_TRANSCRIBER} from './domain/ports/audio-transcriber.port';
 
@@ -66,6 +75,7 @@ const USE_CASES = [
   TicketLifecycleUseCase,
   PulseKnowledgeContextUseCase,
   PulseSchedulingIntegrationUseCase,
+  AssemblePulseContextUseCase,
 ];
 
 @Module({
@@ -75,12 +85,22 @@ const USE_CASES = [
     MessagesModule,
     QueueModule,
     UsageModule,
-    BullModule.registerQueue({name: PULSE_QUEUE}),
+    RuntimeModule,
+    BullModule.registerQueue(
+      ...Object.values(PULSE_QUEUES).map((name) => ({name})),
+    ),
   ],
   controllers: [PulseController],
   providers: [
     ...USE_CASES,
     PulseProcessor,
+    PulseContextProcessor,
+    PulseExecutionProcessor,
+    PulseTimelineProcessor,
+    PulseActionsProcessor,
+    PulseTicketAdvanceFlowActionHandler,
+    PulseActionGovernanceService,
+    PulseQueueService,
     {provide: PULSE_REPOSITORY, useClass: PulseRepository},
     {provide: PULSE_OPERATIONAL_EVENT_REPOSITORY, useClass: PulseOperationalEventRepository},
     {provide: PULSE_TICKET_REPOSITORY, useClass: PulseTicketRepository},
@@ -88,9 +108,10 @@ const USE_CASES = [
     {provide: PULSE_CONVERSATION_REPOSITORY, useClass: PulseConversationRepository},
     {provide: PULSE_KNOWLEDGE_CONTEXT_REPOSITORY, useClass: PulseKnowledgeContextRepository},
     {provide: PULSE_INTEGRATION_SETTING_REPOSITORY, useClass: PulseIntegrationSettingRepository},
+    {provide: PULSE_CONTEXT_REPOSITORY, useClass: PulseContextRepository},
     {provide: AI_EXTRACTOR, useClass: AiExtractorAdapter},
     {provide: AUDIO_TRANSCRIBER, useClass: AudioTranscriberAdapter},
   ],
-  exports: [CreateEntryUseCase],
+  exports: [CreateEntryUseCase, AssemblePulseContextUseCase, PulseQueueService, PulseActionGovernanceService],
 })
 export class PulseModule {}

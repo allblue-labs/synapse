@@ -7,6 +7,7 @@ import {SegmentNav} from '@/components/nav/segment-nav';
 import {CurrentUserProvider} from '@/components/auth/can';
 import {api, ApiError, type CurrentUser} from '@/lib/api';
 import {LanguageToggle} from '@/components/i18n/language-toggle';
+import {CommandLauncher} from '@/components/nav/command-launcher';
 import {PlatformNav} from './_components/platform-nav';
 import type {ReactNode} from 'react';
 
@@ -41,27 +42,25 @@ export default async function PlatformLayout({children}: {children: ReactNode}) 
   return (
     <CurrentUserProvider user={user}>
       <div className="relative min-h-screen bg-zinc-50 dark:bg-zinc-950">
-        {/* Distinctive admin chrome: cool slate gradient + denser grid. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-0 bg-grid-soft mask-fade-bottom opacity-60"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-x-0 top-0 z-0 h-64 bg-gradient-to-b from-indigo-500/[0.06] via-transparent to-transparent dark:from-indigo-400/[0.08]"
-        />
+        {/* Distinctive admin chrome: cooler indigo cast + layered halos. */}
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+          <div className="absolute inset-0 bg-grid-soft mask-fade-bottom opacity-60" />
+          <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-indigo-500/[0.07] via-transparent to-transparent dark:from-indigo-400/[0.10]" />
+          <div className="absolute -left-32 top-32 h-[460px] w-[460px] rounded-full bg-indigo-500/10 blur-[120px] dark:bg-indigo-500/20" />
+          <div className="absolute right-[-10rem] top-[26rem] h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[120px] dark:bg-violet-500/15" />
+        </div>
 
         <div className="relative z-10 flex min-h-screen flex-col">
           {/* Admin top bar — visually distinct from the workspace's TopNav. */}
-          <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-950/85">
-            <div className="mx-auto flex h-14 max-w-7xl items-center px-6">
-              <Link href="/platform/overview" className="mr-6 flex shrink-0 items-center gap-2">
+          <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/80 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/80">
+            <div className="container-shell flex h-14 items-center px-6 lg:px-10">
+              <Link href="/platform/overview" className="group mr-6 flex shrink-0 items-center gap-2">
                 <Image
                   src="/logo.png"
                   alt="Synapse"
                   width={26}
                   height={26}
-                  className="rounded-md ring-1 ring-black/5 dark:ring-white/10"
+                  className="rounded-md ring-1 ring-black/5 transition-transform duration-300 ease-snap group-hover:scale-105 dark:ring-white/10"
                   priority
                 />
                 <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
@@ -78,11 +77,12 @@ export default async function PlatformLayout({children}: {children: ReactNode}) 
               <PlatformNav />
 
               <div className="ml-auto flex items-center gap-1.5">
+                <CommandLauncher />
                 <LanguageToggle />
                 {user && (
                   <Link
                     href="/workspace/overview"
-                    className="rounded-lg border border-zinc-200 bg-white/60 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="rounded-lg border border-zinc-200 bg-white/60 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors duration-200 ease-snap hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
                     ← Workspace
                   </Link>
@@ -92,7 +92,8 @@ export default async function PlatformLayout({children}: {children: ReactNode}) 
           </header>
 
           <SegmentNav />
-          <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10">
+
+          <main className="container-shell flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
             {children}
           </main>
         </div>

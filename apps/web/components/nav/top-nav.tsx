@@ -11,6 +11,7 @@ import {signOut} from '@/lib/auth';
 import type {CurrentUser} from '@/lib/api';
 import {useTranslator} from '@/components/providers/locale-provider';
 import {LanguageToggle} from '@/components/i18n/language-toggle';
+import {CommandPalette, useCommandPalette} from '@/components/nav/command-palette';
 import type {MessageKey} from '@/lib/i18n/messages';
 
 const PRIMARY_NAV: ReadonlyArray<{label: MessageKey; href: string}> = [
@@ -137,12 +138,13 @@ function UserMenu({user}: {user: CurrentUser | null}) {
   );
 }
 
-function CommandTrigger() {
+function CommandTrigger({onOpen}: {onOpen: () => void}) {
   const t = useTranslator();
   return (
     <button
       type="button"
-      className="hidden h-9 items-center gap-2 rounded-lg border border-zinc-200 bg-white/60 px-3 text-sm text-zinc-500 shadow-soft transition-colors hover:bg-zinc-50 hover:text-zinc-900 sm:flex dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+      onClick={onOpen}
+      className="hidden h-9 items-center gap-2 rounded-lg border border-zinc-200/80 bg-white/60 px-3 text-sm text-zinc-500 shadow-soft transition-all duration-200 ease-snap hover:-translate-y-px hover:bg-white hover:text-zinc-900 hover:shadow-card sm:flex dark:border-zinc-800/80 dark:bg-zinc-900/60 dark:text-zinc-500 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
     >
       <Search size={13} />
       <span className="text-xs">{t('common.search')}</span>
@@ -156,64 +158,69 @@ function CommandTrigger() {
 export function TopNav({user}: {user: CurrentUser | null}) {
   const t = useTranslator();
   const pathname = usePathname();
+  const palette = useCommandPalette();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-zinc-200/80 bg-white/85 backdrop-blur-xl dark:border-zinc-800/80 dark:bg-zinc-950/85">
-      <div className="mx-auto flex h-14 max-w-7xl items-center px-6">
+    <>
+      <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/75 backdrop-blur-2xl dark:border-zinc-800/70 dark:bg-zinc-950/75">
+        {/* Hairline gradient strip on top — adds a thin "platform" cue. */}
+        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/40 to-transparent" />
 
-        {/* Logo */}
-        <Link href="/workspace/overview" className="group mr-6 flex shrink-0 items-center gap-2">
-          <Image
-            src="/logo.png"
-            alt="Synapse"
-            width={26}
-            height={26}
-            className="rounded-md ring-1 ring-black/5 transition-transform group-hover:scale-105 dark:ring-white/10"
-            priority
-          />
-          <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-            Synapse
-          </span>
-        </Link>
+        <div className="container-shell flex h-14 items-center px-6 lg:px-10">
 
-        {/* Divider */}
-        <div className="mr-5 h-5 w-px bg-zinc-200 dark:bg-zinc-800" />
+          {/* Logo */}
+          <Link href="/workspace/overview" className="group mr-6 flex shrink-0 items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="Synapse"
+              width={26}
+              height={26}
+              className="rounded-md ring-1 ring-black/5 transition-transform duration-300 ease-snap group-hover:scale-105 dark:ring-white/10"
+              priority
+            />
+            <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+              Synapse
+            </span>
+          </Link>
 
-        {/* Primary nav */}
-        <nav className="flex flex-1 items-stretch gap-0.5 self-stretch">
-          {PRIMARY_NAV.map(({label, href}) => {
-            const isActive =
-              href === '/workspace/overview'
-                ? pathname === '/workspace/overview'
-                : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'relative flex items-center px-3 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'text-zinc-900 dark:text-zinc-100'
-                    : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
-                )}
-              >
-                {t(label)}
-                {isActive && (
-                  <span className="absolute inset-x-3 bottom-0 h-[2px] rounded-t-full bg-gradient-to-r from-brand-500 to-accent-500" />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+          {/* Divider */}
+          <div className="mr-5 h-5 w-px bg-zinc-200 dark:bg-zinc-800" />
 
-        {/* Right controls */}
-        <div className="flex items-center gap-1.5">
-          <CommandTrigger />
-          <LanguageToggle />
-          <ThemeToggle />
-          <UserMenu user={user} />
+          {/* Primary nav — animated underline */}
+          <nav className="flex flex-1 items-stretch gap-0.5 self-stretch">
+            {PRIMARY_NAV.map(({label, href}) => {
+              const isActive =
+                href === '/workspace/overview'
+                  ? pathname === '/workspace/overview'
+                  : pathname.startsWith(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  data-active={isActive}
+                  className={cn(
+                    'nav-underline flex items-center px-3 text-sm font-medium transition-colors duration-200 ease-snap',
+                    isActive
+                      ? 'text-zinc-900 dark:text-zinc-100'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
+                  )}
+                >
+                  {t(label)}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Right controls */}
+          <div className="flex items-center gap-1.5">
+            <CommandTrigger onOpen={() => palette.setOpen(true)} />
+            <LanguageToggle />
+            <ThemeToggle />
+            <UserMenu user={user} />
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      <CommandPalette open={palette.open} onClose={() => palette.setOpen(false)} />
+    </>
   );
 }

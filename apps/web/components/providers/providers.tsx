@@ -3,6 +3,7 @@
 import {ThemeProvider} from 'next-themes';
 import type {ReactNode} from 'react';
 import {LocaleProvider} from './locale-provider';
+import {ToastProvider} from '@/components/ui/toast';
 import type {Locale, LocalePreference} from '@/lib/i18n/types';
 
 interface ProvidersProps {
@@ -25,7 +26,9 @@ export function Providers({children, initialLocale, initialLocalePreference}: Pr
         initialLocale={initialLocale}
         initialPreference={initialLocalePreference}
       >
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </LocaleProvider>
     </ThemeProvider>
   );

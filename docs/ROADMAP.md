@@ -495,3 +495,14 @@ Last updated: 2026-05-07
 - Pending: seed migration checks and policy metadata fixtures.
 - Risks: local developers may miss DB-only regressions if they only run normal unit tests.
 - Next recommended step: use the reset flow in `apps/api/prisma/MIGRATIONS.md` before container QA.
+
+## 2026-05-09 Frontend Stage 1B — Batch 3 (Pulse lifecycle action UI)
+
+- Changed: the first interactive Pulse milestone — ticket detail now exposes the seven lifecycle commands (assign, escalate, operator-review, advance flow, resolve, reopen, cancel) through `<TicketActionBar>` against `/v1/pulse/*`.
+- Completed: Dialog and Toast primitives (`components/ui/dialog.tsx`, `components/ui/toast.tsx` + `<ToastProvider>` mounted in `Providers`), tenant-cache invalidator (`components/auth/tenant-invalidator.tsx` mounted in the workspace layout), `TicketActionBar` with `<Can>`-gated buttons, `useTransition` pending state, typed `ActionResult` → toast translation, and `revalidatePath` on success.
+- Completed: `apps/web/app/(workspace)/workspace/modules/pulse/tickets/[ticketId]/page.tsx` wired to the new action bar; legacy disabled button row removed; `EscalationBadge` now lives next to the controls.
+- Completed: handoff verification — `npm run typecheck`, `npm run lint`, `npm run build` all green; no retired module names (`clinicflow`, `clinic-flow`, `relay`-the-module) remain in `apps/web/{app,components,lib}`.
+- Pending backend contract gaps: tenant member-picker endpoint (Assign dialog falls back to free-text id), `workflow.playbookStep` on ticket detail (cannot render current FSM position today), structured `extracted.fields` on ticket detail (Extracted Context panel renders empty list).
+- Pending UI work (Batch 4): tenant member picker, playbook step indicator, knowledge management surface, scheduling integrations surface, Pulse metrics dashboard.
+- Risks: list-fanout enrichment in `loaders.toRow` is unchanged; revalidation-based refresh shows a brief "Working…" pending state on slow networks.
+- Next recommended step: Batch 4 — knowledge management UI + scheduling integrations UI on top of the already-exposed `/v1/pulse/*` client surface.

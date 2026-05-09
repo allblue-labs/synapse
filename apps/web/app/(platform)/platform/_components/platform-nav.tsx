@@ -26,17 +26,15 @@ export function PlatformNav() {
           <Link
             key={href}
             href={href}
+            data-active={isActive}
             className={cn(
-              'relative flex items-center px-3 text-sm font-medium transition-colors whitespace-nowrap',
+              'nav-underline flex items-center whitespace-nowrap px-3 text-sm font-medium transition-colors duration-200 ease-snap',
               isActive
                 ? 'text-zinc-900 dark:text-zinc-100'
                 : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
             )}
           >
             {label}
-            {isActive && (
-              <span className="absolute inset-x-3 bottom-0 h-[2px] rounded-t-full bg-gradient-to-r from-indigo-500 to-violet-500" />
-            )}
           </Link>
         );
       })}

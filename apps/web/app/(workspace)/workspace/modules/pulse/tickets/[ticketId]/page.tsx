@@ -4,25 +4,21 @@ import {
   AlertTriangle,
   ArrowLeft,
   ArrowUpRight,
-  CheckCircle2,
   History,
-  ShieldAlert,
   Sparkles,
   Ticket,
-  XCircle,
 } from 'lucide-react';
 import {ConfidenceMeter} from '@/components/pulse/confidence-meter';
 import {OperationalTimeline} from '@/components/pulse/operational-timeline';
 import {
   ChannelPill,
   ConversationStatePill,
-  EscalationBadge,
   PriorityPill,
   SkillPill,
   TicketStatusPill,
   TicketTypePill,
 } from '@/components/pulse/status-pills';
-import {Can} from '@/components/auth/can';
+import {TicketActionBar} from '@/components/pulse/ticket-action-bar';
 import {LoadState} from '@/components/ui/load-state';
 import {loadTicketDetail} from '@/lib/pulse/loaders';
 import type {Metadata} from 'next';
@@ -101,45 +97,7 @@ export default async function PulseTicketDetailPage({params}: PageProps) {
           <span className="font-mono text-xs text-zinc-500 dark:text-zinc-500">{ticket.id}</span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {ticket.priority === 'URGENT' && <EscalationBadge />}
-          <Can permission="tickets:assign">
-            <button
-              type="button"
-              disabled={!ticket.capabilities.canEscalate}
-              className="btn-secondary h-9 px-3.5 text-xs disabled:opacity-50"
-            >
-              <ShieldAlert size={13} />
-              Escalate
-            </button>
-          </Can>
-          <Can permission="tickets:resolve">
-            <button
-              type="button"
-              disabled={!ticket.capabilities.canResolve}
-              className="btn-secondary h-9 px-3.5 text-xs disabled:opacity-50"
-            >
-              <CheckCircle2 size={13} />
-              Resolve
-            </button>
-          </Can>
-          <Can permission="tickets:write">
-            <button
-              type="button"
-              disabled={!ticket.capabilities.canReopen}
-              className="btn-secondary h-9 px-3.5 text-xs disabled:opacity-50"
-            >
-              Reopen
-            </button>
-            <button
-              type="button"
-              className="btn-ghost h-9 px-3.5 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-            >
-              <XCircle size={13} />
-              Cancel
-            </button>
-          </Can>
-        </div>
+        <TicketActionBar ticket={ticket} />
       </div>
 
       {/* ── Header card: identity + skill row + summary ───────────────────────── */}

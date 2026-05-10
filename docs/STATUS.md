@@ -550,3 +550,101 @@ Last updated: 2026-05-07
 - Pending: wire runtime-output-to-action creation through this service, add more action rules, and persist actor/governance metadata from the original request.
 - Risks: direct calls to `PulseQueueService.enqueueAction` can bypass governance; production action creation should use `PulseActionGovernanceService`.
 - Next recommended step: make runtime result parsing use `PulseActionGovernanceService` exclusively and add tests that unsafe direct action outputs are rejected before queueing.
+
+## 2026-05-09 Stage 3I — Runtime Output Action Planner
+
+- Changed: added `PulseRuntimeActionPlannerService` to validate future runtime outputs before they can create governed Pulse action jobs.
+- Completed: planner requires a strict audit-safe output shape (`decisionSummary`, `confidence`, `nextState`, `recommendedActions`), checks the Context Pack `allowedActions`, enforces a confidence threshold, validates supported flow states, and routes `ticket.advance_flow` through `PulseActionGovernanceService`.
+- Completed: tests cover successful governed enqueue, low-confidence skip, malformed output rejection, and permission/governance denial propagation.
+- Pending: connect the planner to real runtime result ingestion, persist original actor/governance metadata across execution requests, add more action rules, and add DB-backed multi-tenant fixtures.
+- Risks: the planner is not yet called by `pulse.execution`; no external runtime/provider output is consumed. Direct queue publication remains infrastructure-only and must not become a production action path.
+- Next recommended step: wire execution-result handling so runtime completion calls the planner, then add service-actor/tenant fixtures proving unsafe runtime action suggestions are rejected.
+
+## 2026-05-09 Stage 3J — Pulse Runtime Result Ingestion Boundary
+
+- Changed: added `IngestPulseRuntimeResultUseCase` as the narrow backend boundary from normalized runtime results into Pulse action planning.
+- Completed: runtime lifecycle can now load the original tenant-scoped execution request with context/input. Pulse result ingestion verifies the execution belongs to Pulse, extracts the stored Context Pack, transitions lifecycle status, records audit-safe timeline jobs, and calls `PulseRuntimeActionPlannerService` only for successful results.
+- Completed: tests cover successful ingestion/action planning, non-success result handling without action planning, non-Pulse request rejection, and lifecycle request loading.
+- Pending: signed external runtime callback route/queue consumer, service actor authorization, DB-backed tenant fixtures, provider metadata/usage mapping, and removal of the no-provider placeholder once the external runtime exists.
+- Risks: this use case is internal and not yet exposed through a signed callback or queue consumer. It assumes callers already authenticated the runtime/service actor.
+- Next recommended step: add a signed runtime result ingress adapter that validates runtime signatures and calls this use case without exposing generic transition APIs to modules.
+
+## 2026-05-09 Stage 3K — Signed Pulse Runtime Result Ingress
+
+- Changed: added a signed Pulse runtime-result ingress endpoint at `/v1/pulse/runtime/results`.
+- Completed: endpoint is `@Public()` only for JWT bypass and requires raw-body HMAC verification through `RuntimeSignatureService` before calling `IngestPulseRuntimeResultUseCase`. Signature validation checks key id, timestamp window, canonical method/path/body, and constant-time signature comparison.
+- Completed: raw body capture now includes the Pulse runtime result path; DTO validation covers terminal statuses and output shape at the transport boundary.
+- Pending: DB-backed callback fixtures, runtime replay store/idempotency beyond lifecycle/action keys, and future queue-consumer ingress.
+- Risks: runtime result callbacks still depend on a shared secret; replay persistence and key rotation are still pending.
+- Next recommended step: persist original actor/governance snapshot in execution request metadata and use it server-side during signed result ingestion.
+
+## 2026-05-09 Stage 3L — Execution Actor Snapshot Enforcement
+
+- Changed: runtime result ingestion now uses the original server-side actor snapshot stored on the `ExecutionRequest` instead of trusting callback-provided actor data.
+- Completed: runtime request creation stores actor id, permission snapshot, and metadata actor snapshot. Pulse context jobs can carry actor snapshots into execution requests. Pulse runtime callback DTO no longer accepts actor data; ingestion extracts actor details from saved execution metadata before lifecycle transition or action planning.
+- Completed: tests cover controller context snapshots, callback payload without actor, missing actor snapshot rejection, and existing signed callback/runtime planning paths.
+- Pending: DB-backed fixtures for actor snapshot persistence, durable callback replay tracking, and migration/backfill policy for old execution requests without snapshots.
+- Risks: old/pre-existing execution requests without actor snapshots cannot safely plan runtime-driven actions and are rejected.
+- Next recommended step: add DB fixtures for signed callback ingestion using persisted actor snapshots and cross-tenant denial.
+
+## 2026-05-09 Stage 3M — Runtime Result DB Fixtures
+
+- Changed: added database-backed fixtures for Pulse runtime result ingestion.
+- Completed: fixture covers persisted actor snapshot usage for action planning, cross-tenant result-ingestion denial, and refusal to plan automatic actions when an execution lacks `actorSnapshot`.
+- Completed: fixture follows the existing `RUN_DATABASE_TESTS=1` pattern, so it is skipped by default unless database fixtures are explicitly enabled.
+- Pending: HTTP raw-body signed callback e2e fixture and durable replay tracking.
+- Risks: fixture verifies use-case persistence boundaries, not the full HTTP callback path.
+- Next recommended step: add an HTTP callback e2e harness with signed raw body once the API test app pattern is ready for service-to-service callbacks.
+
+## 2026-05-09 Stage 3N — Pulse Action Worker Permission Revalidation
+
+- Changed: `PulseActionsProcessor` now revalidates action permission snapshots before executing real handlers.
+- Completed: action rules are shared between enqueue governance and worker execution. `ticket.advance_flow` requires `tickets:write` at enqueue time and again immediately before handler execution. Missing permissions fail the job, emit `pulse.action.failed`, and do not call the handler.
+- Completed: tests cover successful real action execution and rejection of queued actor snapshots missing `tickets:write`.
+- Pending: DB fixture for processor-side rejection and expansion of worker-side rules as new handlers are added.
+- Risks: prepared-only actions without handlers are not permission-revalidated because they do not apply side effects.
+- Next recommended step: add a handler registry so each real handler declares its action key and required permission rule.
+
+## 2026-05-09 Stage 3O — Non-Retryable Action Governance Failures
+
+- Changed: `pulse.actions` now classifies worker-side governance/RBAC failures as permanent.
+- Completed: `ForbiddenException` from action permission revalidation is recorded to `pulse.failed` and timeline with `failureClass: non_retryable_governance`, `retryable: false`, then thrown as BullMQ `UnrecoverableError` to avoid useless retries.
+- Completed: transient failures such as timeline enqueue errors remain retryable and are marked `failureClass: retryable`.
+- Pending: extend permanent failure classification for strict DTO/schema validation once handler DTOs are introduced.
+- Risks: only explicit governance failures are non-retryable today; malformed jobs rejected before the catch path still fail fast without failed-queue projection.
+- Next recommended step: introduce typed action DTO validation and classify validation failures as non-retryable.
+
+## 2026-05-09 Stage 3P — Strict Action Payload Validation
+
+- Changed: `ticket.advance_flow` now validates its action payload strictly before mutating tickets.
+- Completed: unsupported fields, invalid `nextState`, invalid `transitionSource`, invalid confidence, non-string notes, invalid `ticketId`, invalid `aiDecisionSummary`, and malformed actor metadata are rejected through `PulseActionPayloadValidationException`.
+- Completed: `PulseActionsProcessor` classifies that exception as `non_retryable_validation`, records `retryable: false`, and throws BullMQ `UnrecoverableError`.
+- Pending: extract reusable DTO/schema helpers as more real action handlers are added.
+- Risks: validation is currently hand-written for the first handler; schema drift can emerge when more handlers are added.
+- Next recommended step: introduce a typed action handler registry with per-action schema, permissions, and retry classification metadata.
+
+## 2026-05-09 Stage 3Q — Pulse Action Handler Registry
+
+- Changed: added `PulseActionHandlerRegistry` and moved `PulseActionsProcessor` away from direct handler branching.
+- Completed: real action handlers now expose an `action` key; the registry resolves handlers by action. `ticket.advance_flow` is registered as the first real handler.
+- Completed: tests cover registry lookup and existing action processor behavior through the registry.
+- Pending: move permissions, schema, and retry classification into handler registration metadata.
+- Risks: registry is still manually wired with the first handler; metadata is not yet centralized.
+- Next recommended step: enrich registry entries with action metadata so processor validation does not import action-specific rule tables.
+
+## 2026-05-09 Stage 3R — Action Definition Metadata
+
+- Changed: action handler registry now exposes action definition metadata.
+- Completed: `PulseActionDefinition` carries action key, required permissions, validation failure class, and future usage candidate. `ticket.advance_flow` declares `tickets:write`, `non_retryable_validation`, and `workflow_run`. Both enqueue governance and worker execution now read permissions from the registry instead of a separate action rule table.
+- Completed: tests cover registry definition lookup, governance with registry definitions, and processor behavior through definition metadata.
+- Pending: move runtime Context Pack `allowedActions` and `requiredOutputSchema` derivation to these action definitions.
+- Risks: registry construction is still manual and should eventually support multiple handlers cleanly.
+- Next recommended step: derive Pulse Context Pack action/output schema hints from registered action definitions.
+
+## 2026-05-09 Stage 3S — Context Pack Uses Action Registry
+
+- Changed: `AssemblePulseContextUseCase` now uses `PulseActionHandlerRegistry` definitions for real side-effect actions.
+- Completed: `allowedActions` includes registered handler actions such as `ticket.advance_flow` when a ticket is present. `requiredOutputSchema.recommendedActions.items.enum` is derived from the same allowed action set.
+- Pending: derive full per-action output/payload schema from definitions, not only the action enum.
+- Risks: prepared-only actions still come from assembler logic because they intentionally have no side-effect handler yet.
+- Next recommended step: add schema metadata to `PulseActionDefinition` and use it to generate runtime output requirements.

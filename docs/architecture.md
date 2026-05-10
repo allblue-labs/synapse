@@ -97,3 +97,69 @@ No external integrations or provider-triggered automatic actions are enabled yet
 `PulseActionGovernanceService` is now the module-level entrypoint for creating real action jobs. It validates action rules and permission snapshots before publishing to `pulse.actions`.
 
 The lower-level queue service remains infrastructure and should not be used as a production action creation API for mutating actions.
+
+## 2026-05-09 Runtime Output Planning Boundary
+
+Pulse now has a module-owned planner between normalized runtime output and operational action queues. Runtime responses remain advisory until Pulse validates output shape, allowed actions, confidence, supported flow state, ticket context, and action governance.
+
+No provider/runtime response is consumed yet. The next architectural step is a narrow execution-result ingestion use case that loads tenant-scoped execution context and invokes the Pulse planner.
+
+## 2026-05-09 Pulse Runtime Result Ingestion
+
+Pulse now has that narrow ingestion use case. It loads the tenant-scoped execution request from the platform runtime lifecycle service, verifies the stored Context Pack belongs to Pulse, transitions lifecycle status, emits audit-safe timeline jobs, and invokes the Pulse action planner only for successful results.
+
+The ingress adapter is still pending. External runtime callbacks must be signed and service-actor scoped before this path becomes public or provider-connected.
+
+## 2026-05-09 Signed Pulse Runtime Callback
+
+Pulse now has a signed REST ingress adapter for normalized runtime results. The route bypasses user JWTs because it is service-to-service, but it requires raw-body HMAC verification through runtime core before module ingestion.
+
+The endpoint is not a frontend contract. It prepares the future external runtime boundary while keeping provider execution outside the NestJS platform.
+
+## 2026-05-09 Runtime Actor Snapshot
+
+Execution requests now carry the original actor/permission snapshot from the platform boundary. Pulse runtime result ingestion uses that stored snapshot for lifecycle attribution and governed action planning.
+
+The runtime callback is therefore transport-authenticated only; it does not decide user authority.
+
+## 2026-05-09 Runtime Result Persistence Fixtures
+
+Pulse runtime result ingestion now has database-backed fixture coverage for actor snapshot usage, cross-tenant denial, and missing-snapshot rejection.
+
+The fixture is opt-in through `RUN_DATABASE_TESTS=1`, matching the existing local database strategy.
+
+## 2026-05-09 Action Worker Permission Revalidation
+
+Pulse action rules now protect both sides of the queue: creating real action jobs and executing real side-effect handlers.
+
+This keeps queue infrastructure from becoming an accidental privilege boundary. The worker still relies on tenant-scoped handlers for data isolation.
+
+## 2026-05-09 Non-Retryable Action Governance Failures
+
+Pulse action workers now classify RBAC/governance failures as terminal BullMQ failures. This avoids retry loops for payloads that cannot become valid without creating a new governed action job.
+
+Transient infrastructure failures remain retryable.
+
+## 2026-05-09 Strict Action Payload Validation
+
+The first real Pulse action, `ticket.advance_flow`, now validates payload shape strictly before invoking domain mutation. Validation failures are terminal queue failures, separate from governance failures and transient infrastructure errors.
+
+This sets the pattern for future action handlers: permissions, schema, and retry classification must be declared before side effects are enabled.
+
+## 2026-05-09 Pulse Action Handler Registry
+
+Pulse action execution now resolves real side-effect handlers through a module-local registry. The queue processor coordinates lifecycle projection and failure classification; handlers own domain side effects.
+
+The next refinement is to colocate permissions, payload schema, retry classification, and future usage metadata with handler registration.
+
+## 2026-05-09 Pulse Action Definitions
+
+Pulse action handlers now expose definition metadata. Enqueue governance and worker execution both read required permissions from the same registry-backed definition.
+
+This keeps module action policy closer to the handler that owns the side effect.
+
+## 2026-05-09 Context Pack Action Derivation
+
+Pulse Context Pack assembly now consumes action registry definitions when exposing real side-effect actions to future runtime execution.
+
+The runtime receives a narrower action vocabulary, and backend governance/worker enforcement uses the same source for real action names.

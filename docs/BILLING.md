@@ -421,3 +421,91 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: action acceptance/completion metering policy for future handlers.
 - Risks: enqueue-time billing would overcount denied or failed actions.
 - Next recommended step: meter only after handler acceptance/completion with idempotency keys.
+
+## 2026-05-09 Stage 3I — Planned Action Usage Boundary
+
+- Changed: runtime action planning creates a clearer pre-billing boundary.
+- Completed: malformed, low-confidence, unsupported, and unauthorized runtime suggestions are rejected/skipped before any action job can become a usage candidate.
+- Pending: decide whether successful planned actions meter at enqueue, handler completion, or both; add usage writes after real action completion only.
+- Risks: counting runtime suggestions as executions would overbill; only governed, accepted, and completed work should become billable usage.
+- Next recommended step: map `pulse.action.completed` with `sideEffectsApplied=true` to future automation/workflow usage events.
+
+## 2026-05-09 Stage 3J — Runtime Result Billing Boundary
+
+- Changed: runtime result ingestion records lifecycle/timeline state but does not meter provider usage yet.
+- Completed: successful results can become the future point where provider usage, latency, and accepted actions are mapped to usage events.
+- Pending: provider metadata contract, usage idempotency keys, and plan-limit reconciliation after real runtime calls.
+- Risks: billing at ingestion without trusted provider usage metadata would be inaccurate.
+- Next recommended step: add usage writes only after signed runtime results include normalized provider usage.
+
+## 2026-05-09 Stage 3K — Signed Callback Billing Boundary
+
+- Changed: runtime result callbacks are now authenticated before any future provider usage metadata could be accepted.
+- Completed: no billing writes were added; signed transport is only a prerequisite for trustworthy usage ingestion.
+- Pending: normalized provider usage DTO, idempotent usage writes, and plan-limit reconciliation.
+- Risks: signed callbacks can still carry malformed usage metadata until a strict provider-usage schema exists.
+- Next recommended step: define provider usage schema before metering runtime results.
+
+## 2026-05-09 Stage 3L — Actor Snapshot Billing Boundary
+
+- Changed: runtime-result action planning now uses the original execution actor snapshot, which also gives future usage events stable attribution.
+- Completed: no billing writes were added; this is attribution groundwork for future automation/workflow usage.
+- Pending: usage metadata should include execution id, actor snapshot id/user id, tenant id, and action idempotency key.
+- Risks: billing should not depend on callback-provided actor fields.
+- Next recommended step: include stored execution actor metadata in future usage event mapping.
+
+## 2026-05-09 Stage 3M — Runtime Result Fixture Billing Note
+
+- Changed: runtime result DB fixtures do not add billing writes.
+- Completed: fixture confirms action planning attribution can come from stored execution actor metadata, which is required before future usage attribution.
+- Pending: provider usage schema and idempotent usage event fixture.
+- Risks: billing remains intentionally disconnected from runtime result ingestion until provider usage is normalized.
+- Next recommended step: define provider usage metadata before runtime metering.
+
+## 2026-05-09 Stage 3N — Action Worker Billing Guard
+
+- Changed: worker-side permission rejection prevents unauthorized action jobs from becoming completed side-effect usage candidates.
+- Completed: failed permission revalidation emits failure timeline/failure queue state, not completed action usage.
+- Pending: usage metering policy for real action completion.
+- Risks: future billing must avoid counting rejected worker jobs.
+- Next recommended step: meter only `pulse.action.completed` events with `sideEffectsApplied=true` and idempotent handler metadata.
+
+## 2026-05-09 Stage 3O — Non-Retryable Action Billing Note
+
+- Changed: non-retryable governance failures are explicitly marked so they cannot be mistaken for completed automation usage.
+- Completed: failed governance jobs carry `retryable: false` and do not emit action completion.
+- Pending: usage mapping for completed side-effect handlers.
+- Risks: billing pipelines must ignore `pulse.action.failed` regardless of retryability.
+- Next recommended step: define action completion usage mapper.
+
+## 2026-05-09 Stage 3P — Action Validation Billing Note
+
+- Changed: invalid action payloads are terminal failures and cannot become billable completed automation usage.
+- Completed: validation failures do not emit action completion with side effects.
+- Pending: usage mapper for valid completed action handlers.
+- Risks: billing must not count validation failures.
+- Next recommended step: map only completed side-effect handler results to usage.
+
+## 2026-05-09 Stage 3Q — Action Registry Billing Note
+
+- Changed: real action handlers now resolve through a registry before side effects and future usage boundaries.
+- Completed: no billing behavior changed.
+- Pending: usage metadata should eventually be declared with action handler metadata.
+- Risks: billing rules should not live in the processor.
+- Next recommended step: include future usage candidate metadata in action definitions.
+
+## 2026-05-09 Stage 3R — Action Definition Usage Metadata
+
+- Changed: action definitions can now declare a future usage candidate.
+- Completed: `ticket.advance_flow` declares `workflow_run` as advisory metadata.
+- Pending: usage mapper for completed side-effect handlers.
+- Risks: usage candidate metadata is not billing behavior by itself.
+- Next recommended step: map completed handler results to usage events using action definitions.
+
+## 2026-05-09 Stage 3S — Context Pack Usage Metadata Note
+
+- Changed: Context Pack action derivation can now see registered action definitions with usage candidates.
+- Completed: no billing writes changed.
+- Pending: include usage candidates in runtime/action telemetry only after metering policy is defined.
+- Risks: exposing usage hints to runtime must remain advisory, not billing authority.
+- Next recommended step: map usage candidates server-side on completed handler results.

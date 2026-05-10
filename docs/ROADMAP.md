@@ -586,3 +586,91 @@ Last updated: 2026-05-07
 - Pending: runtime output validator, handler registry, and DB fixtures.
 - Risks: existing internal callers could still use the lower-level queue service if not disciplined.
 - Next recommended step: connect runtime output validation to the governance service instead of direct queue publication.
+
+## 2026-05-09 Stage 3I — Runtime Output Action Planner
+
+- Changed: runtime-result-to-action validation now exists inside Pulse.
+- Completed: `PulseRuntimeActionPlannerService` validates runtime output contract, allowed action scope, confidence threshold, supported flow state, ticket context, and then uses action governance before enqueueing `ticket.advance_flow`.
+- Pending: call this planner from execution-result ingestion, add additional action rules/handlers, and build database-backed tenant/action fixtures.
+- Risks: this is a validation/planning layer only; `pulse.execution` still uses a no-provider placeholder and does not consume real runtime responses.
+- Next recommended step: implement execution result ingestion as a narrow boundary that invokes the planner after lifecycle completion, without provider calls inside NestJS.
+
+## 2026-05-09 Stage 3J — Runtime Result Ingestion Boundary
+
+- Changed: execution result ingestion now has a Pulse-owned use case.
+- Completed: successful runtime results can transition lifecycle, publish timeline projection jobs, and invoke governed action planning using the original Context Pack. Failed/cancelled/timed-out results transition lifecycle and record ingestion without action planning.
+- Pending: signed callback/queue transport, service actor RBAC, DB fixtures, and provider usage metering.
+- Risks: no external runtime calls this yet; direct public use would be unsafe until signature validation exists.
+- Next recommended step: implement signed runtime result ingress adapter and two-tenant fixtures before connecting any provider callback.
+
+## 2026-05-09 Stage 3K — Signed Runtime Result Callback
+
+- Changed: signed REST ingress now exists for Pulse runtime results.
+- Completed: callback verification is fail-closed and covered by unit tests; callback routes to Pulse result ingestion after HMAC validation.
+- Pending: replay persistence, original actor snapshot persistence, callback e2e tests, and queue transport option.
+- Risks: shared-secret HMAC is acceptable for the first isolated runtime boundary, but key rotation and per-runtime key policy are still pending.
+- Next recommended step: store original actor/permission snapshot with execution requests before automatic runtime-driven actions are enabled.
+
+## 2026-05-09 Stage 3L — Stored Actor Snapshot for Runtime Results
+
+- Changed: actor/governance metadata is now captured before runtime execution and reused during callback ingestion.
+- Completed: callback DTO no longer carries actor authorization; action planning uses the saved execution actor snapshot.
+- Pending: persisted fixture coverage, old execution handling policy, and replay/key-rotation hardening.
+- Risks: automatic actions must continue rejecting executions without snapshots.
+- Next recommended step: add database-backed signed callback fixtures.
+
+## 2026-05-09 Stage 3M — Runtime Result Persistence Fixtures
+
+- Changed: runtime-result ingestion now has database fixture coverage.
+- Completed: tests prove tenant-scoped execution loading, persisted actor snapshot action planning, and missing-snapshot rejection.
+- Pending: signed HTTP callback e2e and replay/key-rotation tests.
+- Risks: fixture remains skipped unless `RUN_DATABASE_TESTS=1`.
+- Next recommended step: implement replay protection for signed callbacks.
+
+## 2026-05-09 Stage 3N — Action Worker Defense-in-Depth
+
+- Changed: worker-side permission revalidation is now implemented for real Pulse action handlers.
+- Completed: `ticket.advance_flow` cannot execute from a raw queue job unless the queued actor snapshot includes `tickets:write`.
+- Pending: handler registry and persisted worker-side denial fixture.
+- Risks: action rules must be kept in the shared rules table as handlers grow.
+- Next recommended step: replace processor branching with a typed handler registry.
+
+## 2026-05-09 Stage 3O — Non-Retryable Governance Failures
+
+- Changed: permanent action governance failures no longer use normal BullMQ retries.
+- Completed: worker-side RBAC denial is converted to `UnrecoverableError` after failure projection.
+- Pending: non-retryable validation errors and handler registry metadata.
+- Risks: retry classification must stay conservative so transient infrastructure failures still retry.
+- Next recommended step: add typed action DTO schemas and validation classification.
+
+## 2026-05-09 Stage 3P — Action Payload Validation
+
+- Changed: first real action handler now has strict payload validation.
+- Completed: invalid `ticket.advance_flow` payloads are terminal validation failures and do not retry.
+- Pending: shared schema/handler registry.
+- Risks: hand-written schemas do not scale cleanly across many actions.
+- Next recommended step: add handler registry metadata for schema and permissions.
+
+## 2026-05-09 Stage 3Q — Action Handler Registry
+
+- Changed: Pulse action execution now resolves real handlers through a registry.
+- Completed: processor no longer imports `PulseTicketAdvanceFlowActionHandler` directly.
+- Pending: registry metadata for permissions, payload schema, and retry classification.
+- Risks: manual registry wiring must be kept in sync as handlers are added.
+- Next recommended step: attach action metadata to registry entries.
+
+## 2026-05-09 Stage 3R — Action Definition Metadata
+
+- Changed: handler metadata now includes permissions, validation failure class, and usage candidate.
+- Completed: processor and enqueue governance share registry metadata.
+- Pending: Context Pack/action schema derivation from registry.
+- Risks: manual registry remains acceptable for one handler but not a long-term scaling pattern.
+- Next recommended step: use registry definitions when assembling allowed actions and output schemas.
+
+## 2026-05-09 Stage 3S — Context Pack Action Derivation
+
+- Changed: Pulse Context Pack allowed real actions now derive from action registry definitions.
+- Completed: runtime output schema now constrains `recommendedActions` to the current allowed action set.
+- Pending: full schema derivation from action definitions.
+- Risks: planner still has action-specific logic for `ticket.advance_flow`.
+- Next recommended step: attach output/action schema metadata to definitions.

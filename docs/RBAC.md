@@ -420,3 +420,91 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: worker-side defense-in-depth check using the same snapshot before executing real handlers.
 - Risks: enqueue-time checks protect approved paths; worker-side checks would protect against accidental internal bypasses.
 - Next recommended step: validate permission snapshot again inside real action handlers or processor before side effects.
+
+## 2026-05-09 Stage 3I — Runtime Action RBAC Planning
+
+- Changed: runtime-suggested Pulse actions now pass through the same action-governance permission checks as internal callers.
+- Completed: planner delegates enqueue to `PulseActionGovernanceService`, so `ticket.advance_flow` still requires `tickets:write` and actor metadata.
+- Pending: define service-actor permission profiles for future runtime callbacks and add role-matrix fixtures for action planning.
+- Risks: permission snapshots must be captured at the original request boundary; stale or missing snapshots should deny future action planning.
+- Next recommended step: persist actor permission snapshots with execution requests before enabling automatic runtime-driven actions.
+
+## 2026-05-09 Stage 3J — Runtime Result Service Actor Gap
+
+- Changed: Pulse result ingestion requires an actor snapshot for lifecycle transition/action planning attribution.
+- Completed: actor id is passed to runtime lifecycle transition and the same permission snapshot is forwarded to action planning.
+- Pending: define runtime service actor authentication and persist original human actor permission snapshots on execution requests.
+- Risks: caller-provided actor snapshots are acceptable for internal tests only; production callback ingestion must resolve actor/service identity server-side.
+- Next recommended step: add service actor RBAC before exposing a runtime result endpoint or worker.
+
+## 2026-05-09 Stage 3K — Runtime Callback Actor Snapshot Gap
+
+- Changed: signed callback DTO no longer acts as an authorization source.
+- Completed: callback transport is authenticated by HMAC; actor authorization is resolved from execution metadata in the next enforcement layer.
+- Pending: persisted fixture coverage for stored actor snapshots and callback denial when snapshots are missing.
+- Risks: HMAC proves trusted runtime transport, not user authority.
+- Next recommended step: keep runtime callbacks actorless and rely on execution request snapshots for action planning.
+
+## 2026-05-09 Stage 3L — Runtime Result RBAC Snapshot
+
+- Changed: result ingestion now uses saved RBAC snapshots from execution request context.
+- Completed: runtime controllers save permission snapshots for user-created executions; Pulse context jobs can carry actor snapshots into async execution requests; callback DTO no longer accepts permissions.
+- Pending: worker-side defense-in-depth for `pulse.actions` and DB role-matrix fixtures for runtime-driven action planning.
+- Risks: snapshots are point-in-time permissions and may differ from the user's current role.
+- Next recommended step: add worker-side permission snapshot checks before real action handlers execute.
+
+## 2026-05-09 Stage 3M — Runtime Result RBAC Fixtures
+
+- Changed: persisted fixture validates stored actor snapshots drive runtime-result action planning.
+- Completed: callback/runtime output cannot supply replacement permissions; action planning uses the original snapshot.
+- Pending: worker-side permission defense-in-depth fixtures for `pulse.actions`.
+- Risks: action enqueue governance is covered, but processor-side revalidation is still pending.
+- Next recommended step: add permission snapshot validation inside `PulseActionsProcessor` before executing real handlers.
+
+## 2026-05-09 Stage 3N — Worker-Side Action RBAC
+
+- Changed: `PulseActionsProcessor` now validates permission snapshots before executing real side-effect handlers.
+- Completed: `ticket.advance_flow` requires `tickets:write` in the queued actor snapshot even if the job reached the queue directly.
+- Pending: handler registry and role-matrix DB fixture for queued action execution.
+- Risks: rule drift is possible if future handlers bypass the shared `PULSE_ACTION_RULES` table.
+- Next recommended step: make action rule declaration mandatory for handler registration.
+
+## 2026-05-09 Stage 3O — Non-Retryable RBAC Failures
+
+- Changed: RBAC denials inside `PulseActionsProcessor` now throw BullMQ `UnrecoverableError`.
+- Completed: missing `tickets:write` for `ticket.advance_flow` is recorded as `non_retryable_governance`.
+- Pending: worker-side role-matrix fixture and handler registry.
+- Risks: audit/monitoring should distinguish denied jobs from transient worker failures.
+- Next recommended step: expose governance failure counts through observability/metrics.
+
+## 2026-05-09 Stage 3P — Action Validation RBAC Boundary
+
+- Changed: payload validation now runs after worker-side permission revalidation and before handler mutation.
+- Completed: permission failures are classified separately from payload validation failures.
+- Pending: metrics for `non_retryable_governance` and `non_retryable_validation`.
+- Risks: UI/operator labels should not conflate malformed payloads with missing permissions.
+- Next recommended step: expose separate observability counters for both failure classes.
+
+## 2026-05-09 Stage 3Q — Action Registry RBAC Note
+
+- Changed: handler lookup is centralized, but RBAC rules remain in `PULSE_ACTION_RULES`.
+- Completed: existing worker-side permission revalidation remains active after registry lookup.
+- Pending: attach required permissions directly to handler registry metadata.
+- Risks: rule drift remains possible until handler and permission metadata are colocated.
+- Next recommended step: colocate permissions with handler registration.
+
+## 2026-05-09 Stage 3R — Action Definition RBAC
+
+- Changed: action permissions now come from `PulseActionDefinition`.
+- Completed: `ticket.advance_flow` requires `tickets:write` from the same definition at enqueue and execution time.
+- Pending: role-matrix fixture for registry-backed action execution.
+- Risks: future handlers must declare permissions accurately.
+- Next recommended step: add tests that every registered handler has non-empty permissions before side effects.
+
+## 2026-05-09 Stage 3S — Context Pack Action RBAC Note
+
+- Changed: Context Pack action vocabulary now comes from registered action definitions, which also carry required permissions.
+- Completed: action names exposed to runtime align with enqueue/worker enforcement.
+- Pending: do not expose permission lists to runtime unless explicitly needed.
+- Risks: runtime sees action names, not authorization grants; backend still enforces permissions.
+- Next recommended step: keep permission enforcement server-side and add schema metadata only.

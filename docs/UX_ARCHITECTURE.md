@@ -492,3 +492,91 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: UI should surface permission/unsupported-action failures as governance denials, not runtime errors.
 - Risks: treating enqueue denials like worker failures would confuse operators.
 - Next recommended step: add frontend-safe error codes when action APIs are exposed.
+
+## 2026-05-09 Stage 3I — Runtime Action Planning UX Contract
+
+- Changed: no frontend implementation changed.
+- Completed: backend can now distinguish planned/enqueued runtime actions from skipped suggestions caused by malformed output, low confidence, unsupported state, missing context, or RBAC denial.
+- Pending: expose this through stable read APIs/timeline events before frontend renders runtime action recommendations.
+- Risks: frontend must not render runtime output as an executed action unless the backend timeline reports governed completion.
+- Next recommended step: add timeline categories/statuses for planned, skipped, denied, dispatched, and completed actions.
+
+## 2026-05-09 Stage 3J — Runtime Result Ingestion UX Contract
+
+- Changed: no frontend implementation changed.
+- Completed: backend now has separate concepts for runtime result ingestion, action planning, and action execution. Timeline events can later expose these as distinct operator states.
+- Pending: frontend-safe DTO labels for ingested, planned, skipped, denied, dispatched, and applied states.
+- Risks: rendering a successful runtime ingestion as a completed business action would mislead operators.
+- Next recommended step: expose display-safe timeline summaries after signed runtime ingestion exists.
+
+## 2026-05-09 Stage 3K — Signed Runtime Callback UX Note
+
+- Changed: no frontend implementation changed.
+- Completed: runtime callback transport is backend-only and should not be called from the browser.
+- Pending: frontend-safe timeline/read DTOs for signed runtime result status.
+- Risks: exposing callback routes in frontend clients would be incorrect; this is service-to-service only.
+- Next recommended step: frontend should consume timeline/action status APIs, never runtime callback endpoints.
+
+## 2026-05-09 Stage 3L — Runtime Actor Snapshot UX Note
+
+- Changed: no frontend implementation changed.
+- Completed: runtime-driven actions are now attributable to the original execution actor snapshot rather than callback payload.
+- Pending: frontend-safe timeline DTOs should eventually show audit attribution without exposing sensitive permission snapshots.
+- Risks: showing raw permission snapshots in UI would leak internal authorization details.
+- Next recommended step: expose actor display labels through sanitized timeline/read DTOs only.
+
+## 2026-05-09 Stage 3M — Runtime Result Fixture UX Note
+
+- Changed: no frontend implementation changed.
+- Completed: backend fixtures reinforce that runtime-driven action attribution should come from sanitized backend timeline/read models, not callback payloads.
+- Pending: sanitized actor labels in timeline DTOs.
+- Risks: frontend should not infer action attribution from runtime response content.
+- Next recommended step: add display-safe timeline mapping after worker-side permission revalidation.
+
+## 2026-05-09 Stage 3N — Action Worker Failure UX Note
+
+- Changed: backend can now distinguish worker-side permission rejection from runtime/provider failure.
+- Completed: rejected action jobs emit `pulse.action.failed` with permission failure reason and do not emit completed side-effect state.
+- Pending: frontend-safe error labels for action governance denial versus worker rejection.
+- Risks: exposing raw permission names may be too detailed for some operator UI surfaces.
+- Next recommended step: map permission failures to sanitized timeline labels before frontend rendering.
+
+## 2026-05-09 Stage 3O — Action Retry UX Note
+
+- Changed: backend can distinguish retryable action failures from permanent governance failures.
+- Completed: timeline payloads include `retryable` and `failureClass`.
+- Pending: frontend-safe labels for retryable versus terminal action failures.
+- Risks: UI should not offer retry controls for `non_retryable_governance` failures.
+- Next recommended step: expose sanitized action failure status in timeline DTOs.
+
+## 2026-05-09 Stage 3P — Action Validation UX Note
+
+- Changed: backend can distinguish malformed action payloads from governance denials and transient failures.
+- Completed: validation failures use `non_retryable_validation`.
+- Pending: sanitized labels for invalid payload/action contract failures.
+- Risks: frontend should not expose raw internal schema details to operators.
+- Next recommended step: map validation failures to display-safe action failure reasons.
+
+## 2026-05-09 Stage 3Q — Action Registry UX Note
+
+- Changed: no frontend implementation changed.
+- Completed: backend action execution path is more stable for future action status APIs.
+- Pending: display-safe action definition/status contract.
+- Risks: frontend should still consume timeline/read APIs, not action registry internals.
+- Next recommended step: expose action status through sanitized timeline DTOs.
+
+## 2026-05-09 Stage 3R — Action Definition UX Note
+
+- Changed: backend action definitions now provide a future source for action labels/capabilities.
+- Completed: no frontend implementation changed.
+- Pending: sanitized action definition/read contract if frontend needs capability metadata.
+- Risks: frontend must not import backend registry internals.
+- Next recommended step: expose action capabilities through explicit read DTOs only if needed.
+
+## 2026-05-09 Stage 3S — Context Pack Action UX Note
+
+- Changed: no frontend implementation changed.
+- Completed: backend action vocabulary is more consistent for future action capability/read APIs.
+- Pending: sanitized action capability DTO if frontend needs to display available actions.
+- Risks: Context Pack remains internal and should not be rendered raw in frontend.
+- Next recommended step: expose action availability through dedicated read APIs, not raw Context Packs.

@@ -993,3 +993,179 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Direct queue publication remains possible inside code; reviews should reject bypasses for real actions.
 
 **Next recommended step:** route runtime result parsing and future API-triggered actions through this service only.
+
+---
+
+## 2026-05-09 — Runtime outputs must be planned before action enqueue
+
+**Decision:** Add a Pulse-owned runtime action planner before runtime output can create action jobs.
+
+**Reason:** Future provider/runtime responses are untrusted operational suggestions. Pulse must validate output shape, allowed actions, confidence, supported state transitions, and actor permission snapshots before any side effect is queued.
+
+**Consequence:** `ticket.advance_flow` can be planned from a validated runtime output only through `PulseActionGovernanceService`; malformed, low-confidence, unsupported, or unauthorized suggestions are rejected or skipped.
+
+**Status:** Implemented as an internal service, not wired to provider execution.
+
+**Risk:** The planner is currently not connected to real runtime result ingestion, so future integration must avoid bypassing it.
+
+**Next recommended step:** connect execution-result ingestion to the planner and add DB-backed cross-tenant fixtures.
+
+---
+
+## 2026-05-09 — Runtime result ingestion is module-specific and signed later
+
+**Decision:** Add an internal Pulse result-ingestion use case, but do not expose it as an unauthenticated runtime callback.
+
+**Reason:** The module owns how normalized runtime output becomes operational actions, while Synapse owns execution persistence and lifecycle governance.
+
+**Consequence:** Pulse loads the tenant-scoped execution request, reads its stored Context Pack, transitions lifecycle, publishes audit-safe timeline jobs, and plans actions only after successful results.
+
+**Status:** Implemented as an internal use case.
+
+**Risk:** External runtime integration still needs signed callbacks or trusted queue consumers before this path is production-safe.
+
+**Next recommended step:** build the signed ingress adapter and service actor model.
+
+---
+
+## 2026-05-09 — Runtime callbacks use HMAC raw-body verification
+
+**Decision:** Expose Pulse runtime result ingress as a public JWT-bypass route protected by HMAC signature validation.
+
+**Reason:** External runtime services should not use tenant-user JWTs, but callback payloads must still be authenticated and tamper-evident.
+
+**Consequence:** `/v1/pulse/runtime/results` requires raw body, runtime key id, timestamp, and signature headers before invoking module ingestion.
+
+**Status:** Implemented for Pulse result ingress.
+
+**Risk:** Shared secret key rotation, replay persistence, and server-side actor snapshot resolution are still pending.
+
+**Next recommended step:** persist original actor/governance metadata on execution request creation and stop trusting callback-provided actor snapshots.
+
+---
+
+## 2026-05-09 — Runtime callbacks do not provide action actor authority
+
+**Decision:** Runtime callbacks no longer submit actor authorization data for Pulse action planning.
+
+**Reason:** The runtime is an execution service, not an authorization source. Actor identity and permission snapshots must be captured by Synapse before execution leaves the platform boundary.
+
+**Consequence:** Pulse result ingestion loads actor metadata from the stored execution request. Missing or malformed snapshots reject successful action planning.
+
+**Status:** Implemented.
+
+**Risk:** Existing executions created before this snapshot rule cannot safely trigger automatic actions.
+
+**Next recommended step:** add persisted fixtures and decide whether old executions should be requeued, completed without actions, or manually reviewed.
+
+---
+
+## 2026-05-09 — Runtime result fixtures run behind database test flag
+
+**Decision:** Add Pulse runtime result ingestion fixtures under the existing `RUN_DATABASE_TESTS=1` gate.
+
+**Reason:** Development currently uses a single local database, and destructive/fixture DB tests should remain opt-in.
+
+**Consequence:** CI/dev can validate tenant persistence boundaries explicitly without slowing or mutating normal unit-test runs.
+
+**Status:** Implemented.
+
+**Risk:** Default test runs skip these persisted guarantees unless the flag is enabled.
+
+**Next recommended step:** document/run a pre-release command that enables database fixtures.
+
+---
+
+## 2026-05-09 — Real Pulse actions revalidate permissions in the worker
+
+**Decision:** Reuse Pulse action governance rules inside `PulseActionsProcessor` before invoking real action handlers.
+
+**Reason:** Enqueue-time governance protects approved paths, but worker-side validation protects against accidental raw queue publication or future orchestration mistakes.
+
+**Consequence:** Mutating handlers such as `ticket.advance_flow` require a valid actor permission snapshot at execution time.
+
+**Status:** Implemented for current real handler.
+
+**Risk:** New handlers must be added to the shared rule table or they will be rejected before execution.
+
+**Next recommended step:** move action handlers into a registry where rule declaration and handler binding stay together.
+
+---
+
+## 2026-05-09 — Action governance failures are terminal queue failures
+
+**Decision:** Convert Pulse action worker RBAC/governance failures into BullMQ `UnrecoverableError`.
+
+**Reason:** Missing permissions in a queued job will not be fixed by retrying the same payload.
+
+**Consequence:** Permission-denied action jobs are projected to failed/timeline state once and are not retried like infrastructure failures.
+
+**Status:** Implemented for `ForbiddenException` in `pulse.actions`.
+
+**Risk:** Validation failures still need explicit classification as action DTOs mature.
+
+**Next recommended step:** classify strict action DTO validation failures as non-retryable too.
+
+---
+
+## 2026-05-09 — Action payload validation failures are terminal
+
+**Decision:** Treat strict Pulse action payload validation failures as non-retryable queue failures.
+
+**Reason:** An invalid action payload will not become valid through retry and should not repeatedly reach side-effect code.
+
+**Consequence:** `ticket.advance_flow` rejects malformed payloads before mutation and records `non_retryable_validation`.
+
+**Status:** Implemented for `ticket.advance_flow`.
+
+**Risk:** Validation is currently per-handler and should be centralized as more actions are added.
+
+**Next recommended step:** introduce action handler registration metadata for payload schema.
+
+---
+
+## 2026-05-09 — Pulse action handlers resolve through a registry
+
+**Decision:** Introduce a module-local registry for real Pulse action handlers.
+
+**Reason:** The action processor should coordinate queue lifecycle and failure projection, not grow branches for every operational action.
+
+**Consequence:** Handlers declare an action key and the processor asks the registry for the matching handler.
+
+**Status:** Implemented for `ticket.advance_flow`.
+
+**Risk:** Permissions/schema metadata still lives outside the registry.
+
+**Next recommended step:** add metadata to registry entries.
+
+---
+
+## 2026-05-09 — Pulse action metadata is colocated with handlers
+
+**Decision:** Put required permissions, validation failure class, and usage candidate on action handler definitions.
+
+**Reason:** Enqueue governance, worker execution, runtime planning, and future billing should share one module-local definition for each real action.
+
+**Consequence:** `ticket.advance_flow` metadata now drives permission checks at both enqueue and worker execution.
+
+**Status:** Implemented for first real action.
+
+**Risk:** Context Pack allowed actions still derive from older local logic.
+
+**Next recommended step:** derive Context Pack action/output schema hints from registered action definitions.
+
+---
+
+## 2026-05-09 — Context Packs read action definitions
+
+**Decision:** Let Pulse Context Pack assembly read registered action definitions for real side-effect actions.
+
+**Reason:** Runtime should receive the same action vocabulary that governance and workers enforce.
+
+**Consequence:** `recommendedActions` schema is constrained to the allowed action set assembled for that tenant/ticket context.
+
+**Status:** Implemented for action enum derivation.
+
+**Risk:** Full payload schema is still not generated from action definitions.
+
+**Next recommended step:** add schema metadata to `PulseActionDefinition`.

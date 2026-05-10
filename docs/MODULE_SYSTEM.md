@@ -456,3 +456,91 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: replace processor branching with handler registry as actions grow.
 - Risks: exposing raw queue service as action creation surface would weaken module boundaries.
 - Next recommended step: treat `PulseActionGovernanceService` as the module API for real action creation.
+
+## 2026-05-09 Stage 3I — Pulse-Owned Runtime Action Planning
+
+- Changed: Pulse now owns the conversion from validated runtime output to Pulse action jobs.
+- Completed: planner keeps module-specific action semantics (`ticket.advance_flow`, flow state, confidence, allowed actions) inside `src/product-modules/pulse`; Synapse remains responsible for governance primitives and execution lifecycle.
+- Pending: provider/runtime result ingestion, more Pulse action rules, and handler registry expansion.
+- Risks: centralizing module-specific cognitive action logic in Synapse core would violate module ownership; keep future planners module-local.
+- Next recommended step: connect runtime result ingestion to the Pulse planner through contracts, not direct core imports of Pulse internals.
+
+## 2026-05-09 Stage 3J — Pulse Runtime Result Ownership
+
+- Changed: Pulse owns runtime result ingestion for Pulse Context Packs.
+- Completed: platform runtime lifecycle remains generic; Pulse interprets the stored Context Pack and normalized result before planning module actions.
+- Pending: shared result-ingress adapter and handler registry as more modules gain planners.
+- Risks: generic Synapse core must not learn Pulse-specific output semantics.
+- Next recommended step: keep module result handlers behind explicit module-owned use cases.
+
+## 2026-05-09 Stage 3K — Module-Owned Signed Result Adapter
+
+- Changed: the signed result ingress is registered in Pulse, not in generic runtime core.
+- Completed: runtime core owns HMAC verification primitives; Pulse owns the result DTO and module-specific ingestion path.
+- Pending: shared adapter conventions for future modules.
+- Risks: duplicating callback controllers per module could drift; keep shared signature verification in runtime core.
+- Next recommended step: define a small common callback convention while keeping module-specific planners local.
+
+## 2026-05-09 Stage 3L — Module Result Uses Platform Actor Snapshot
+
+- Changed: Pulse result ingestion consumes platform-stored actor snapshots instead of runtime-submitted authorization.
+- Completed: platform lifecycle stores snapshots generically; Pulse interprets them for module action planning.
+- Pending: shared actor snapshot contract for future modules.
+- Risks: each module should avoid inventing incompatible actor snapshot shapes.
+- Next recommended step: promote actor snapshot shape into shared contracts once a second module needs it.
+
+## 2026-05-09 Stage 3M — Pulse Result Fixture Boundary
+
+- Changed: Pulse result-ingestion ownership is now covered by DB fixtures.
+- Completed: Pulse interprets stored Pulse Context Packs and platform actor snapshots while platform lifecycle remains generic.
+- Pending: shared module callback convention after another module adopts runtime results.
+- Risks: genericizing too early could leak Pulse semantics into core.
+- Next recommended step: keep fixtures module-local until a second module repeats the pattern.
+
+## 2026-05-09 Stage 3N — Pulse Action Rule Sharing
+
+- Changed: Pulse action rules are now shared by enqueue governance and action worker execution.
+- Completed: module-local policy remains inside Pulse while providing defense-in-depth across queue boundaries.
+- Pending: action handler registry to avoid processor branching as handlers grow.
+- Risks: adding handler-specific rules outside the shared rule table would weaken consistency.
+- Next recommended step: introduce typed handler registration metadata.
+
+## 2026-05-09 Stage 3O — Action Failure Classification
+
+- Changed: Pulse action workers now classify governance failures separately from infrastructure failures.
+- Completed: module-local action policy controls both execution permission and retry behavior for real handlers.
+- Pending: handler registry should declare retry classification alongside action key and permissions.
+- Risks: classification spread across processor logic will become harder to maintain as handlers grow.
+- Next recommended step: move action metadata into handler registration.
+
+## 2026-05-09 Stage 3P — First Strict Action Schema
+
+- Changed: `ticket.advance_flow` now owns a strict module-local payload schema.
+- Completed: action semantics remain inside Pulse and do not leak into Synapse core.
+- Pending: handler registry to attach schema, permissions, and failure classification in one place.
+- Risks: duplicating schema patterns per handler can become noisy.
+- Next recommended step: introduce typed action registration metadata.
+
+## 2026-05-09 Stage 3Q — Action Handler Registry
+
+- Changed: Pulse action handlers now resolve through a module-local registry.
+- Completed: processor no longer depends on a specific handler class; `ticket.advance_flow` is the first registered handler.
+- Pending: typed registration metadata for schemas, permissions, and failure classification.
+- Risks: manual registry construction is acceptable for one handler but should evolve as actions grow.
+- Next recommended step: define `PulseActionDefinition` metadata and register handlers through it.
+
+## 2026-05-09 Stage 3R — Pulse Action Definitions
+
+- Changed: `PulseActionDefinition` now describes module-local action metadata.
+- Completed: `ticket.advance_flow` definition includes permission, validation failure class, and usage candidate.
+- Pending: schema references and Context Pack derivation from definitions.
+- Risks: definition metadata is partial until schema is included.
+- Next recommended step: add schema metadata to action definitions and use it in Context Pack assembly.
+
+## 2026-05-09 Stage 3S — Context Pack Action Definitions
+
+- Changed: Pulse Context Pack assembly now consumes action registry definitions.
+- Completed: module-specific action vocabulary remains in Pulse and is reused by runtime context preparation.
+- Pending: schema metadata on definitions.
+- Risks: prepared-only actions remain outside handler definitions by design.
+- Next recommended step: split prepared-only action definitions from side-effect handler definitions.

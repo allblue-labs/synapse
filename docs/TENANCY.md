@@ -435,3 +435,91 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: DB fixtures for cross-tenant denied action execution.
 - Risks: tenant id still comes from caller context; future runtime-created actions must preserve original tenant context exactly.
 - Next recommended step: validate action tenant id against the originating execution request before enqueueing runtime-derived actions.
+
+## 2026-05-09 Stage 3I — Tenant-Scoped Runtime Action Planning
+
+- Changed: planned runtime actions now require tenant, execution request, and ticket context before enqueue.
+- Completed: planner builds tenant/resource-scoped idempotency keys and refuses `ticket.advance_flow` when no tenant-scoped ticket context is present.
+- Pending: persist and validate execution-request ownership at the runtime result boundary, and add DB-backed fixtures for cross-tenant action rejection.
+- Risks: current planner assumes caller has already loaded the correct tenant-scoped execution request and Context Pack.
+- Next recommended step: execution-result ingestion should load requests by `tenantId + executionRequestId` before invoking the planner.
+
+## 2026-05-09 Stage 3J — Tenant-Scoped Runtime Result Ingestion
+
+- Changed: Pulse runtime result ingestion now loads execution requests by `tenantId + executionRequestId`.
+- Completed: action planning derives ticket/conversation ids from the stored tenant-owned Context Pack, not from untrusted runtime output.
+- Pending: DB-backed fixtures proving one tenant cannot ingest or plan actions for another tenant's execution.
+- Risks: RLS remains deferred; lifecycle service tenant filters are the active isolation boundary.
+- Next recommended step: add two-tenant result-ingestion fixtures before external runtime callbacks.
+
+## 2026-05-09 Stage 3K — Signed Runtime Callback Tenant Scope
+
+- Changed: signed callback payloads include tenant id but ingestion still reloads execution by `tenantId + executionRequestId`.
+- Completed: callback authentication and tenant-scoped lifecycle loading are separate checks; a valid signature alone does not bypass execution ownership lookup.
+- Pending: two-tenant HTTP/callback fixtures proving signed callbacks cannot transition another tenant's execution.
+- Risks: signed runtime is trusted transport, not tenant authority; tenant ownership must continue to be loaded from Postgres.
+- Next recommended step: add DB-backed callback isolation fixtures.
+
+## 2026-05-09 Stage 3L — Tenant-Owned Actor Snapshot
+
+- Changed: actor snapshots are stored inside tenant-scoped execution context before runtime result ingestion.
+- Completed: result ingestion loads both execution context and actor snapshot by tenant-scoped execution id.
+- Pending: fixture proving a signed callback for tenant A cannot reuse tenant B execution/actor context.
+- Risks: tenant isolation still relies on application-level tenant filtering until RLS is revisited.
+- Next recommended step: add two-tenant callback fixture with actor snapshot assertions.
+
+## 2026-05-09 Stage 3M — Runtime Result Tenant Fixtures
+
+- Changed: added two-tenant database fixture coverage for Pulse runtime result ingestion.
+- Completed: fixture proves tenant B cannot ingest tenant A's execution result and that tenant A action planning uses tenant A's stored actor snapshot.
+- Pending: HTTP-level signed callback fixture.
+- Risks: RLS remains deferred; fixture validates application-level tenant filters.
+- Next recommended step: add callback e2e after replay protection is introduced.
+
+## 2026-05-09 Stage 3N — Tenant-Safe Action Worker Revalidation
+
+- Changed: worker-side action validation now checks actor permission snapshots before tenant-scoped handlers run.
+- Completed: `ticket.advance_flow` still delegates to tenant-scoped lifecycle use cases after permission revalidation.
+- Pending: fixture proving raw cross-tenant action jobs cannot mutate tenant-owned tickets.
+- Risks: queued tenant ids still require handler repository filtering; permission checks do not replace tenant-scoped lookups.
+- Next recommended step: add processor DB fixture for cross-tenant raw action jobs.
+
+## 2026-05-09 Stage 3O — Action Failure Retry Tenant Note
+
+- Changed: permanent governance failures in `pulse.actions` stop retrying before repeated tenant-scoped handler attempts.
+- Completed: unauthorized queued mutations fail before tenant-scoped side effects and do not loop through retries.
+- Pending: cross-tenant raw action DB fixture.
+- Risks: retry classification does not replace tenant checks inside handlers.
+- Next recommended step: add raw action processor fixture for cross-tenant ticket ids.
+
+## 2026-05-09 Stage 3P — Action Payload Tenant Note
+
+- Changed: `ticket.advance_flow` rejects malformed resource fields before tenant-scoped mutation.
+- Completed: invalid `ticketId` payload values are terminal validation failures.
+- Pending: cross-tenant raw action DB fixture remains needed.
+- Risks: valid-looking cross-tenant ids still require repository tenant filters.
+- Next recommended step: add raw action processor fixture for cross-tenant ticket ids.
+
+## 2026-05-09 Stage 3Q — Action Registry Tenant Note
+
+- Changed: handler registry centralizes which Pulse handlers may execute tenant-scoped side effects.
+- Completed: `ticket.advance_flow` still delegates tenant filtering to the lifecycle use case after registry resolution.
+- Pending: cross-tenant raw action DB fixture.
+- Risks: registry does not replace tenant-scoped repository checks.
+- Next recommended step: add cross-tenant action processor fixture.
+
+## 2026-05-09 Stage 3R — Action Definition Tenant Note
+
+- Changed: action metadata centralizes which registered actions can execute side effects.
+- Completed: tenant-scoped mutation still happens only inside handlers after registry and permission checks.
+- Pending: cross-tenant processor fixture.
+- Risks: metadata does not replace tenant id filters in repositories.
+- Next recommended step: add raw action fixture for tenant-scoped handler lookups.
+
+## 2026-05-09 Stage 3S — Tenant Context Action Derivation
+
+- Changed: allowed real actions in Context Packs are derived only after tenant-scoped context is loaded.
+- Completed: ticket actions are only included when a tenant-owned ticket context exists.
+- Pending: fixture proving cross-tenant/missing ticket contexts do not expose ticket side-effect actions.
+- Risks: prepared-only action list still depends on assembler rules.
+- Next recommended step: add Context Pack fixture for no-ticket versus ticket action availability.

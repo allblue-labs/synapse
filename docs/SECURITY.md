@@ -480,3 +480,91 @@ Not yet configured. Required before production:
 - Pending: runtime output schema validation and signed/attributed runtime recommendation checks.
 - Risks: governance is only effective when callers use the governance service rather than raw queue publication.
 - Next recommended step: hide raw action enqueue behind module-internal APIs and add lint/review rule for real action paths.
+
+## 2026-05-09 Stage 3I — Runtime Output Action Planning Security
+
+- Changed: future runtime output is treated as untrusted input before action enqueue.
+- Completed: planner rejects malformed output, avoids raw payload persistence, requires audit-safe decision summaries, enforces allowed-action scope, validates supported flow states, and propagates permission denials from action governance.
+- Pending: signed/authorized runtime result ingestion, service actor scoping, DB-backed cross-tenant rejection fixtures, and sensitive-output masking at the callback boundary.
+- Risks: if future integrations enqueue actions directly instead of using the planner, runtime suggestions could bypass confidence and RBAC checks.
+- Next recommended step: make execution-result ingestion call the planner as the only production path from runtime output to Pulse action jobs.
+
+## 2026-05-09 Stage 3J — Runtime Result Ingestion Security
+
+- Changed: runtime result ingestion now validates the target execution is tenant-scoped and belongs to Pulse before lifecycle transition or action planning.
+- Completed: non-Pulse execution requests are rejected; non-success statuses do not plan actions; timeline payloads record status/action summary without raw provider payloads.
+- Pending: signed callback validation, runtime service actor permissions, replay/idempotency fixtures, and provider output masking at the ingress adapter.
+- Risks: the use case must remain behind a trusted adapter; exposing it directly would allow unsafe lifecycle transitions.
+- Next recommended step: require `RuntimeSignatureService` validation before any external result can call this path.
+
+## 2026-05-09 Stage 3K — Signed Runtime Callback Security
+
+- Changed: Pulse runtime result callback now validates HMAC signatures before ingestion.
+- Completed: `RuntimeSignatureService` verifies required headers, allowed key id, timestamp tolerance, canonical request body, and uses constant-time signature comparison. Missing shared secret fails closed.
+- Pending: replay nonce/idempotency persistence, key rotation, per-runtime key scoping, server-side actor snapshot resolution, and callback e2e coverage with raw body.
+- Risks: timestamp tolerance reduces replay risk but does not replace a durable replay store.
+- Next recommended step: add callback replay tracking keyed by signature/idempotency before provider callbacks are enabled.
+
+## 2026-05-09 Stage 3L — Stored Actor Snapshot Security
+
+- Changed: callback-provided actor authorization was removed from Pulse runtime result ingestion.
+- Completed: successful runtime result ingestion requires a stored actor snapshot on the execution request; missing snapshots reject before lifecycle transition/action planning.
+- Pending: DB fixtures proving snapshot persistence and callback rejection; replay tracking; key rotation.
+- Risks: actor snapshots can become stale if long-running executions outlive permission changes. This is acceptable for V1 auditability but should be governed by execution TTLs.
+- Next recommended step: define execution TTL and snapshot freshness policy before real provider callbacks.
+
+## 2026-05-09 Stage 3M — Runtime Result Fixture Security
+
+- Changed: persisted tests now cover critical runtime-result security assumptions.
+- Completed: fixtures assert cross-tenant ingestion is denied and missing actor snapshots do not transition successful results into action planning.
+- Pending: signed HTTP callback fixture, replay store fixture, and key rotation tests.
+- Risks: unit and skipped DB fixtures do not replace production monitoring for callback abuse.
+- Next recommended step: implement replay protection keyed by callback signature/timestamp/execution id.
+
+## 2026-05-09 Stage 3N — Action Worker Permission Revalidation
+
+- Changed: real action side effects now have worker-side RBAC defense-in-depth.
+- Completed: `PulseActionsProcessor` rejects real handler execution when actor metadata is missing or required permissions are absent.
+- Pending: persisted worker-side rejection fixture and handler registry.
+- Risks: prepared-only action lifecycle events are still allowed without handler permissions because no side effects occur.
+- Next recommended step: require every future side-effect handler to declare a rule before registration.
+
+## 2026-05-09 Stage 3O — Terminal Action Governance Failures
+
+- Changed: worker-side RBAC failures are now terminal queue failures.
+- Completed: failed action timeline/failure payloads mark governance denials as non-retryable, reducing repeated processing of known-invalid jobs.
+- Pending: validation-error classification and alerting policy for repeated unauthorized queue publication.
+- Risks: malicious or buggy publishers can still create failed jobs; monitoring must watch non-retryable governance failures.
+- Next recommended step: add operational metric/alert for `non_retryable_governance` action failures.
+
+## 2026-05-09 Stage 3P — Strict Action Payload AppSec
+
+- Changed: `ticket.advance_flow` rejects unexpected payload fields and invalid typed fields before any ticket mutation.
+- Completed: raw provider payload-like fields are blocked as unsupported fields in this action payload.
+- Pending: reusable action schema validation and observability for `non_retryable_validation`.
+- Risks: future handlers must not accept unrestricted JSON payloads.
+- Next recommended step: require every real action handler to declare strict payload schema before registration.
+
+## 2026-05-09 Stage 3Q — Action Registry Security Note
+
+- Changed: real handler resolution is centralized in a Pulse-owned registry.
+- Completed: only registered handlers can apply side effects; unknown allowed actions remain prepared-only.
+- Pending: require permissions and schema metadata during handler registration.
+- Risks: registry without metadata still relies on separate shared rule tables.
+- Next recommended step: reject registration for real handlers missing schema/permission metadata.
+
+## 2026-05-09 Stage 3R — Action Metadata Security
+
+- Changed: real action permission metadata now lives on handler definitions.
+- Completed: enqueue and worker permission checks use the same registry definition, reducing rule drift.
+- Pending: schema metadata still needs to move from handler code into definitions.
+- Risks: usage candidate metadata is advisory only and must not trigger billing until billing mapper exists.
+- Next recommended step: add schema references to action definitions.
+
+## 2026-05-09 Stage 3S — Context Pack Action Security
+
+- Changed: runtime action suggestions are constrained by an enum derived from allowed actions.
+- Completed: registered real actions and prepared-only actions are exposed through the Context Pack; runtime output cannot claim arbitrary recommended action names under the declared schema.
+- Pending: full payload schema derivation for action arguments.
+- Risks: schema is advisory until runtime result validation enforces it completely.
+- Next recommended step: validate runtime output against `requiredOutputSchema` before planner execution.

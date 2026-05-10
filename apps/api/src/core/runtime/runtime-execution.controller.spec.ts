@@ -44,7 +44,15 @@ describe('RuntimeExecutionController', () => {
         tenantId: 'tenant-a',
         moduleSlug: 'pulse',
         actorUserId: 'user-1',
-        metadata: undefined,
+        permissions: expect.arrayContaining(['tickets:write']),
+        metadata: {
+          actorSnapshot: {
+            userId: 'user-1',
+            email: 'user@example.com',
+            role: 'OPERATOR',
+            permissions: expect.arrayContaining(['tickets:write']),
+          },
+        },
       },
       requestType: 'pulse.flow.advance',
       idempotencyKey: 'idem-1',

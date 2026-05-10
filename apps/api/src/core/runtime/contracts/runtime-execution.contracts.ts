@@ -27,6 +27,7 @@ export type RuntimeLifecycleCallbackContract = {
 };
 
 export interface RuntimeExecutionLifecycleStore {
+  getRequest(tenantId: string, executionId: string): Promise<ExecutionRequestContract>;
   request(input: {
     context: TenantExecutionContext;
     requestType: string;

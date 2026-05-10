@@ -39,4 +39,62 @@ describe('RuntimeSignatureService', () => {
       body: '{}',
     })).toThrow('Synapse Runtime shared secret is not configured.');
   });
+
+  it('accepts valid signed runtime requests', () => {
+    const service = new RuntimeSignatureService({
+      get: (key: string) => ({
+        SYNAPSE_RUNTIME_SHARED_SECRET: 'secretsecretsecretsecretsecretsecret12',
+        SYNAPSE_RUNTIME_KEY_ID: 'platform',
+        SYNAPSE_RUNTIME_SIGNATURE_TOLERANCE_SECONDS: 300,
+      })[key],
+    } as never);
+    const body = '{"status":"SUCCEEDED"}';
+    const headers = service.sign({
+      method: 'POST',
+      path: '/v1/pulse/runtime/results',
+      body,
+      timestamp: 1778241600,
+    });
+
+    expect(() => service.assertValid({
+      method: 'POST',
+      path: '/v1/pulse/runtime/results',
+      body,
+      headers,
+      now: 1778241600,
+    })).not.toThrow();
+  });
+
+  it('rejects invalid or stale signed runtime requests', () => {
+    const service = new RuntimeSignatureService({
+      get: (key: string) => ({
+        SYNAPSE_RUNTIME_SHARED_SECRET: 'secretsecretsecretsecretsecretsecret12',
+        SYNAPSE_RUNTIME_KEY_ID: 'platform',
+        SYNAPSE_RUNTIME_SIGNATURE_TOLERANCE_SECONDS: 300,
+      })[key],
+    } as never);
+    const body = '{"status":"SUCCEEDED"}';
+    const headers = service.sign({
+      method: 'POST',
+      path: '/v1/pulse/runtime/results',
+      body,
+      timestamp: 1778241600,
+    });
+
+    expect(() => service.assertValid({
+      method: 'POST',
+      path: '/v1/pulse/runtime/results',
+      body: '{"status":"FAILED"}',
+      headers,
+      now: 1778241600,
+    })).toThrow('Runtime signature is invalid.');
+
+    expect(() => service.assertValid({
+      method: 'POST',
+      path: '/v1/pulse/runtime/results',
+      body,
+      headers,
+      now: 1778242201,
+    })).toThrow('Runtime signature timestamp is outside the allowed window.');
+  });
 });

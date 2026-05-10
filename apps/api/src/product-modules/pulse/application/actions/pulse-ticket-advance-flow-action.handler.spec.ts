@@ -80,4 +80,27 @@ describe('PulseTicketAdvanceFlowActionHandler', () => {
 
     expect(tickets.advanceFlowState).not.toHaveBeenCalled();
   });
+
+  it('rejects unsupported payload fields before mutating tickets', async () => {
+    const handler = new PulseTicketAdvanceFlowActionHandler(tickets as never);
+
+    await expect(handler.execute({
+      tenantId: 'tenant-1',
+      idempotencyKey: 'idem-1',
+      requestedAt: '2026-05-09T12:00:00.000Z',
+      action: 'ticket.advance_flow',
+      ticketId: 'ticket-1',
+      payload: {
+        actor: {
+          userId: 'user-1',
+          email: 'operator@example.com',
+          role: 'tenant_operator',
+        },
+        nextState: 'collect_context',
+        rawProviderPayload: { unsafe: true },
+      },
+    })).rejects.toThrow('unsupported field');
+
+    expect(tickets.advanceFlowState).not.toHaveBeenCalled();
+  });
 });

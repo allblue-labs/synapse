@@ -7,6 +7,7 @@ import {QueueModule} from '../../modules/queue/queue.module';
 import {UsageModule} from '../../modules/usage/usage.module';
 import {RuntimeModule} from '../../core/runtime/runtime.module';
 import {PulseController} from './pulse.controller';
+import {PulseRuntimeResultController} from './pulse-runtime-result.controller';
 import {ListQueueUseCase} from './application/use-cases/list-queue.use-case';
 import {GetEntryUseCase} from './application/use-cases/get-entry.use-case';
 import {ListChannelsUseCase} from './application/use-cases/list-channels.use-case';
@@ -26,8 +27,11 @@ import {TicketLifecycleUseCase} from './application/use-cases/ticket-lifecycle.u
 import {PulseKnowledgeContextUseCase} from './application/use-cases/pulse-knowledge-context.use-case';
 import {PulseSchedulingIntegrationUseCase} from './application/use-cases/pulse-scheduling-integration.use-case';
 import {AssemblePulseContextUseCase} from './application/use-cases/assemble-pulse-context.use-case';
+import {IngestPulseRuntimeResultUseCase} from './application/use-cases/ingest-pulse-runtime-result.use-case';
 import {PulseTicketAdvanceFlowActionHandler} from './application/actions/pulse-ticket-advance-flow-action.handler';
+import {PulseActionHandlerRegistry} from './application/actions/pulse-action-handler.registry';
 import {PulseActionGovernanceService} from './application/actions/pulse-action-governance.service';
+import {PulseRuntimeActionPlannerService} from './application/actions/pulse-runtime-action-planner.service';
 import {PulseRepository} from './infrastructure/repositories/pulse.repository';
 import {PulseOperationalEventRepository} from './infrastructure/repositories/pulse-operational-event.repository';
 import {PulseTicketRepository} from './infrastructure/repositories/pulse-ticket.repository';
@@ -76,6 +80,7 @@ const USE_CASES = [
   PulseKnowledgeContextUseCase,
   PulseSchedulingIntegrationUseCase,
   AssemblePulseContextUseCase,
+  IngestPulseRuntimeResultUseCase,
 ];
 
 @Module({
@@ -90,7 +95,7 @@ const USE_CASES = [
       ...Object.values(PULSE_QUEUES).map((name) => ({name})),
     ),
   ],
-  controllers: [PulseController],
+  controllers: [PulseController, PulseRuntimeResultController],
   providers: [
     ...USE_CASES,
     PulseProcessor,
@@ -98,8 +103,10 @@ const USE_CASES = [
     PulseExecutionProcessor,
     PulseTimelineProcessor,
     PulseActionsProcessor,
+    PulseActionHandlerRegistry,
     PulseTicketAdvanceFlowActionHandler,
     PulseActionGovernanceService,
+    PulseRuntimeActionPlannerService,
     PulseQueueService,
     {provide: PULSE_REPOSITORY, useClass: PulseRepository},
     {provide: PULSE_OPERATIONAL_EVENT_REPOSITORY, useClass: PulseOperationalEventRepository},
@@ -112,6 +119,13 @@ const USE_CASES = [
     {provide: AI_EXTRACTOR, useClass: AiExtractorAdapter},
     {provide: AUDIO_TRANSCRIBER, useClass: AudioTranscriberAdapter},
   ],
-  exports: [CreateEntryUseCase, AssemblePulseContextUseCase, PulseQueueService, PulseActionGovernanceService],
+  exports: [
+    CreateEntryUseCase,
+    AssemblePulseContextUseCase,
+    IngestPulseRuntimeResultUseCase,
+    PulseQueueService,
+    PulseActionGovernanceService,
+    PulseRuntimeActionPlannerService,
+  ],
 })
 export class PulseModule {}

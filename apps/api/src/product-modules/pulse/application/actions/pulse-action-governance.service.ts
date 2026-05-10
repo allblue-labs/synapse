@@ -1,34 +1,28 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { Permission } from '@synapse/contracts';
 import { PulseQueueService } from '../../infrastructure/queues/pulse-queue.service';
 import { PulseActionJob } from '../../infrastructure/queues/pulse-queue.contracts';
+import { PulseActionHandlerRegistry } from './pulse-action-handler.registry';
 
-type ActionGovernanceRule = {
-  permissions: Permission[];
-};
-
-const ACTION_RULES: Readonly<Record<string, ActionGovernanceRule>> = {
-  'ticket.advance_flow': {
-    permissions: ['tickets:write'],
-  },
-};
 
 @Injectable()
 export class PulseActionGovernanceService {
-  constructor(private readonly queues: PulseQueueService) {}
+  constructor(
+    private readonly queues: PulseQueueService,
+    private readonly handlers: PulseActionHandlerRegistry,
+  ) {}
 
   async enqueue(input: Omit<PulseActionJob, 'requestedAt' | 'idempotencyKey'> & {
     idempotencyKey?: string;
   }) {
-    const rule = ACTION_RULES[input.action];
-    if (!rule) {
+    const definition = this.handlers.definition(input.action);
+    if (!definition) {
       throw new ForbiddenException(`Pulse action is not governed for enqueue: ${input.action}`);
     }
     if (!input.actor) {
       throw new ForbiddenException(`Pulse action requires actor metadata: ${input.action}`);
     }
 
-    const missing = rule.permissions.filter((permission) => !input.actor?.permissions.includes(permission));
+    const missing = definition.permissions.filter((permission) => !input.actor?.permissions.includes(permission));
     if (missing.length > 0) {
       throw new ForbiddenException(`Missing required action permission(s): ${missing.join(', ')}`);
     }

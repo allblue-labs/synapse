@@ -37,6 +37,12 @@ export interface PulseContextJob extends PulseQueueJobBase {
   ticketId?: string;
   playbookKey?: string;
   knowledgeLimit?: number;
+  actor?: {
+    userId: string;
+    email: string;
+    role: AuthRole;
+    permissions: Permission[];
+  };
 }
 
 export interface PulseExecutionJob extends PulseQueueJobBase {

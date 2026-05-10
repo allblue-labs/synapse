@@ -17,9 +17,20 @@ describe('AssemblePulseContextUseCase', () => {
   const repository: jest.Mocked<IPulseContextRepository> = {
     load: jest.fn(),
   };
+  const actionHandlers = {
+    definitions: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.resetAllMocks();
+    actionHandlers.definitions.mockReturnValue([
+      {
+        action: 'ticket.advance_flow',
+        permissions: ['tickets:write'],
+        validationFailureClass: 'non_retryable_validation',
+        usageCandidate: 'workflow_run',
+      },
+    ]);
   });
 
   it('assembles an audit-safe tenant-scoped Pulse context pack', async () => {
@@ -93,7 +104,7 @@ describe('AssemblePulseContextUseCase', () => {
       timeline: [],
     });
 
-    const useCase = new AssemblePulseContextUseCase(repository);
+    const useCase = new AssemblePulseContextUseCase(repository, actionHandlers as never);
     const context = await useCase.execute({
       tenantId: 'tenant-1',
       skill: 'SCHEDULER',
@@ -120,6 +131,15 @@ describe('AssemblePulseContextUseCase', () => {
       ],
     });
     expect(context.allowedActions).toContain('ticket.advance_flow');
+    expect(context.requiredOutputSchema).toMatchObject({
+      properties: {
+        recommendedActions: {
+          items: {
+            enum: expect.arrayContaining(['ticket.advance_flow']),
+          },
+        },
+      },
+    });
     expect(context.securityHints.join(' ')).toContain('chain-of-thought');
   });
 
@@ -134,7 +154,7 @@ describe('AssemblePulseContextUseCase', () => {
       timeline: [],
     });
 
-    const useCase = new AssemblePulseContextUseCase(repository);
+    const useCase = new AssemblePulseContextUseCase(repository, actionHandlers as never);
 
     await expect(useCase.execute({
       tenantId: 'tenant-a',

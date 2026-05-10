@@ -1,7 +1,11 @@
-import { BadRequestException, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Job } from 'bullmq';
-import { PulseTicketAdvanceFlowActionHandler } from '../../application/actions/pulse-ticket-advance-flow-action.handler';
+import { Job, UnrecoverableError } from 'bullmq';
+import { PulseActionHandlerRegistry } from '../../application/actions/pulse-action-handler.registry';
+import {
+  PulseActionPayloadValidationException,
+} from '../../application/actions/pulse-ticket-advance-flow-action.handler';
+import { PulseActionFailureClass } from '../../domain/ports/pulse-action-handler.port';
 import { PULSE_EVENT_TYPES } from '../../domain/pulse-event-types';
 import {
   PULSE_QUEUES,
@@ -27,7 +31,7 @@ export class PulseActionsProcessor extends WorkerHost {
 
   constructor(
     private readonly queues: PulseQueueService,
-    private readonly advanceFlowHandler: PulseTicketAdvanceFlowActionHandler,
+    private readonly handlers: PulseActionHandlerRegistry,
   ) {
     super();
   }
@@ -75,6 +79,7 @@ export class PulseActionsProcessor extends WorkerHost {
 
       const handler = this.handlerFor(job.data.action);
       if (handler) {
+        this.assertHandlerPermissions(job.data);
         const result = await handler.execute(job.data);
         await this.queues.enqueueTimeline({
           tenantId: job.data.tenantId,
@@ -120,8 +125,13 @@ export class PulseActionsProcessor extends WorkerHost {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown Pulse action dispatch error';
+      const failureClass = this.failureClass(error);
+      const retryable = failureClass === 'retryable';
       this.logger.error(`Pulse action job failed: ${message}`);
-      await this.recordFailure(job, message);
+      await this.recordFailure(job, message, failureClass);
+      if (!retryable) {
+        throw new UnrecoverableError(message);
+      }
       throw error;
     }
   }
@@ -142,12 +152,40 @@ export class PulseActionsProcessor extends WorkerHost {
   }
 
   private handlerFor(action: string) {
-    return this.advanceFlowHandler.canHandle(action)
-      ? this.advanceFlowHandler
-      : null;
+    return this.handlers.find(action);
   }
 
-  private async recordFailure(job: Job<PulseActionJob>, reason: string) {
+  private assertHandlerPermissions(job: PulseActionJob) {
+    const definition = this.handlers.definition(job.action);
+    if (!definition) {
+      throw new ForbiddenException(`Pulse action is not governed for execution: ${job.action}`);
+    }
+    if (!job.actor) {
+      throw new ForbiddenException(`Pulse action requires actor metadata before execution: ${job.action}`);
+    }
+
+    const missing = definition.permissions.filter((permission) => !job.actor?.permissions.includes(permission));
+    if (missing.length > 0) {
+      throw new ForbiddenException(`Missing required action permission(s): ${missing.join(', ')}`);
+    }
+  }
+
+  private failureClass(error: unknown) {
+    if (error instanceof ForbiddenException) {
+      return 'non_retryable_governance';
+    }
+    if (error instanceof PulseActionPayloadValidationException) {
+      return 'non_retryable_validation';
+    }
+    return 'retryable';
+  }
+
+  private async recordFailure(
+    job: Job<PulseActionJob>,
+    reason: string,
+    failureClass: PulseActionFailureClass = 'retryable',
+  ) {
+    const retryable = failureClass === 'retryable';
     await this.queues.enqueueFailed({
       tenantId: job.data.tenantId,
       idempotencyKey: `pulse.failed:${job.data.tenantId}:${job.id ?? job.data.idempotencyKey}`,
@@ -158,6 +196,8 @@ export class PulseActionsProcessor extends WorkerHost {
         action: job.data.action,
         conversationId: job.data.conversationId,
         ticketId: job.data.ticketId,
+        failureClass,
+        retryable,
       },
     });
 
@@ -172,6 +212,8 @@ export class PulseActionsProcessor extends WorkerHost {
         action: job.data.action,
         reason,
         failedJobId: String(job.id ?? ''),
+        failureClass,
+        retryable,
       },
       metadata: {
         source: PULSE_QUEUES.ACTIONS,

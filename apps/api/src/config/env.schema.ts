@@ -25,5 +25,6 @@ export const envSchema = z.object({
   REQUEST_BODY_LIMIT: z.string().default('1mb'),
   SYNAPSE_RUNTIME_URL: z.string().url().optional(),
   SYNAPSE_RUNTIME_SHARED_SECRET: z.string().min(32).optional(),
-  SYNAPSE_RUNTIME_KEY_ID: z.string().default('platform')
+  SYNAPSE_RUNTIME_KEY_ID: z.string().default('platform'),
+  SYNAPSE_RUNTIME_SIGNATURE_TOLERANCE_SECONDS: z.coerce.number().int().positive().default(300)
 });

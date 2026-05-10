@@ -22,13 +22,14 @@ export class RuntimeExecutionLifecycleService implements RuntimeExecutionLifecyc
     idempotencyKey?: string;
     input: Record<string, unknown>;
   }): Promise<ExecutionRequestContract> {
+    const context = this.withActorSnapshot(input.context);
     const data = {
-      tenantId: input.context.tenantId,
-      moduleSlug: input.context.moduleSlug,
+      tenantId: context.tenantId,
+      moduleSlug: context.moduleSlug,
       requestType: input.requestType,
       status: ExecutionStatus.REQUESTED,
       idempotencyKey: input.idempotencyKey,
-      context: this.maskSensitive(input.context) as Prisma.InputJsonValue,
+      context: this.maskSensitive(context) as Prisma.InputJsonValue,
       input: this.maskSensitive(input.input) as Prisma.InputJsonValue,
     };
 
@@ -69,6 +70,16 @@ export class RuntimeExecutionLifecycleService implements RuntimeExecutionLifecyc
       throw new NotFoundException('Runtime execution request not found.');
     }
     return this.toResponseContract(record);
+  }
+
+  async getRequest(tenantId: string, executionId: string): Promise<ExecutionRequestContract> {
+    const record = await this.prisma.executionRequest.findFirst({
+      where: { tenantId, id: executionId },
+    });
+    if (!record) {
+      throw new NotFoundException('Runtime execution request not found.');
+    }
+    return this.toRequestContract(record);
   }
 
   async transition(input: {
@@ -218,6 +229,31 @@ export class RuntimeExecutionLifecycleService implements RuntimeExecutionLifecyc
       'secret',
       'token',
     ].some((sensitive) => normalized.includes(sensitive));
+  }
+
+  private withActorSnapshot(context: TenantExecutionContext): TenantExecutionContext {
+    if (!context.actorUserId && !context.permissions?.length) {
+      return context;
+    }
+
+    return {
+      ...context,
+      metadata: {
+        ...(context.metadata ?? {}),
+        actorSnapshot: {
+          userId: context.actorUserId,
+          permissions: context.permissions ?? [],
+          ...(this.objectValue(context.metadata?.actorSnapshot) ?? {}),
+        },
+      },
+    };
+  }
+
+  private objectValue(value: unknown) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return undefined;
+    }
+    return value as Record<string, unknown>;
   }
 
   private toRequestContract(record: {

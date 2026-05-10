@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
+import { UnrecoverableError } from 'bullmq';
 import { PulseActionsProcessor } from './pulse-actions.processor';
 import { PULSE_QUEUES, PulseActionJob } from '../queues/pulse-queue.contracts';
+import { PulseActionPayloadValidationException } from '../../application/actions/pulse-ticket-advance-flow-action.handler';
 
 function createJob(overrides: Partial<PulseActionJob> = {}) {
   return {
@@ -23,17 +25,32 @@ describe('PulseActionsProcessor', () => {
     enqueueFailed: jest.fn(),
   };
   const advanceFlowHandler = {
+    definition: {
+      action: 'ticket.advance_flow',
+      permissions: ['tickets:write'],
+      validationFailureClass: 'non_retryable_validation',
+    },
     canHandle: jest.fn().mockReturnValue(false),
     execute: jest.fn(),
+  };
+  const registry = {
+    find: jest.fn(),
+    definition: jest.fn(),
   };
 
   beforeEach(() => {
     jest.resetAllMocks();
     advanceFlowHandler.canHandle.mockReturnValue(false);
+    registry.find.mockImplementation((action) => (
+      advanceFlowHandler.canHandle(action) ? advanceFlowHandler : null
+    ));
+    registry.definition.mockImplementation((action) => (
+      advanceFlowHandler.canHandle(action) ? advanceFlowHandler.definition : null
+    ));
   });
 
   it('projects allowed actions as prepared no-side-effect timeline events', async () => {
-    const processor = new PulseActionsProcessor(queues as never, advanceFlowHandler as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never);
 
     await processor.process(createJob() as never);
 
@@ -73,11 +90,17 @@ describe('PulseActionsProcessor', () => {
       sideEffectsApplied: true,
       result: { ticketId: 'ticket-1', status: 'OPEN' },
     });
-    const processor = new PulseActionsProcessor(queues as never, advanceFlowHandler as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never);
 
     await processor.process(createJob({
       action: 'ticket.advance_flow',
       idempotencyKey: 'pulse.actions:tenant-1:ticket-1:advance',
+      actor: {
+        userId: 'user-1',
+        email: 'operator@example.com',
+        role: 'tenant_operator',
+        permissions: ['tickets:write'],
+      },
       payload: {
         actor: {
           userId: 'user-1',
@@ -106,8 +129,94 @@ describe('PulseActionsProcessor', () => {
     }));
   });
 
+  it('rejects real handlers when the queued actor snapshot lacks required permissions', async () => {
+    advanceFlowHandler.canHandle.mockImplementation((action) => action === 'ticket.advance_flow');
+    const processor = new PulseActionsProcessor(queues as never, registry as never);
+
+    await expect(processor.process(createJob({
+      action: 'ticket.advance_flow',
+      idempotencyKey: 'pulse.actions:tenant-1:ticket-1:advance',
+      actor: {
+        userId: 'user-1',
+        email: 'viewer@example.com',
+        role: 'tenant_viewer',
+        permissions: ['tickets:read'],
+      },
+      payload: {
+        actor: {
+          userId: 'user-1',
+          email: 'viewer@example.com',
+          role: 'tenant_viewer',
+        },
+        nextState: 'collect_context',
+      },
+    }) as never)).rejects.toBeInstanceOf(UnrecoverableError);
+
+    expect(advanceFlowHandler.execute).not.toHaveBeenCalled();
+    expect(queues.enqueueFailed).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'tenant-1',
+      failedQueue: PULSE_QUEUES.ACTIONS,
+      reason: 'Missing required action permission(s): tickets:write',
+      payload: expect.objectContaining({
+        failureClass: 'non_retryable_governance',
+        retryable: false,
+      }),
+    }));
+    expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'pulse.action.failed',
+      payload: expect.objectContaining({
+        action: 'ticket.advance_flow',
+        reason: 'Missing required action permission(s): tickets:write',
+        failureClass: 'non_retryable_governance',
+        retryable: false,
+      }),
+    }));
+  });
+
+  it('classifies invalid real action payloads as non-retryable validation failures', async () => {
+    advanceFlowHandler.canHandle.mockImplementation((action) => action === 'ticket.advance_flow');
+    advanceFlowHandler.execute.mockRejectedValue(
+      new PulseActionPayloadValidationException('ticket.advance_flow requires supported nextState.'),
+    );
+    const processor = new PulseActionsProcessor(queues as never, registry as never);
+
+    await expect(processor.process(createJob({
+      action: 'ticket.advance_flow',
+      idempotencyKey: 'pulse.actions:tenant-1:ticket-1:advance',
+      actor: {
+        userId: 'user-1',
+        email: 'operator@example.com',
+        role: 'tenant_operator',
+        permissions: ['tickets:write'],
+      },
+      payload: {
+        actor: {
+          userId: 'user-1',
+          email: 'operator@example.com',
+          role: 'tenant_operator',
+        },
+        nextState: 'not_a_real_state',
+      },
+    }) as never)).rejects.toBeInstanceOf(UnrecoverableError);
+
+    expect(queues.enqueueFailed).toHaveBeenCalledWith(expect.objectContaining({
+      reason: 'ticket.advance_flow requires supported nextState.',
+      payload: expect.objectContaining({
+        failureClass: 'non_retryable_validation',
+        retryable: false,
+      }),
+    }));
+    expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: 'pulse.action.failed',
+      payload: expect.objectContaining({
+        failureClass: 'non_retryable_validation',
+        retryable: false,
+      }),
+    }));
+  });
+
   it('skips actions outside the allowlist without applying side effects', async () => {
-    const processor = new PulseActionsProcessor(queues as never, advanceFlowHandler as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never);
 
     await processor.process(createJob({
       action: 'provider.delete_all_data',
@@ -128,7 +237,7 @@ describe('PulseActionsProcessor', () => {
 
   it('captures action dispatch failures', async () => {
     queues.enqueueTimeline.mockRejectedValueOnce(new Error('timeline unavailable'));
-    const processor = new PulseActionsProcessor(queues as never, advanceFlowHandler as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never);
 
     await expect(processor.process(createJob() as never)).rejects.toThrow('timeline unavailable');
 
@@ -140,18 +249,22 @@ describe('PulseActionsProcessor', () => {
       payload: expect.objectContaining({
         action: 'ticket.assign',
         ticketId: 'ticket-1',
+        failureClass: 'retryable',
+        retryable: true,
       }),
     }));
     expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
       eventType: 'pulse.action.failed',
       payload: expect.objectContaining({
         reason: 'timeline unavailable',
+        failureClass: 'retryable',
+        retryable: true,
       }),
     }));
   });
 
   it('rejects malformed action jobs before enqueueing timeline events', async () => {
-    const processor = new PulseActionsProcessor(queues as never, advanceFlowHandler as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never);
 
     await expect(processor.process(createJob({ payload: [] as never }) as never))
       .rejects.toBeInstanceOf(BadRequestException);

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { permissionsForRole } from '@synapse/contracts';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { Permissions } from '../../common/authorization';
@@ -26,7 +27,16 @@ export class RuntimeExecutionController {
         tenantId,
         moduleSlug: dto.moduleSlug,
         actorUserId: user.sub,
-        metadata: dto.metadata,
+        permissions: [...permissionsForRole(user.role)],
+        metadata: {
+          ...(dto.metadata ?? {}),
+          actorSnapshot: {
+            userId: user.sub,
+            email: user.email,
+            role: user.role,
+            permissions: [...permissionsForRole(user.role)],
+          },
+        },
       },
       requestType: dto.requestType,
       idempotencyKey: dto.idempotencyKey,

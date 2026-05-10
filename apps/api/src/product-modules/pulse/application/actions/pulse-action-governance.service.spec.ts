@@ -5,14 +5,26 @@ describe('PulseActionGovernanceService', () => {
   const queues = {
     enqueueAction: jest.fn(),
   };
+  const handlers = {
+    definition: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.resetAllMocks();
+    handlers.definition.mockImplementation((action) => (
+      action === 'ticket.advance_flow'
+        ? {
+          action: 'ticket.advance_flow',
+          permissions: ['tickets:write'],
+          validationFailureClass: 'non_retryable_validation',
+        }
+        : null
+    ));
   });
 
   it('enqueues governed actions with actor metadata and permission snapshot', async () => {
     queues.enqueueAction.mockResolvedValue({ id: 'job-1' });
-    const service = new PulseActionGovernanceService(queues as never);
+    const service = new PulseActionGovernanceService(queues as never, handlers as never);
 
     await service.enqueue({
       tenantId: 'tenant-1',
@@ -52,7 +64,7 @@ describe('PulseActionGovernanceService', () => {
   });
 
   it('rejects missing permission snapshots before enqueueing', async () => {
-    const service = new PulseActionGovernanceService(queues as never);
+    const service = new PulseActionGovernanceService(queues as never, handlers as never);
 
     await expect(service.enqueue({
       tenantId: 'tenant-1',
@@ -71,7 +83,7 @@ describe('PulseActionGovernanceService', () => {
   });
 
   it('rejects actions without enqueue governance rules', async () => {
-    const service = new PulseActionGovernanceService(queues as never);
+    const service = new PulseActionGovernanceService(queues as never, handlers as never);
 
     await expect(service.enqueue({
       tenantId: 'tenant-1',

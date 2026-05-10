@@ -51,7 +51,10 @@ async function bootstrap() {
     limit: config.get<string>('REQUEST_BODY_LIMIT', '1mb'),
     verify: (req, _res, buf) => {
       const expressReq = req as typeof req & { originalUrl?: string; rawBody?: Buffer };
-      if (expressReq.originalUrl === '/v1/billing/stripe/webhook') {
+      if (
+        expressReq.originalUrl === '/v1/billing/stripe/webhook' ||
+        expressReq.originalUrl === '/v1/pulse/runtime/results'
+      ) {
         expressReq.rawBody = Buffer.from(buf);
       }
     },
@@ -83,7 +86,16 @@ async function bootstrap() {
     origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Tenant-Id', 'X-Request-Id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'X-Tenant-Id',
+      'X-Request-Id',
+      'X-Synapse-Runtime-Key-Id',
+      'X-Synapse-Runtime-Timestamp',
+      'X-Synapse-Runtime-Signature',
+    ],
     exposedHeaders: ['X-Request-Id'],
     maxAge: 86400,
   });

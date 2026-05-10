@@ -21,6 +21,8 @@ export const PULSE_EVENT_TYPES = {
   RUNTIME_EXECUTION_DISPATCH_COMPLETED: 'pulse.runtime.execution_dispatch_completed',
   RUNTIME_EXECUTION_DISPATCH_SKIPPED: 'pulse.runtime.execution_dispatch_skipped',
   RUNTIME_EXECUTION_DISPATCH_FAILED: 'pulse.runtime.execution_dispatch_failed',
+  RUNTIME_EXECUTION_RESULT_INGESTED: 'pulse.runtime.execution_result_ingested',
+  RUNTIME_ACTION_PLANNED: 'pulse.runtime.action_planned',
   ACTION_DISPATCHED: 'pulse.action.dispatched',
   ACTION_COMPLETED: 'pulse.action.completed',
   ACTION_SKIPPED: 'pulse.action.skipped',

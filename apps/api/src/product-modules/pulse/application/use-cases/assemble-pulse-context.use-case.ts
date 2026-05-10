@@ -12,6 +12,7 @@ import {
   PulseContextSourceData,
   PulseContextTimelineRecord,
 } from '../../domain/ports/pulse-context-repository.port';
+import { PulseActionHandlerRegistry } from '../actions/pulse-action-handler.registry';
 
 const SENSITIVE_KEY = /secret|token|password|credential|apiKey|authorization|raw|prompt|message|audio|media|transcript/i;
 
@@ -20,6 +21,7 @@ export class AssemblePulseContextUseCase {
   constructor(
     @Inject(PULSE_CONTEXT_REPOSITORY)
     private readonly contexts: IPulseContextRepository,
+    private readonly actionHandlers: PulseActionHandlerRegistry,
   ) {}
 
   async execute(input: PulseContextAssemblyInput): Promise<PulseContextPack> {
@@ -99,7 +101,7 @@ export class AssemblePulseContextUseCase {
         })),
       },
       allowedActions: this.allowedActions(source),
-      requiredOutputSchema: this.requiredOutputSchema(input.executionType),
+      requiredOutputSchema: this.requiredOutputSchema(input.executionType, source),
       securityHints: [
         'Respect tenant scope and never request data outside this context pack.',
         'Return audit-safe decision summaries only; do not return chain-of-thought.',
@@ -156,7 +158,9 @@ export class AssemblePulseContextUseCase {
     if (source.ticket) {
       actions.add('ticket.assign');
       actions.add('ticket.escalate');
-      actions.add('ticket.advance_flow');
+      for (const definition of this.actionHandlers.definitions()) {
+        actions.add(definition.action);
+      }
       if (source.ticket.status !== 'RESOLVED' && source.ticket.status !== 'CANCELLED') {
         actions.add('ticket.resolve');
         actions.add('ticket.cancel');
@@ -170,7 +174,8 @@ export class AssemblePulseContextUseCase {
     return [...actions].sort();
   }
 
-  private requiredOutputSchema(executionType: string) {
+  private requiredOutputSchema(executionType: string, source: PulseContextSourceData) {
+    const allowedActions = this.allowedActions(source);
     return {
       type: 'object',
       additionalProperties: false,
@@ -181,7 +186,7 @@ export class AssemblePulseContextUseCase {
         nextState: { type: 'string' },
         recommendedActions: {
           type: 'array',
-          items: { type: 'string' },
+          items: { type: 'string', enum: allowedActions },
           maxItems: 10,
         },
         executionType: { const: executionType },

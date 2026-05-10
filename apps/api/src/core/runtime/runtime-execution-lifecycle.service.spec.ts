@@ -135,6 +135,31 @@ describe('RuntimeExecutionLifecycleService', () => {
     );
   });
 
+  it('loads tenant-scoped execution requests with original input context', async () => {
+    const prisma = createPrismaMock();
+    prisma.executionRequest.findFirst.mockResolvedValue({
+      id: 'exec-1',
+      context: { tenantId: 'tenant-a', moduleSlug: 'pulse' },
+      requestType: 'pulse.advance_flow',
+      idempotencyKey: 'idem-1',
+      input: { contextPack: { module: 'pulse' } },
+      requestedAt: new Date('2026-05-08T10:00:00.000Z'),
+    });
+    const service = new RuntimeExecutionLifecycleService(prisma as never, audit as never);
+
+    await expect(service.getRequest('tenant-a', 'exec-1')).resolves.toEqual({
+      id: 'exec-1',
+      context: { tenantId: 'tenant-a', moduleSlug: 'pulse' },
+      requestType: 'pulse.advance_flow',
+      idempotencyKey: 'idem-1',
+      input: { contextPack: { module: 'pulse' } },
+      requestedAt: '2026-05-08T10:00:00.000Z',
+    });
+    expect(prisma.executionRequest.findFirst).toHaveBeenCalledWith({
+      where: { tenantId: 'tenant-a', id: 'exec-1' },
+    });
+  });
+
   it('rejects invalid lifecycle transitions before updates or audit writes', async () => {
     const prisma = createPrismaMock();
     prisma.executionRequest.findFirst.mockResolvedValue({

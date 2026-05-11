@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Sparkles,
   Ticket,
-  TimerReset,
   Workflow,
   Zap,
 } from 'lucide-react';

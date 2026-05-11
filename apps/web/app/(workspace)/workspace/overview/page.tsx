@@ -9,14 +9,12 @@ import {
   ClipboardList,
   Cpu,
   Inbox,
-  LineChart,
   Plug,
   ShieldCheck,
   Sparkles,
   Ticket,
   TimerReset,
   Workflow,
-  Zap,
 } from 'lucide-react';
 
 import {Can} from '@/components/auth/can';

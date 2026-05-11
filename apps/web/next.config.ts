@@ -9,11 +9,11 @@ const isProd = process.env.NODE_ENV === "production";
  */
 const apiOrigin = (() => {
   const raw =
-    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://192.168.1.15:5000/v1";
+    process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://synapse.allblue.lab/v1";
   try {
     return new URL(raw).origin;
   } catch {
-    return "http://192.168.1.15:5000";
+    return "http://synapse.allblue.lab/v1";
   }
 })();
 

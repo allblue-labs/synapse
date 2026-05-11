@@ -30,6 +30,7 @@ export function buildSessionCookieOptions(opts: {
     secure:   opts.isProduction,
     path:     '/',
     maxAge:   opts.maxAgeSeconds * 1000,
+    domain: process.env.NODE_ENV === 'development' ? '.allblue.lab' : undefined,
   };
 }
 

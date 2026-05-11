@@ -4,9 +4,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   CheckCircle2,
-  MessageSquare,
   Bot,
-  BarChart2,
   CalendarClock,
   Mic,
   GitBranch,
@@ -34,65 +32,6 @@ const TRUSTED_BY = [
   "Atlas Concierge",
   "Vega Practice",
   "Lumen Care",
-] as const;
-
-const MODULES = [
-  {
-    icon: MessageSquare,
-    title: "Messaging",
-    eyebrow: "Channels & inbox",
-    description:
-      "Connect WhatsApp, Telegram, Instagram and more. Unified inbox with smart routing and shared context.",
-    features: ["WhatsApp Business", "Telegram & Web", "Shared inbox"],
-    href: "#",
-    badge: "Available",
-    accent: "from-blue-500/15 to-blue-500/5",
-    iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  },
-  {
-    icon: Bot,
-    title: "Agents",
-    eyebrow: "AI orchestration",
-    description:
-      "Define agents with tools, knowledge, and guardrails. Deploy across channels and monitor every step.",
-    features: [
-      "Custom system prompts",
-      "Tool & function calling",
-      "Knowledge base",
-    ],
-    href: "#",
-    badge: "Available",
-    accent: "from-indigo-500/15 to-indigo-500/5",
-    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
-  },
-  {
-    icon: Workflow,
-    title: "Automation",
-    eyebrow: "Event-driven flows",
-    description:
-      "Build workflows that execute across modules. Triggers, conditions, and human-in-the-loop approval.",
-    features: ["Event triggers", "Conditional branches", "Webhooks"],
-    href: "#",
-    badge: "Beta",
-    accent: "from-amber-500/15 to-amber-500/5",
-    iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  },
-  {
-    icon: BarChart2,
-    title: "Analytics",
-    eyebrow: "Outcomes & insights",
-    description:
-      "Track conversation outcomes, agent performance, and conversion. Export to your warehouse.",
-    features: [
-      "Real-time metrics",
-      "Conversion funnels",
-      "Snowflake / BQ export",
-    ],
-    href: "#",
-    badge: "Coming soon",
-    accent: "from-emerald-500/15 to-emerald-500/5",
-    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  },
 ] as const;
 
 const FEATURES = [

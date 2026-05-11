@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { useTranslator } from "@/components/providers/locale-provider";
 import { LanguageToggle } from "@/components/i18n/language-toggle";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo } from "react";
 
 const NAV_LINKS: ReadonlyArray<{ label: MessageKey; href: string }> = [
   { label: "publicNav.modules", href: "#modules" },

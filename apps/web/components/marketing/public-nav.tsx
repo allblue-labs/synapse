@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import {useState, useEffect} from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import {ArrowRight, Sun, Moon, Monitor, Menu, X} from 'lucide-react';
-import {useTheme} from 'next-themes';
-import {cn} from '@/lib/utils';
-import {useTranslator} from '@/components/providers/locale-provider';
-import {LanguageToggle} from '@/components/i18n/language-toggle';
-import type {MessageKey} from '@/lib/i18n/messages';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { ArrowRight, Sun, Moon, Monitor, Menu, X } from "lucide-react";
+import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
+import { useTranslator } from "@/components/providers/locale-provider";
+import { LanguageToggle } from "@/components/i18n/language-toggle";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useMemo } from "react";
 
-const NAV_LINKS: ReadonlyArray<{label: MessageKey; href: string}> = [
-  {label: 'publicNav.modules',  href: '/modules'},
-  {label: 'publicNav.features', href: '/#features'},
-  {label: 'publicNav.pricing',  href: '/pricing'},
-  {label: 'publicNav.docs',     href: '#'},
+const NAV_LINKS: ReadonlyArray<{ label: MessageKey; href: string }> = [
+  { label: "publicNav.modules", href: "#modules" },
+  { label: "publicNav.features", href: "#features" },
+  { label: "publicNav.pricing", href: "#pricing" },
 ] as const;
 
 function ThemeButton() {
-  const {theme, setTheme} = useTheme();
+  const { theme, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -26,9 +26,13 @@ function ThemeButton() {
   if (!mounted) return <div className="h-9 w-9" />;
 
   const icon =
-    theme === 'light' ? <Sun size={15} /> :
-    theme === 'dark'  ? <Moon size={15} /> :
-                        <Monitor size={15} />;
+    theme === "light" ? (
+      <Sun size={15} />
+    ) : theme === "dark" ? (
+      <Moon size={15} />
+    ) : (
+      <Monitor size={15} />
+    );
 
   return (
     <div className="relative">
@@ -46,20 +50,23 @@ function ThemeButton() {
           <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-card backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/95">
             {(
               [
-                ['light',  <Sun     key="s"  size={13} />, 'Light'],
-                ['dark',   <Moon    key="m"  size={13} />, 'Dark'],
-                ['system', <Monitor key="mo" size={13} />, 'System'],
+                ["light", <Sun key="s" size={13} />, "Light"],
+                ["dark", <Moon key="m" size={13} />, "Dark"],
+                ["system", <Monitor key="mo" size={13} />, "System"],
               ] as const
             ).map(([t, icon, label]) => (
               <button
                 key={t}
                 type="button"
-                onClick={() => { setTheme(t); setOpen(false); }}
+                onClick={() => {
+                  setTheme(t);
+                  setOpen(false);
+                }}
                 className={cn(
-                  'flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors',
+                  "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors",
                   theme === t
-                    ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
-                    : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800',
+                    ? "bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
+                    : "text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800",
                 )}
               >
                 {icon} {label}
@@ -76,25 +83,50 @@ export function PublicNav() {
   const t = useTranslator();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 8);
     fn();
-    window.addEventListener('scroll', fn, {passive: true});
-    return () => window.removeEventListener('scroll', fn);
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
+  }, []);
+
+  useEffect(() => {
+    const sections = ["modules", "features", "pricing"];
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id);
+          }
+        });
+      },
+      {
+        rootMargin: "-40% 0px -40% 0px",
+        threshold: 0.1,
+      },
+    );
+
+    sections.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   return (
     <header
       className={cn(
-        'sticky top-0 z-50 transition-all duration-300',
+        "sticky top-0 z-50 transition-all duration-300",
         scrolled
-          ? 'border-b border-zinc-200/70 bg-white/80 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/80'
-          : 'border-b border-transparent bg-transparent',
+          ? "border-b border-zinc-200/70 bg-white/80 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/80"
+          : "border-b border-transparent bg-transparent",
       )}
     >
       <div className="mx-auto flex h-[68px] max-w-7xl items-center px-6">
-
         {/* Logo — prominent */}
         <Link
           href="/"
@@ -116,16 +148,26 @@ export function PublicNav() {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden flex-1 items-center gap-1 md:flex">
-          {NAV_LINKS.map(({label, href}) => (
-            <a
-              key={label}
-              href={href}
-              className="rounded-md px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-            >
-              {t(label)}
-            </a>
-          ))}
+        <nav className="hidden flex-1 items-center gap-6 md:flex">
+          {NAV_LINKS.map(({ label, href }) => {
+            const sectionId = href.replace("#", "");
+            const active = activeSection === sectionId;
+
+            return (
+              <a
+                key={label}
+                href={href}
+                className={cn(
+                  "relative text-sm font-semibold transition-colors duration-300",
+                  active
+                    ? "text-zinc-900 dark:text-zinc-100"
+                    : "text-zinc-400 hover:text-zinc-500 dark:text-zinc-500 dark:hover:text-zinc-400",
+                )}
+              >
+                {t(label)}
+              </a>
+            );
+          })}
         </nav>
 
         <div className="ml-auto md:ml-0" />
@@ -138,14 +180,17 @@ export function PublicNav() {
             href="/login"
             className="rounded-lg px-3.5 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
           >
-            {t('publicNav.signIn')}
+            {t("publicNav.signIn")}
           </Link>
           <Link
             href="/login"
             className="group inline-flex h-9 items-center gap-1.5 rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white shadow-soft transition-all hover:bg-zinc-800 hover:shadow-card dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
           >
-            {t('publicNav.getStarted')}
-            <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+            {t("publicNav.getStarted")}
+            <ArrowRight
+              size={13}
+              className="transition-transform group-hover:translate-x-0.5"
+            />
           </Link>
         </div>
 
@@ -164,7 +209,7 @@ export function PublicNav() {
       {mobileOpen && (
         <div className="border-t border-zinc-200 bg-white px-6 py-4 md:hidden dark:border-zinc-800 dark:bg-zinc-950">
           <nav className="flex flex-col gap-1">
-            {NAV_LINKS.map(({label, href}) => (
+            {NAV_LINKS.map(({ label, href }) => (
               <a
                 key={label}
                 href={href}
@@ -179,13 +224,13 @@ export function PublicNav() {
                 href="/login"
                 className="rounded-lg border border-zinc-200 px-3 py-2 text-center text-sm font-medium text-zinc-800 dark:border-zinc-700 dark:text-zinc-200"
               >
-                {t('publicNav.signIn')}
+                {t("publicNav.signIn")}
               </Link>
               <Link
                 href="/login"
                 className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white dark:bg-white dark:text-zinc-900"
               >
-                {t('publicNav.getStarted')} <ArrowRight size={13} />
+                {t("publicNav.getStarted")} <ArrowRight size={13} />
               </Link>
             </div>
           </nav>

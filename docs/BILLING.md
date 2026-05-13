@@ -509,3 +509,11 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: include usage candidates in runtime/action telemetry only after metering policy is defined.
 - Risks: exposing usage hints to runtime must remain advisory, not billing authority.
 - Next recommended step: map usage candidates server-side on completed handler results.
+
+## 2026-05-09 Stage 3T — Runtime Output Billing Safety
+
+- Changed: invalid runtime outputs are rejected before lifecycle success and before action planning.
+- Completed: malformed successful callbacks cannot enqueue action jobs that might later become usage-metering candidates.
+- Pending: usage metering mapper for completed, valid side-effect handlers.
+- Risks: validation failures are not billable usage events and should remain visible only through audit/operational telemetry.
+- Next recommended step: map usage candidates server-side only after successful handler completion.

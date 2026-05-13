@@ -674,3 +674,11 @@ Last updated: 2026-05-07
 - Pending: full schema derivation from action definitions.
 - Risks: planner still has action-specific logic for `ticket.advance_flow`.
 - Next recommended step: attach output/action schema metadata to definitions.
+
+## 2026-05-09 Stage 3T — Runtime Output Schema Enforcement
+
+- Changed: enforce the saved Pulse Context Pack output contract during runtime result ingestion.
+- Completed: successful runtime results are schema-checked before lifecycle completion and before governed actions can be planned.
+- Pending: definition-backed schemas for action-specific output/payload requirements.
+- Risks: current validator is intentionally scoped to the Pulse V1 runtime output shape.
+- Next recommended step: extend `PulseActionDefinition` with output/action schema metadata and derive Context Pack contracts from those definitions.

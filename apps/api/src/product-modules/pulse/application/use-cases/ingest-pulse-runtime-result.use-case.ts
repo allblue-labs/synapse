@@ -35,6 +35,15 @@ export class IngestPulseRuntimeResultUseCase {
 
     const contextPack = this.extractContextPack(request.input);
     const actor = this.extractActorSnapshot(request.context.metadata);
+
+    if (input.status === 'SUCCEEDED') {
+      if (!input.output) {
+        throw new BadRequestException('Pulse runtime result requires output for successful executions.');
+      }
+
+      this.validateOutputAgainstSchema(input.output, contextPack.requiredOutputSchema);
+    }
+
     const execution = await this.runtimeLifecycle.transition({
       tenantId: input.tenantId,
       executionId: input.executionRequestId,
@@ -53,7 +62,8 @@ export class IngestPulseRuntimeResultUseCase {
       return { execution, actionPlan };
     }
 
-    if (!input.output) {
+    const output = input.output;
+    if (!output) {
       throw new BadRequestException('Pulse runtime result requires output for successful executions.');
     }
 
@@ -63,7 +73,7 @@ export class IngestPulseRuntimeResultUseCase {
       ticketId: this.stringField(contextPack.ticketState, 'id'),
       conversationId: this.stringField(contextPack.conversationState, 'id'),
       allowedActions: contextPack.allowedActions,
-      output: input.output,
+      output,
       actor,
       traceId: input.traceId,
     });
@@ -95,6 +105,126 @@ export class IngestPulseRuntimeResultUseCase {
     }
 
     return contextPack as PulseContextPack;
+  }
+
+  private validateOutputAgainstSchema(output: Record<string, unknown>, schema: Record<string, unknown> | undefined) {
+    if (!schema || Object.keys(schema).length === 0) {
+      return;
+    }
+
+    const properties = this.objectField(schema, 'properties');
+    const required = this.stringArrayField(schema, 'required');
+
+    for (const key of required) {
+      if (!(key in output)) {
+        throw new BadRequestException(`Pulse runtime output is missing required field "${key}".`);
+      }
+    }
+
+    if (schema.additionalProperties === false && properties) {
+      for (const key of Object.keys(output)) {
+        if (!(key in properties)) {
+          throw new BadRequestException(`Pulse runtime output contains unsupported field "${key}".`);
+        }
+      }
+    }
+
+    if (properties?.decisionSummary) {
+      this.validateStringProperty(output, properties, 'decisionSummary');
+    }
+    if (properties?.confidence) {
+      this.validateNumberProperty(output, properties, 'confidence');
+    }
+    if (properties?.nextState) {
+      this.validateStringProperty(output, properties, 'nextState');
+    }
+    if (properties?.recommendedActions) {
+      this.validateRecommendedActions(output, properties);
+    }
+    if (properties?.executionType && 'executionType' in output) {
+      this.validateConstProperty(output, properties, 'executionType');
+    }
+  }
+
+  private validateStringProperty(
+    output: Record<string, unknown>,
+    properties: Record<string, unknown>,
+    key: string,
+  ) {
+    const property = this.objectValue(properties[key]);
+    const value = output[key];
+
+    if (property.type === 'string' && typeof value !== 'string') {
+      throw new BadRequestException(`Pulse runtime output field "${key}" must be a string.`);
+    }
+
+    if (typeof value === 'string' && typeof property.maxLength === 'number' && value.length > property.maxLength) {
+      throw new BadRequestException(`Pulse runtime output field "${key}" exceeds maxLength.`);
+    }
+  }
+
+  private validateNumberProperty(
+    output: Record<string, unknown>,
+    properties: Record<string, unknown>,
+    key: string,
+  ) {
+    const property = this.objectValue(properties[key]);
+    const value = output[key];
+
+    if (property.type === 'number' && typeof value !== 'number') {
+      throw new BadRequestException(`Pulse runtime output field "${key}" must be a number.`);
+    }
+
+    if (typeof value !== 'number') {
+      return;
+    }
+
+    if (typeof property.minimum === 'number' && value < property.minimum) {
+      throw new BadRequestException(`Pulse runtime output field "${key}" is below minimum.`);
+    }
+    if (typeof property.maximum === 'number' && value > property.maximum) {
+      throw new BadRequestException(`Pulse runtime output field "${key}" is above maximum.`);
+    }
+  }
+
+  private validateRecommendedActions(output: Record<string, unknown>, properties: Record<string, unknown>) {
+    const property = this.objectValue(properties.recommendedActions);
+    const value = output.recommendedActions;
+
+    if (property.type === 'array' && !Array.isArray(value)) {
+      throw new BadRequestException('Pulse runtime output field "recommendedActions" must be an array.');
+    }
+
+    if (!Array.isArray(value)) {
+      return;
+    }
+
+    if (typeof property.maxItems === 'number' && value.length > property.maxItems) {
+      throw new BadRequestException('Pulse runtime output field "recommendedActions" exceeds maxItems.');
+    }
+
+    const itemSchema = this.objectField(property, 'items');
+    const allowed = itemSchema ? this.stringArrayField(itemSchema, 'enum') : [];
+
+    for (const item of value) {
+      if (typeof item !== 'string') {
+        throw new BadRequestException('Pulse runtime output field "recommendedActions" must contain strings.');
+      }
+      if (allowed.length > 0 && !allowed.includes(item)) {
+        throw new BadRequestException(`Pulse runtime output recommends unsupported action "${item}".`);
+      }
+    }
+  }
+
+  private validateConstProperty(
+    output: Record<string, unknown>,
+    properties: Record<string, unknown>,
+    key: string,
+  ) {
+    const property = this.objectValue(properties[key]);
+    if ('const' in property && output[key] !== property.const) {
+      throw new BadRequestException(`Pulse runtime output field "${key}" does not match the expected value.`);
+    }
   }
 
   private extractActorSnapshot(metadata: Record<string, unknown> | undefined) {
@@ -178,5 +308,24 @@ export class IngestPulseRuntimeResultUseCase {
       return undefined;
     }
     return value[key] as string;
+  }
+
+  private objectField(value: Record<string, unknown>, key: string) {
+    return this.objectValue(value[key]);
+  }
+
+  private objectValue(value: unknown): Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return {};
+    }
+    return value as Record<string, unknown>;
+  }
+
+  private stringArrayField(value: Record<string, unknown>, key: string) {
+    const result = value[key];
+    if (!Array.isArray(result)) {
+      return [];
+    }
+    return result.filter((item): item is string => typeof item === 'string');
   }
 }

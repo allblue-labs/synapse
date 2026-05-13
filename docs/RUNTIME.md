@@ -256,3 +256,11 @@ interface PainClient {
 - Pending: runtime result schema validation and action payload schema generation.
 - Risks: schema is currently advisory unless explicitly validated on result ingestion.
 - Next recommended step: enforce Context Pack `requiredOutputSchema` during runtime result ingestion.
+
+## 2026-05-09 Stage 3T — Runtime Output Schema Enforcement
+
+- Changed: Pulse runtime result ingestion now enforces the saved Context Pack `requiredOutputSchema` for successful executions.
+- Completed: output is validated before lifecycle success, planner execution, or timeline/action projection.
+- Pending: provider/runtime retry semantics for invalid contract output and richer action payload schemas.
+- Risks: validator covers the current Pulse V1 schema subset; future runtime schemas may need a shared schema validator.
+- Next recommended step: add action/output schema metadata to action definitions and derive the required output contract from it.

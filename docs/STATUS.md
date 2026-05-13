@@ -648,3 +648,12 @@ Last updated: 2026-05-07
 - Pending: derive full per-action output/payload schema from definitions, not only the action enum.
 - Risks: prepared-only actions still come from assembler logic because they intentionally have no side-effect handler yet.
 - Next recommended step: add schema metadata to `PulseActionDefinition` and use it to generate runtime output requirements.
+
+## 2026-05-09 Stage 3T — Runtime Output Schema Enforcement
+
+- Changed: Pulse runtime result ingestion now validates successful runtime output against the saved Context Pack `requiredOutputSchema` before lifecycle transition or action planning.
+- Completed: V1 validation rejects missing required fields, unsupported fields, invalid string/number/array shapes, confidence outside range, oversized action lists, actions outside the schema enum, and mismatched optional `executionType` constants.
+- Completed: invalid successful outputs do not transition the execution, do not call the action planner, and do not publish timeline jobs.
+- Pending: replace the pragmatic V1 validator with a reusable schema utility if Context Pack schemas expand beyond the current subset.
+- Risks: validator intentionally supports the current Pulse output schema subset only; nested action payload schemas still need definition-driven metadata.
+- Next recommended step: add action/output schema metadata to `PulseActionDefinition` and derive stricter runtime output contracts from it.

@@ -205,3 +205,11 @@ Conversation messages can arrive rapidly. Future workers should use per-conversa
 - Pending: queue-time validation against schema before action planning.
 - Risks: runtime output still needs explicit schema validation at result ingestion.
 - Next recommended step: validate runtime output against Context Pack `requiredOutputSchema`.
+
+## 2026-05-09 Stage 3T — Runtime Result Queue Contract Validation
+
+- Changed: runtime result ingestion validates output before enqueueing action-planning/timeline projections.
+- Completed: invalid successful outputs do not create `pulse.actions` work and do not publish runtime action planned timeline jobs.
+- Pending: failed/runtime-invalid projection strategy if operators need sanitized visibility.
+- Risks: current rejection happens synchronously in the result ingestion path.
+- Next recommended step: add sanitized invalid-output timeline/audit projection if operational support needs it.

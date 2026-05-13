@@ -508,3 +508,11 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: do not expose permission lists to runtime unless explicitly needed.
 - Risks: runtime sees action names, not authorization grants; backend still enforces permissions.
 - Next recommended step: keep permission enforcement server-side and add schema metadata only.
+
+## 2026-05-09 Stage 3T — Runtime Output RBAC Boundary
+
+- Changed: runtime output validation blocks action names not present in the saved Context Pack schema before RBAC/action planning.
+- Completed: invalid runtime output does not reach governed enqueue checks or worker RBAC, reducing noisy denied action jobs.
+- Pending: action capability read DTOs must remain sanitized if exposed to operators.
+- Risks: schema validation complements RBAC; it does not replace server-side permission checks.
+- Next recommended step: continue enforcing permissions in enqueue governance and worker execution while adding action schema metadata.

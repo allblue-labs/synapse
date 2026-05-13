@@ -568,3 +568,11 @@ Not yet configured. Required before production:
 - Pending: full payload schema derivation for action arguments.
 - Risks: schema is advisory until runtime result validation enforces it completely.
 - Next recommended step: validate runtime output against `requiredOutputSchema` before planner execution.
+
+## 2026-05-09 Stage 3T — Runtime Output Contract Security
+
+- Changed: signed Pulse runtime results are now contract-validated before success transition or action planning.
+- Completed: invalid fields, over-broad actions, bad confidence values, and mismatched execution type hints are rejected server-side.
+- Pending: reusable schema validation for nested/action-specific payloads.
+- Risks: current validation protects the V1 output envelope, not future arbitrary JSON schemas.
+- Next recommended step: declare action output/payload schema metadata on Pulse action definitions.

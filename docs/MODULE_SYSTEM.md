@@ -544,3 +544,11 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: schema metadata on definitions.
 - Risks: prepared-only actions remain outside handler definitions by design.
 - Next recommended step: split prepared-only action definitions from side-effect handler definitions.
+
+## 2026-05-09 Stage 3T — Module-Owned Runtime Output Contract
+
+- Changed: Pulse now enforces its own runtime output contract during result ingestion.
+- Completed: Synapse lifecycle governance loads the saved execution, but Pulse validates the module-owned Context Pack schema before planning module actions.
+- Pending: action definitions should own richer schema metadata for generated output/action contracts.
+- Risks: prepared-only action contracts need their own module metadata path.
+- Next recommended step: define schema metadata for real and prepared-only Pulse actions.

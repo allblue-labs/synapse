@@ -580,3 +580,11 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: sanitized action capability DTO if frontend needs to display available actions.
 - Risks: Context Pack remains internal and should not be rendered raw in frontend.
 - Next recommended step: expose action availability through dedicated read APIs, not raw Context Packs.
+
+## 2026-05-09 Stage 3T — Runtime Output Validation UX Note
+
+- Changed: no frontend implementation changed.
+- Completed: backend now blocks malformed runtime outputs before they appear as planned actions or timeline side effects.
+- Pending: display-safe runtime result failure reasons if operators need visibility into invalid automation outputs.
+- Risks: frontend must not render raw schema-validation messages from internal runtime payloads.
+- Next recommended step: expose sanitized timeline/status DTOs for runtime validation failures when needed.

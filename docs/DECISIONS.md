@@ -1169,3 +1169,19 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Full payload schema is still not generated from action definitions.
 
 **Next recommended step:** add schema metadata to `PulseActionDefinition`.
+
+---
+
+## 2026-05-09 — Runtime output is validated before lifecycle success
+
+**Decision:** Validate successful Pulse runtime outputs against the saved Context Pack `requiredOutputSchema` before transitioning the execution to success or planning actions.
+
+**Reason:** A runtime callback can be signed and still contain malformed or over-broad output; governance must enforce the exact module-owned contract that was sent with the original request.
+
+**Consequence:** Invalid output leaves the execution in its previous state and cannot enqueue side-effect actions or timeline projections.
+
+**Status:** Implemented for the Pulse V1 output schema subset.
+
+**Risk:** Nested/action-specific payload schemas are not yet generated from action definitions.
+
+**Next recommended step:** attach output/action schema metadata to `PulseActionDefinition`.

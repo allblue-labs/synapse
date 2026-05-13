@@ -163,3 +163,9 @@ This keeps module action policy closer to the handler that owns the side effect.
 Pulse Context Pack assembly now consumes action registry definitions when exposing real side-effect actions to future runtime execution.
 
 The runtime receives a narrower action vocabulary, and backend governance/worker enforcement uses the same source for real action names.
+
+## 2026-05-09 Runtime Output Schema Enforcement
+
+Pulse runtime result ingestion now validates successful outputs against the saved module Context Pack before marking execution success or planning actions.
+
+This keeps module-owned cognitive context contracts enforceable at the Synapse governance boundary without moving Pulse-specific semantics into platform core.

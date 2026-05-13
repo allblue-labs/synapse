@@ -22,6 +22,23 @@ describe('IngestPulseRuntimeResultUseCase', () => {
     permissions: ['tickets:write' as const],
   };
 
+  const requiredOutputSchema = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['decisionSummary', 'confidence', 'nextState', 'recommendedActions'],
+    properties: {
+      decisionSummary: { type: 'string', maxLength: 1000 },
+      confidence: { type: 'number', minimum: 0, maximum: 1 },
+      nextState: { type: 'string' },
+      recommendedActions: {
+        type: 'array',
+        items: { type: 'string', enum: ['ticket.advance_flow'] },
+        maxItems: 10,
+      },
+      executionType: { const: 'advance_flow' },
+    },
+  };
+
   const contextPack = {
     version: PULSE_CONTEXT_PACK_VERSION,
     tenantId: 'tenant-1',
@@ -37,7 +54,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
     campaignContext: [],
     schedulingContext: {},
     allowedActions: ['ticket.advance_flow'],
-    requiredOutputSchema: {},
+    requiredOutputSchema,
     securityHints: [],
     usageHints: {},
     assembledAt: '2026-05-09T10:00:00.000Z',
@@ -153,6 +170,79 @@ describe('IngestPulseRuntimeResultUseCase', () => {
         skipped: [{ action: 'runtime.output', reason: 'execution_not_succeeded' }],
       },
     });
+    expect(planner.plan).not.toHaveBeenCalled();
+  });
+
+  it('rejects successful runtime output with actions outside the context schema before lifecycle transition', async () => {
+    const useCase = new IngestPulseRuntimeResultUseCase(
+      runtimeLifecycle as never,
+      planner as never,
+      queues as never,
+    );
+
+    await expect(useCase.execute({
+      tenantId: 'tenant-1',
+      executionRequestId: 'exec-1',
+      status: 'SUCCEEDED',
+      output: {
+        decisionSummary: 'Tries to use an action that was not allowed.',
+        confidence: 0.95,
+        nextState: 'collect_context',
+        recommendedActions: ['ticket.resolve'],
+      },
+    })).rejects.toThrow('unsupported action');
+
+    expect(runtimeLifecycle.transition).not.toHaveBeenCalled();
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(queues.enqueueTimeline).not.toHaveBeenCalled();
+  });
+
+  it('rejects successful runtime output with unsupported fields before action planning', async () => {
+    const useCase = new IngestPulseRuntimeResultUseCase(
+      runtimeLifecycle as never,
+      planner as never,
+      queues as never,
+    );
+
+    await expect(useCase.execute({
+      tenantId: 'tenant-1',
+      executionRequestId: 'exec-1',
+      status: 'SUCCEEDED',
+      output: {
+        decisionSummary: 'Includes an unsafe extra field.',
+        confidence: 0.95,
+        nextState: 'collect_context',
+        recommendedActions: ['ticket.advance_flow'],
+        rawProviderPayload: { secret: 'nope' },
+      },
+    })).rejects.toThrow('unsupported field');
+
+    expect(runtimeLifecycle.transition).not.toHaveBeenCalled();
+    expect(planner.plan).not.toHaveBeenCalled();
+    expect(queues.enqueueTimeline).not.toHaveBeenCalled();
+  });
+
+  it('rejects successful runtime output that does not match the execution type const', async () => {
+    const useCase = new IngestPulseRuntimeResultUseCase(
+      runtimeLifecycle as never,
+      planner as never,
+      queues as never,
+    );
+
+    await expect(useCase.execute({
+      tenantId: 'tenant-1',
+      executionRequestId: 'exec-1',
+      status: 'SUCCEEDED',
+      output: {
+        decisionSummary: 'Wrong execution type.',
+        confidence: 0.95,
+        nextState: 'collect_context',
+        recommendedActions: ['ticket.advance_flow'],
+        executionType: 'classify_intent',
+      },
+    })).rejects.toThrow('expected value');
+
+    expect(runtimeLifecycle.transition).not.toHaveBeenCalled();
     expect(planner.plan).not.toHaveBeenCalled();
   });
 

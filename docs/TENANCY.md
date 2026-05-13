@@ -523,3 +523,11 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: fixture proving cross-tenant/missing ticket contexts do not expose ticket side-effect actions.
 - Risks: prepared-only action list still depends on assembler rules.
 - Next recommended step: add Context Pack fixture for no-ticket versus ticket action availability.
+
+## 2026-05-09 Stage 3T — Tenant-Scoped Runtime Output Validation
+
+- Changed: runtime output is validated against the Context Pack saved on the tenant-scoped execution request.
+- Completed: a callback cannot use a valid tenant/execution pair to recommend actions outside that request's tenant-derived action schema.
+- Pending: DB fixture for invalid output on a tenant-scoped runtime request.
+- Risks: tenant isolation still depends on `getRequest(tenantId, executionRequestId)` and repository tenant filters for downstream mutations.
+- Next recommended step: add database fixtures for invalid output and no-ticket action availability.

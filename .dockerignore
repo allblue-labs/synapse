@@ -1,7 +1,36 @@
-node_modules
-dist
-.next
+# Dependencies
+**/node_modules
+
+# Build outputs
+**/dist
+**/.next
+**/coverage
+
+# Logs
+**/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Git
 .git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+
+# Env
 .env
-coverage
-*.log
+.env.*
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+tmp
+temp
+.cache

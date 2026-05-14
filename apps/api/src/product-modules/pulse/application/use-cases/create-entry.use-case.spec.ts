@@ -18,6 +18,7 @@ describe('CreateEntryUseCase', () => {
     };
     const queues = {
       enqueueInbound: jest.fn(),
+      enqueueTimeline: jest.fn(),
     };
     const usage = {
       record: jest.fn(),
@@ -32,6 +33,9 @@ describe('CreateEntryUseCase', () => {
       findById: jest.fn().mockResolvedValue({ id: 'conversation_1' }),
       resolve: jest.fn(),
     };
+    const schedules = {
+      decide: jest.fn().mockResolvedValue({ open: true }),
+    };
     const useCase = new CreateEntryUseCase(
       repository as never,
       queues as never,
@@ -39,6 +43,7 @@ describe('CreateEntryUseCase', () => {
       events as never,
       channels as never,
       conversations as never,
+      schedules as never,
     );
 
     await useCase.execute({
@@ -94,6 +99,7 @@ describe('CreateEntryUseCase', () => {
     };
     const queues = {
       enqueueInbound: jest.fn(),
+      enqueueTimeline: jest.fn(),
     };
     const usage = {
       record: jest.fn(),
@@ -108,6 +114,9 @@ describe('CreateEntryUseCase', () => {
       findById: jest.fn(),
       resolve: jest.fn().mockResolvedValue({ id: 'conversation_1' }),
     };
+    const schedules = {
+      decide: jest.fn().mockResolvedValue({ open: true }),
+    };
     const useCase = new CreateEntryUseCase(
       repository as never,
       queues as never,
@@ -115,6 +124,7 @@ describe('CreateEntryUseCase', () => {
       events as never,
       channels as never,
       conversations as never,
+      schedules as never,
     );
 
     await useCase.execute({
@@ -157,6 +167,7 @@ describe('CreateEntryUseCase', () => {
     };
     const queues = {
       enqueueInbound: jest.fn(),
+      enqueueTimeline: jest.fn(),
     };
     const usage = {
       record: jest.fn(),
@@ -171,6 +182,9 @@ describe('CreateEntryUseCase', () => {
       findById: jest.fn().mockResolvedValue(null),
       resolve: jest.fn(),
     };
+    const schedules = {
+      decide: jest.fn().mockResolvedValue({ open: true }),
+    };
     const useCase = new CreateEntryUseCase(
       repository as never,
       queues as never,
@@ -178,6 +192,7 @@ describe('CreateEntryUseCase', () => {
       events as never,
       channels as never,
       conversations as never,
+      schedules as never,
     );
 
     await expect(useCase.execute({
@@ -190,5 +205,66 @@ describe('CreateEntryUseCase', () => {
     expect(queues.enqueueInbound).not.toHaveBeenCalled();
     expect(usage.record).not.toHaveBeenCalled();
     expect(events.record).not.toHaveBeenCalled();
+  });
+
+  it('records and queues a waiting interaction when Pulse is outside business hours', async () => {
+    const repository = {
+      create: jest.fn().mockResolvedValue(createEntry()),
+    };
+    const queues = {
+      enqueueInbound: jest.fn(),
+      enqueueTimeline: jest.fn(),
+    };
+    const usage = {
+      record: jest.fn(),
+    };
+    const events = {
+      record: jest.fn(),
+    };
+    const channels = {
+      upsert: jest.fn(),
+    };
+    const conversations = {
+      findById: jest.fn().mockResolvedValue({ id: 'conversation_1' }),
+      resolve: jest.fn(),
+    };
+    const schedules = {
+      decide: jest.fn().mockResolvedValue({
+        open: false,
+        reason: 'outside_business_hours',
+        closedMessage: 'We are closed.',
+        nextOpeningAt: new Date('2026-05-15T09:00:00.000Z'),
+      }),
+    };
+    const useCase = new CreateEntryUseCase(
+      repository as never,
+      queues as never,
+      usage as never,
+      events as never,
+      channels as never,
+      conversations as never,
+      schedules as never,
+    );
+
+    await useCase.execute({
+      tenantId: 'tenant_a',
+      contactPhone: '+15551234567',
+      originalMessage: 'Need help',
+      conversationId: 'conversation_1',
+    });
+
+    expect(queues.enqueueInbound).not.toHaveBeenCalled();
+    expect(events.record).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'tenant_a',
+      eventType: 'pulse.schedule.outside_business_hours',
+      conversationId: 'conversation_1',
+    }));
+    expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'tenant_a',
+      eventType: 'pulse.schedule.waiting_interaction_enqueued',
+      payload: expect.objectContaining({
+        closedMessage: 'We are closed.',
+      }),
+    }));
   });
 });

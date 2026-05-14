@@ -264,3 +264,44 @@ interface PainClient {
 - Pending: provider/runtime retry semantics for invalid contract output and richer action payload schemas.
 - Risks: validator covers the current Pulse V1 schema subset; future runtime schemas may need a shared schema validator.
 - Next recommended step: add action/output schema metadata to action definitions and derive the required output contract from it.
+
+## 2026-05-14 Stage 4A — Runtime Governance Reminder
+
+- Changed: platform-owned module/usage governance helpers now exist for future runtime request boundaries.
+- Completed: modules can ask Synapse whether a module feature can be used and whether usage can be consumed.
+- Pending: wire these helpers into runtime execution governance before external provider execution is enabled.
+- Risks: runtime must not trust module-owned context for billing/credit decisions.
+- Next recommended step: call `canUseModuleFeature` and `consumeUsageOrReject` from runtime execution governance.
+
+## 2026-05-14 Stage 4B — Membership Runtime Governance Note
+
+- Changed: workspace selection provides a clearer tenant/user boundary for future runtime requests.
+- Completed: selected sessions are tenant-scoped to a validated membership before tenant runtime routes are used.
+- Pending: runtime execution governance should resolve live membership permissions, not only JWT role snapshots.
+- Risks: stale sessions may contain old role snapshots after membership mutation.
+- Next recommended step: add live membership permission lookup/cache to runtime governance and route guards.
+
+## 2026-05-14 Stage 4C — Runtime Permission Resolution
+
+- Changed: route guards now resolve live membership permissions before runtime execution routes can be authorized.
+- Completed: runtime route permissions use the same resolver/cache path as other tenant routes.
+- Pending: runtime execution governance internals should also call the resolver when evaluating saved actor snapshots.
+- Risks: saved actor snapshots may still contain historical permissions and need explicit expiry/revalidation policy.
+- Next recommended step: revalidate actor snapshots before runtime side-effect planning.
+
+## 2026-05-14 Stage 4D — Runtime Auth Fixture Note
+
+- Changed: authorization DB fixture covers the guard/resolver path runtime routes depend on.
+- Completed: stale session role snapshots are not authoritative in route authorization.
+- Pending: revalidation of saved runtime actor snapshots.
+- Risks: runtime callbacks may still use historical actor snapshots until revalidation is added.
+- Next recommended step: revalidate saved actor permissions at runtime result planning.
+
+## 2026-05-14 Stage 4E — Runtime Actor Snapshot Revalidation
+
+- Changed: Pulse runtime result ingestion revalidates saved actor snapshots before planning actions.
+- Completed: runtime result lifecycle success no longer implies side-effect authorization.
+- Completed: current membership permissions decide automatic Pulse action enqueue.
+- Pending: DB fixture for actor downgrade between execution request and result callback.
+- Risks: saved actor snapshots remain historical and should not be reused as current authorization elsewhere.
+- Next recommended step: apply the same revalidation pattern to other runtime-driven side effects as they are added.

@@ -1,5 +1,6 @@
 import { ExecutionStatus, PulseTicketStatus, PulseTicketType } from '@prisma/client';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { PermissionResolverService } from '../../../../common/authorization';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
 import {
   databaseFixtureIds,
@@ -42,6 +43,23 @@ describeDatabase('Pulse runtime result ingestion database fixtures', () => {
     connected = true;
     await resetTenantFixtures(prisma, tenantIds);
     await seedTwoTenants(prisma, ids);
+    await prisma.user.upsert({
+      where: { id: actorSnapshot.userId },
+      create: {
+        id: actorSnapshot.userId,
+        email: actorSnapshot.email,
+        name: 'Runtime Fixture Operator',
+        passwordHash: 'fixture-hash',
+      },
+      update: {},
+    });
+    await prisma.userMembership.create({
+      data: {
+        tenantId: ids.tenantA,
+        userId: actorSnapshot.userId,
+        role: 'OPERATOR',
+      },
+    });
 
     lifecycle = new RuntimeExecutionLifecycleService(
       prisma,
@@ -56,6 +74,7 @@ describeDatabase('Pulse runtime result ingestion database fixtures', () => {
         new PulseActionGovernanceService(actionQueue as never, registry),
       ),
       timelineQueue as never,
+      new PermissionResolverService(prisma),
     );
   });
 
@@ -71,6 +90,7 @@ describeDatabase('Pulse runtime result ingestion database fixtures', () => {
   afterAll(async () => {
     if (connected) {
       await resetTenantFixtures(prisma, tenantIds);
+      await prisma.user.deleteMany({ where: { id: actorSnapshot.userId } });
       await prisma.$disconnect();
     }
   });

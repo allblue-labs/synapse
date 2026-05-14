@@ -169,3 +169,33 @@ The runtime receives a narrower action vocabulary, and backend governance/worker
 Pulse runtime result ingestion now validates successful outputs against the saved module Context Pack before marking execution success or planning actions.
 
 This keeps module-owned cognitive context contracts enforceable at the Synapse governance boundary without moving Pulse-specific semantics into platform core.
+
+## 2026-05-14 Platform Governance and Pulse Operations Boundary
+
+Synapse platform services own commercial and security governance: subscriptions, credits, quotas, tenant limits, module access, plan enforcement, RBAC, audit, and AppSec.
+
+Pulse owns only operational data and behavior. The new Pulse schedule model covers business hours, temporary closure state, operational pause, closed-message preparation, and next opening metadata without embedding subscription or credit rules.
+
+## 2026-05-14 Membership CRUD and Workspace Sessions
+
+Tenant access now has an explicit membership-management surface and a workspace selection endpoint.
+
+The selected session still carries a role snapshot for compatibility, but the backend now has the membership CRUD foundation needed to move permission resolution to live membership data.
+
+## 2026-05-14 Live Membership Permission Resolution
+
+`PermissionsGuard` now asks a backend resolver for the effective permission set.
+
+Tenant permissions come from `UserMembership`, are accelerated through Redis with a short TTL, and fall back to PostgreSQL. JWT role remains useful for session context and audit comparison, but not as the sole authorization source.
+
+## 2026-05-14 Authorization Database Fixtures
+
+Authorization now has opt-in database fixtures for stale JWT downgrade and cross-tenant membership resolution.
+
+These fixtures are skipped by default and run with `RUN_DATABASE_TESTS=1` when a migrated Postgres database is available.
+
+## 2026-05-14 Runtime Actor Revalidation
+
+Runtime actor snapshots are now attribution records, not authorization authorities.
+
+Pulse result ingestion revalidates the actor against live membership permissions before automatic actions are planned, keeping runtime callbacks aligned with current RBAC.

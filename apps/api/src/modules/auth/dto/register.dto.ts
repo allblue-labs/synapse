@@ -1,14 +1,20 @@
-import { IsEmail, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MinLength, ValidateIf } from 'class-validator';
 
 export class RegisterDto {
+  @ValidateIf((dto: RegisterDto) => !!dto.tenantSlug)
   @IsString()
   @IsNotEmpty()
-  tenantName!: string;
+  tenantName?: string;
 
+  @ValidateIf((dto: RegisterDto) => !!dto.tenantName)
   @IsString()
   @IsNotEmpty()
   @Matches(/^[a-z0-9-]{3,48}$/)
-  tenantSlug!: string;
+  tenantSlug?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  createTenant?: boolean;
 
   @IsString()
   @IsNotEmpty()

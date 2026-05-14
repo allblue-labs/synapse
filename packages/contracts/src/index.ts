@@ -229,7 +229,7 @@ export type ChannelStatus = 'ACTIVE' | 'DISCONNECTED' | 'NEEDS_ATTENTION';
 export type MessageDirection = 'INBOUND' | 'OUTBOUND' | 'SYSTEM';
 export type MessageAuthorType = 'CONTACT' | 'AGENT' | 'HUMAN' | 'SYSTEM';
 export type BillingStatus = 'TRIALING' | 'ACTIVE' | 'PAST_DUE' | 'CANCELED' | 'UNPAID' | 'INCOMPLETE';
-export type BillingPlanKey = 'light' | 'pro' | 'premium';
+export type BillingPlanKey = 'trial' | 'light' | 'pro' | 'premium';
 export type UsageMetricType =
   | 'AI_CALL'
   | 'AUDIO_TRANSCRIPTION'
@@ -432,6 +432,12 @@ export type CurrentUser = {
     name: string;
     slug: string;
   };
+  memberships?: Array<{
+    tenantId: string;
+    tenantName: string;
+    tenantSlug: string;
+    role: UserRole;
+  }>;
 };
 
 export type BillingAccountSummary = {

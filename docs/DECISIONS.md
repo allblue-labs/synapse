@@ -1185,3 +1185,99 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Nested/action-specific payload schemas are not yet generated from action definitions.
 
 **Next recommended step:** attach output/action schema metadata to `PulseActionDefinition`.
+
+---
+
+## 2026-05-14 — Synapse owns commercial governance, modules own operations
+
+**Decision:** Keep subscription, credit, quota, billing, tenant limit, module access, plan enforcement, RBAC, audit, and AppSec decisions in platform services.
+
+**Reason:** Product modules must remain extractable operational layers and must not embed Synapse commercial policy.
+
+**Consequence:** Pulse can own business hours, closure windows, workflow state, context, and operational events, but asks platform services for module/usage governance.
+
+**Status:** Implemented for tenant creation limits, module tier checks, credit helper contracts, and Pulse operational schedule foundation.
+
+**Risk:** Existing JWT/session shape still carries a role snapshot; membership-based session selection remains pending.
+
+**Next recommended step:** finish membership CRUD and explicit workspace/session switching.
+
+---
+
+## 2026-05-14 — RLS remains hybrid until Prisma session strategy is validated
+
+**Decision:** Do not blindly enable PostgreSQL RLS in this step.
+
+**Reason:** Current Prisma queries already rely on app-level tenant filters, and RLS requires a reliable per-transaction `app.current_tenant_id` strategy before activation.
+
+**Consequence:** Tenant isolation remains enforced in guards/repositories with tenant indexes; RLS is documented as a complement, not a replacement.
+
+**Status:** Hybrid strategy retained.
+
+**Risk:** Database superuser/service-role access still requires operational controls.
+
+**Next recommended step:** add a scoped RLS spike/fixture for one low-risk tenant table.
+
+---
+
+## 2026-05-14 — Workspace selection issues tenant-scoped sessions
+
+**Decision:** Add an explicit workspace selection endpoint that validates membership before issuing a tenant-scoped session cookie.
+
+**Reason:** Users can own or belong to multiple workspaces, and registration may produce tenantless users.
+
+**Consequence:** Frontend can authenticate once, read available memberships, then choose a workspace without assuming automatic tenant creation.
+
+**Status:** Implemented through `POST /v1/auth/workspace`.
+
+**Risk:** Route permission checks still consume the role snapshot in the selected JWT.
+
+**Next recommended step:** make `PermissionsGuard` resolve permissions from live membership data with cache.
+
+---
+
+## 2026-05-14 — Permissions resolve from live membership data
+
+**Decision:** Route permission checks resolve tenant permissions from `UserMembership` via `PermissionResolverService`.
+
+**Reason:** Membership is the source of truth for tenant authorization; JWT role snapshots can become stale after role updates.
+
+**Consequence:** Redis is used as a short-lived authorization hotpath, but Prisma remains the source of truth and membership mutations invalidate the affected cache key.
+
+**Status:** Implemented for tenant route permissions.
+
+**Risk:** Role definitions are still enum-backed and not yet persisted/configurable.
+
+**Next recommended step:** add persistent role/permission management models and fixtures for stale-session permission changes.
+
+---
+
+## 2026-05-14 — Authorization DB fixtures are opt-in
+
+**Decision:** Keep permission resolver database fixtures behind `RUN_DATABASE_TESTS=1`.
+
+**Reason:** They need a real Postgres database with current migrations, while the default unit suite should remain fast and local.
+
+**Consequence:** Normal tests compile the fixture but skip execution; database-enabled runs can validate stale-session and cross-tenant behavior.
+
+**Status:** Implemented.
+
+**Risk:** Fixture value depends on running it regularly in a database-enabled lane.
+
+**Next recommended step:** add a DB fixture CI job once infrastructure is ready.
+
+---
+
+## 2026-05-14 — Runtime actor snapshots must be revalidated before actions
+
+**Decision:** Treat saved actor snapshots as historical attribution, not current authorization.
+
+**Reason:** Runtime callbacks can arrive after membership permissions changed, so automatic side effects must use live authorization state.
+
+**Consequence:** Pulse result ingestion revalidates the snapshot actor through `PermissionResolverService`; stale permissions cannot enqueue actions.
+
+**Status:** Implemented for Pulse runtime result ingestion.
+
+**Risk:** Successful runtime execution can produce a skipped action plan when authorization changed.
+
+**Next recommended step:** add DB fixture coverage for runtime actor downgrade.

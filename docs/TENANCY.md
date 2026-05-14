@@ -531,3 +531,45 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: DB fixture for invalid output on a tenant-scoped runtime request.
 - Risks: tenant isolation still depends on `getRequest(tenantId, executionRequestId)` and repository tenant filters for downstream mutations.
 - Next recommended step: add database fixtures for invalid output and no-ticket action availability.
+
+## 2026-05-14 Stage 4A — Tenant Lifecycle Limits
+
+- Changed: tenant/workspace creation is now an explicit lifecycle operation and may be performed by a tenantless authenticated user.
+- Completed: creation is blocked when the user's owner memberships already meet the active plan's `maxTenants` entitlement.
+- Completed: new workspaces start on Trial billing account state unless later upgraded by platform billing flows.
+- Pending: explicit workspace selection for users with multiple memberships and full membership CRUD.
+- Risks: current limit calculation uses owned workspaces as the user-level subscription proxy until user-level subscriptions are modeled.
+- Next recommended step: add membership CRUD and workspace/session selection APIs.
+
+## 2026-05-14 Stage 4B — Membership Tenant Boundary
+
+- Changed: tenant membership CRUD is tenant-scoped under `/v1/tenant/memberships`.
+- Completed: all membership reads and mutations require the current tenant context and target membership lookup includes tenant id.
+- Completed: workspace selection rejects users who are not members of the requested tenant.
+- Pending: DB-backed cross-tenant membership fixture.
+- Risks: platform admins still need intentional tenant context when operating inside tenant boundaries.
+- Next recommended step: add database fixtures for cross-tenant membership update/delete denial.
+
+## 2026-05-14 Stage 4C — Tenant Permission Cache Boundary
+
+- Changed: membership permission cache keys include both tenant id and user id.
+- Completed: permission resolution loads membership by `(tenantId, userId)` and cannot reuse another tenant's cached permissions.
+- Pending: cross-tenant cache fixture.
+- Risks: cache is per app Redis namespace; production deployments should isolate Redis credentials per environment.
+- Next recommended step: test tenant A cache entries cannot authorize tenant B routes.
+
+## 2026-05-14 Stage 4D — Tenant Authorization DB Fixture
+
+- Changed: added fixture proving one user's membership role is resolved separately per tenant.
+- Completed: tenant A admin membership does not leak into tenant B viewer membership.
+- Pending: run fixture against live database.
+- Risks: database fixture execution depends on local/CI Postgres availability.
+- Next recommended step: include authorization DB fixtures in the database test runbook.
+
+## 2026-05-14 Stage 4E — Tenant Runtime Actor Revalidation
+
+- Changed: runtime action planning revalidates actor permissions with tenant id and actor user id.
+- Completed: actor permission resolution remains tenant-scoped before Pulse actions are enqueued.
+- Pending: cross-tenant runtime actor fixture.
+- Risks: saved actor snapshots from old requests without current memberships will skip actions.
+- Next recommended step: add DB fixture for missing actor membership at runtime callback time.

@@ -277,6 +277,7 @@ model Tenant {
   pulseTickets      PulseTicket[]
   pulseOperationalEvents PulseOperationalEvent[]
   pulsePlaybooks    PulsePlaybook[]
+  pulseOperationalSchedules PulseOperationalSchedule[]
   pulseKnowledgeContexts PulseKnowledgeContext[]
   pulseSkills       PulseSkill[]
   integrationSettings IntegrationSetting[]
@@ -864,6 +865,29 @@ model PulsePlaybook {
   @@unique([tenantId, key])
   @@index([tenantId, status, skill])
   @@map("pulse_playbooks")
+}
+
+model PulseOperationalSchedule {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  timezone            String   @default("UTC")
+  businessHours       Json     @default("{}")
+  temporaryClosures   Json     @default("[]")
+  holidayOverrides    Json     @default("[]")
+  vacationPeriods     Json     @default("[]")
+  operationalPause    Boolean  @default(false)
+  pauseReason         String?
+  closedMessage       String?
+  nextOpeningAt       DateTime?
+  metadata            Json     @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId])
+  @@index([tenantId, operationalPause, nextOpeningAt])
+  @@map("pulse_operational_schedules")
 }
 
 model PulseKnowledgeContext {

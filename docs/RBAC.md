@@ -516,3 +516,44 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: action capability read DTOs must remain sanitized if exposed to operators.
 - Risks: schema validation complements RBAC; it does not replace server-side permission checks.
 - Next recommended step: continue enforcing permissions in enqueue governance and worker execution while adding action schema metadata.
+
+## 2026-05-14 Stage 4A — Membership RBAC Direction
+
+- Changed: tenant creation now writes a membership owner relation instead of relying on an implicit global customer role.
+- Completed: tenantless users can exist; tenant access continues to require membership/tenant context.
+- Pending: CRUD APIs for memberships, roles, and permissions plus explicit workspace selection in auth/session.
+- Risks: route guards still resolve permissions from the JWT role snapshot for compatibility; this is not the final source of truth.
+- Next recommended step: implement membership-backed permission resolution in guards and remove controller reliance on single user role semantics.
+
+## 2026-05-14 Stage 4B — Membership Management RBAC
+
+- Changed: membership management uses the actor's tenant membership for escalation checks instead of only trusting `user.role`.
+- Completed: tenant admins cannot assign/manage roles equal to or higher than their own; owners cannot remove the last owner.
+- Pending: configurable role/permission models beyond enum-backed roles.
+- Risks: expected roles remain enum-backed (`OWNER`, `ADMIN`, `OPERATOR`, `VIEWER`) while platform names map to contract roles.
+- Next recommended step: introduce role/permission read APIs and migrate permission resolution to live membership data.
+
+## 2026-05-14 Stage 4C — Live RBAC Resolution
+
+- Changed: route RBAC now resolves tenant permissions from membership records through `PermissionResolverService`.
+- Completed: JWT role is no longer the only source of truth for tenant permissions.
+- Completed: Redis caches resolved permission sets for 60 seconds and membership mutations invalidate affected keys.
+- Pending: persisted role/permission CRUD to replace enum-only role policy.
+- Risks: platform role permissions still come from contract constants.
+- Next recommended step: add role/permission read APIs and persisted permission overrides.
+
+## 2026-05-14 Stage 4D — RBAC Fixture Coverage
+
+- Changed: added DB fixture for stale JWT downgrade and cross-tenant RBAC resolution.
+- Completed: fixture asserts effective permissions come from current membership, not the stale session role.
+- Pending: run in database-enabled environment.
+- Risks: enum-backed roles remain the policy source.
+- Next recommended step: model persisted role/permission overrides after fixture run is green.
+
+## 2026-05-14 Stage 4E — Runtime Snapshot RBAC Revalidation
+
+- Changed: runtime action planning now uses live RBAC permissions, not saved snapshot permissions alone.
+- Completed: actor snapshots remain attribution data while current membership decides action authorization.
+- Pending: persisted role/permission overrides.
+- Risks: platform role snapshots in runtime requests still need clear policy if platform actors trigger tenant actions.
+- Next recommended step: add explicit platform-actor policy for tenant runtime actions.

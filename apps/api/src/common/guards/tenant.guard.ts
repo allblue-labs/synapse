@@ -49,6 +49,12 @@ export class TenantGuard implements CanActivate {
     }
 
     if (!request.user.tenantId) {
+      const path = context.switchToHttp().getRequest<{ originalUrl?: string; url?: string }>().originalUrl ??
+        context.switchToHttp().getRequest<{ originalUrl?: string; url?: string }>().url ??
+        '';
+      if (path.includes('/modules')) {
+        throw new UnauthorizedException('You must create at least one workspace before activating modules.');
+      }
       throw new UnauthorizedException('Tenant context is required.');
     }
 

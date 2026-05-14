@@ -19,16 +19,32 @@ describe('PermissionsGuard', () => {
   const audit = {
     record: jest.fn(),
   };
+  const permissions = {
+    resolve: jest.fn(async (user: { role?: string }) => ({
+      role: user.role,
+      permissions: user.role === 'OPERATOR'
+        ? ['pulse:write', 'pulse:validate', 'pulse:retry']
+        : user.role === 'super_admin'
+          ? ['users:role.assign', 'modules:manage', 'billing:manage']
+          : user.role === 'admin'
+            ? ['platform:users:manage_customers', 'platform:users:manage_testers']
+            : user.role === 'VIEWER'
+              ? ['pulse:read']
+              : [],
+      source: user.role === 'super_admin' || user.role === 'admin' ? 'platform' : 'membership',
+    })),
+  };
 
   beforeEach(() => {
     audit.record.mockReset();
+    permissions.resolve.mockClear();
   });
 
   it('allows public routes without checking permissions', async () => {
     const reflector = {
       getAllAndOverride: jest.fn((key) => key === IS_PUBLIC_KEY),
     } as unknown as Reflector;
-    const guard = new PermissionsGuard(reflector, audit as never);
+    const guard = new PermissionsGuard(reflector, audit as never, permissions as never);
 
     await expect(guard.canActivate(createContext())).resolves.toBe(true);
   });
@@ -41,7 +57,7 @@ describe('PermissionsGuard', () => {
         return undefined;
       }),
     } as unknown as Reflector;
-    const guard = new PermissionsGuard(reflector, audit as never);
+    const guard = new PermissionsGuard(reflector, audit as never, permissions as never);
 
     await expect(guard.canActivate(createContext({ role: 'VIEWER' }))).resolves.toBe(true);
   });
@@ -54,7 +70,7 @@ describe('PermissionsGuard', () => {
         return undefined;
       }),
     } as unknown as Reflector;
-    const guard = new PermissionsGuard(reflector, audit as never);
+    const guard = new PermissionsGuard(reflector, audit as never, permissions as never);
 
     await expect(guard.canActivate(createContext({ role: 'OPERATOR' }))).resolves.toBe(true);
   });
@@ -67,7 +83,7 @@ describe('PermissionsGuard', () => {
         return undefined;
       }),
     } as unknown as Reflector;
-    const guard = new PermissionsGuard(reflector, audit as never);
+    const guard = new PermissionsGuard(reflector, audit as never, permissions as never);
 
     await expect(
       guard.canActivate(createContext({ role: 'super_admin', sub: 'admin_1' })),
@@ -93,12 +109,12 @@ describe('PermissionsGuard', () => {
     } as unknown as Reflector;
 
     await expect(
-      new PermissionsGuard(allowedReflector, audit as never).canActivate(
+      new PermissionsGuard(allowedReflector, audit as never, permissions as never).canActivate(
         createContext({ role: 'admin', sub: 'admin_1' }),
       ),
     ).resolves.toBe(true);
     await expect(
-      new PermissionsGuard(deniedReflector, audit as never).canActivate(
+      new PermissionsGuard(deniedReflector, audit as never, permissions as never).canActivate(
         createContext({ role: 'admin', sub: 'admin_1' }),
       ),
     ).rejects.toThrow(ForbiddenException);
@@ -114,7 +130,7 @@ describe('PermissionsGuard', () => {
     } as unknown as Reflector;
 
     await expect(
-      new PermissionsGuard(reflector, audit as never).canActivate(
+      new PermissionsGuard(reflector, audit as never, permissions as never).canActivate(
         createContext({ role: 'tester', sub: 'tester_1' }),
       ),
     ).rejects.toThrow(ForbiddenException);
@@ -130,7 +146,7 @@ describe('PermissionsGuard', () => {
     } as unknown as Reflector;
 
     await expect(
-      new PermissionsGuard(reflector, audit as never).canActivate(
+      new PermissionsGuard(reflector, audit as never, permissions as never).canActivate(
         createContext({ role: 'OWNER', tenantId: 'tenant_a', sub: 'owner_1' }),
       ),
     ).rejects.toThrow(ForbiddenException);
@@ -144,7 +160,7 @@ describe('PermissionsGuard', () => {
         return undefined;
       }),
     } as unknown as Reflector;
-    const guard = new PermissionsGuard(reflector, audit as never);
+    const guard = new PermissionsGuard(reflector, audit as never, permissions as never);
 
     await expect(
       guard.canActivate(createContext({
@@ -168,7 +184,7 @@ describe('PermissionsGuard', () => {
         return undefined;
       }),
     } as unknown as Reflector;
-    const guard = new PermissionsGuard(reflector, audit as never);
+    const guard = new PermissionsGuard(reflector, audit as never, permissions as never);
 
     await expect(guard.canActivate(createContext())).rejects.toThrow(ForbiddenException);
   });

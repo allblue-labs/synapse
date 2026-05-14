@@ -2,18 +2,21 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
-import { IsBoolean, IsIn, IsUrl } from 'class-validator';
+import { IsBoolean, IsEnum, IsIn, IsInt, IsObject, IsOptional, IsString, IsUrl, Min } from 'class-validator';
 import { Request } from 'express';
+import { BillingPlanStatus } from '@prisma/client';
 import { BillingPlanKey } from '@synapse/contracts';
-import { Permissions, Public } from '../../common/authorization';
+import { AllowTenantless, Permissions, Public } from '../../common/authorization';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { TenantId } from '../../common/decorators/tenant-id.decorator';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
@@ -40,6 +43,32 @@ class CreatePortalSessionDto {
   returnUrl!: string;
 }
 
+class UpsertBillingPlanDto {
+  @IsString()
+  displayName!: string;
+
+  @IsOptional()
+  @IsEnum(BillingPlanStatus)
+  status?: BillingPlanStatus;
+
+  @IsOptional()
+  @IsString()
+  commercialFeatureFlag?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  requiredPublicModules?: number;
+
+  @IsOptional()
+  @IsObject()
+  entitlements?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
+}
+
 @Controller('billing')
 export class BillingController {
   constructor(private readonly billing: BillingService) {}
@@ -54,6 +83,43 @@ export class BillingController {
   @Get('plans')
   plans() {
     return this.billing.listPlans();
+  }
+
+  @AllowTenantless()
+  @Permissions('billing:manage')
+  @Get('plans/:key')
+  getPlan(@Param('key') key: string) {
+    return this.billing.getPlan(key);
+  }
+
+  @AllowTenantless()
+  @Permissions('billing:manage')
+  @Patch('plans/:key')
+  upsertPlan(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('key') key: string,
+    @Body() dto: UpsertBillingPlanDto,
+  ) {
+    return this.billing.upsertPlan({
+      key,
+      displayName: dto.displayName,
+      status: dto.status,
+      commercialFeatureFlag: dto.commercialFeatureFlag,
+      requiredPublicModules: dto.requiredPublicModules,
+      entitlements: dto.entitlements,
+      metadata: dto.metadata,
+      actorUserId: user.sub,
+    });
+  }
+
+  @AllowTenantless()
+  @Permissions('billing:manage')
+  @Delete('plans/:key')
+  deletePlan(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('key') key: string,
+  ) {
+    return this.billing.deletePlan(key, user.sub);
   }
 
   @Public()

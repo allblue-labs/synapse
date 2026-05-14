@@ -19,6 +19,7 @@ import {
 } from '../../domain/ports/pulse-conversation-repository.port';
 import {PULSE_EVENT_TYPES} from '../../domain/pulse-event-types';
 import {PulseQueueService} from '../../infrastructure/queues/pulse-queue.service';
+import {PulseOperationalScheduleService} from '../services/pulse-operational-schedule.service';
 
 export interface CreateEntryInput {
   tenantId: string;
@@ -46,6 +47,7 @@ export class CreateEntryUseCase {
     private readonly channels: IPulseChannelRepository,
     @Inject(PULSE_CONVERSATION_REPOSITORY)
     private readonly conversations: IPulseConversationRepository,
+    private readonly schedules: PulseOperationalScheduleService,
   ) {}
 
   async execute(input: CreateEntryInput) {
@@ -55,12 +57,40 @@ export class CreateEntryUseCase {
       conversationId,
     });
 
-    await this.queues.enqueueInbound({
-      tenantId: input.tenantId,
-      entryId: entry.id,
-      conversationId: entry.conversationId,
-      idempotencyKey: `pulse.inbound:${input.tenantId}:${entry.id}`,
-    });
+    const schedule = await this.schedules.decide(input.tenantId);
+    if (schedule.open) {
+      await this.queues.enqueueInbound({
+        tenantId: input.tenantId,
+        entryId: entry.id,
+        conversationId: entry.conversationId,
+        idempotencyKey: `pulse.inbound:${input.tenantId}:${entry.id}`,
+      });
+    } else {
+      await this.events.record({
+        tenantId: input.tenantId,
+        eventType: PULSE_EVENT_TYPES.OUTSIDE_BUSINESS_HOURS,
+        conversationId: entry.conversationId ?? undefined,
+        payload: {
+          entryId: entry.id,
+          reason: schedule.reason,
+          nextOpeningAt: schedule.nextOpeningAt?.toISOString() ?? null,
+          closedMessagePrepared: Boolean(schedule.closedMessage),
+        },
+        metadata: { source: 'pulse.schedule' },
+      });
+      await this.queues.enqueueTimeline({
+        tenantId: input.tenantId,
+        conversationId: entry.conversationId ?? undefined,
+        idempotencyKey: `pulse.timeline:${input.tenantId}:${entry.id}:waiting-interaction`,
+        eventType: PULSE_EVENT_TYPES.WAITING_INTERACTION_ENQUEUED,
+        payload: {
+          entryId: entry.id,
+          nextOpeningAt: schedule.nextOpeningAt?.toISOString() ?? null,
+          closedMessage: schedule.closedMessage ?? null,
+        },
+        metadata: { source: 'pulse.schedule' },
+      });
+    }
 
     await this.usage.record({
       tenantId: input.tenantId,

@@ -38,7 +38,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     const isPlatformRole = ['super_admin', 'platform_admin', 'admin', 'tester'].includes(payload.role);
+    const isTenantlessRole = payload.role === 'tenant_viewer';
     if (!isPlatformRole && !payload.tenantId) {
+      if (isTenantlessRole) {
+        return payload;
+      }
       throw new UnauthorizedException('Invalid token payload.');
     }
 

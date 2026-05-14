@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -11,9 +12,11 @@ import {
   BillingPlanStatus,
   BillingStatus,
   ModuleCatalogStatus,
+  ModuleTier,
   ModulePurchaseStatus,
   Prisma,
   StripeWebhookEventStatus,
+  UsageMetricType,
 } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { BillingCheckoutSession, BillingPlanKey, BillingPortalSession } from '@synapse/contracts';
@@ -41,6 +44,28 @@ type CreatePortalSessionInput = {
   tenantId: string;
   actorUserId?: string;
   returnUrl: string;
+};
+
+type UpsertBillingPlanInput = {
+  key: string;
+  displayName: string;
+  status?: BillingPlanStatus;
+  commercialFeatureFlag?: string | null;
+  requiredPublicModules?: number;
+  entitlements?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  actorUserId?: string;
+};
+
+export type TenantPlanLimits = {
+  planKey: string;
+  maxTenants: number;
+  monthlyCredits: number;
+  maxUsersPerTenant: number;
+  maxModules: number;
+  maxActiveChannelSets: number;
+  allowedModuleTiers: ModuleTier[];
+  custom: Record<string, unknown>;
 };
 
 type StripeCustomerResponse = {
@@ -108,6 +133,68 @@ export class BillingService implements OnModuleInit {
         metadata: plan.metadata,
       };
     });
+  }
+
+  getPlan(key: string) {
+    return this.prisma.billingPlan.findUniqueOrThrow({
+      where: { key },
+      include: { moduleEntitlements: { include: { module: true } } },
+    });
+  }
+
+  async upsertPlan(input: UpsertBillingPlanInput) {
+    const plan = await this.prisma.billingPlan.upsert({
+      where: { key: input.key },
+      create: {
+        key: input.key,
+        displayName: input.displayName,
+        status: input.status ?? BillingPlanStatus.DRAFT,
+        commercialFeatureFlag: input.commercialFeatureFlag ?? null,
+        requiredPublicModules: input.requiredPublicModules ?? 0,
+        entitlements: (input.entitlements ?? this.defaultPlanEntitlements(input.key)) as Prisma.InputJsonValue,
+        metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
+      },
+      update: {
+        displayName: input.displayName,
+        ...(input.status ? { status: input.status } : {}),
+        commercialFeatureFlag: input.commercialFeatureFlag ?? null,
+        ...(input.requiredPublicModules !== undefined ? { requiredPublicModules: input.requiredPublicModules } : {}),
+        ...(input.entitlements ? { entitlements: input.entitlements as Prisma.InputJsonValue } : {}),
+        ...(input.metadata ? { metadata: input.metadata as Prisma.InputJsonValue } : {}),
+      },
+    });
+
+    await this.audit.record({
+      actorUserId: input.actorUserId,
+      action: AuditAction.BILLING_PLAN_UPDATED,
+      resourceType: 'BillingPlan',
+      resourceId: plan.id,
+      metadata: {
+        key: plan.key,
+        status: plan.status,
+        requiredPublicModules: plan.requiredPublicModules,
+      },
+    });
+
+    return plan;
+  }
+
+  async deletePlan(key: string, actorUserId?: string) {
+    const accounts = await this.prisma.billingAccount.count({ where: { planKey: key } });
+    if (accounts > 0) {
+      throw new ConflictException('Billing plan cannot be deleted while tenants are assigned to it.');
+    }
+
+    const plan = await this.prisma.billingPlan.delete({ where: { key } });
+    await this.audit.record({
+      actorUserId,
+      action: AuditAction.BILLING_PLAN_DELETED,
+      resourceType: 'BillingPlan',
+      resourceId: plan.id,
+      metadata: { key },
+    });
+
+    return { deleted: true, key };
   }
 
   async setFeatureFlag(
@@ -303,8 +390,30 @@ export class BillingService implements OnModuleInit {
   }
 
   async canEnableModule(tenantId: string, moduleSlug: string): Promise<boolean> {
+    return this.canUseModuleFeature({ tenantId, moduleSlug });
+  }
+
+  async isModuleEnabledForTenant(tenantId: string, moduleSlug: string): Promise<boolean> {
+    const installation = await this.prisma.tenantModuleInstallation.findFirst({
+      where: {
+        tenantId,
+        status: 'ENABLED',
+        module: { slug: moduleSlug },
+      },
+      select: { id: true },
+    });
+
+    return !!installation;
+  }
+
+  async canUseModuleFeature(input: {
+    tenantId: string;
+    moduleSlug: string;
+    feature?: string;
+    creditsRequired?: number;
+  }): Promise<boolean> {
     const module = await this.prisma.moduleCatalogItem.findUnique({
-      where: { slug: moduleSlug },
+      where: { slug: input.moduleSlug },
     });
 
     if (!module || module.status !== ModuleCatalogStatus.PUBLIC || !module.storeVisible) {
@@ -314,7 +423,7 @@ export class BillingService implements OnModuleInit {
     const purchase = await this.prisma.modulePurchase.findUnique({
       where: {
         tenantId_moduleId: {
-          tenantId,
+          tenantId: input.tenantId,
           moduleId: module.id,
         },
       },
@@ -325,7 +434,7 @@ export class BillingService implements OnModuleInit {
     }
 
     const account = await this.prisma.billingAccount.findUnique({
-      where: { tenantId },
+      where: { tenantId: input.tenantId },
       include: {
         plan: {
           include: {
@@ -355,7 +464,84 @@ export class BillingService implements OnModuleInit {
       return false;
     }
 
-    return plan.moduleEntitlements.length > 0;
+    const limits = this.limitsFromPlan(plan);
+    if (!limits.allowedModuleTiers.includes(module.tier ?? ModuleTier.FREE)) {
+      return false;
+    }
+
+    if (input.creditsRequired && input.creditsRequired > 0) {
+      const remaining = await this.remainingMonthlyCredits(input.tenantId, limits);
+      if (remaining < input.creditsRequired) {
+        return false;
+      }
+    }
+
+    return plan.moduleEntitlements.length > 0 || module.tier === ModuleTier.FREE;
+  }
+
+  async consumeUsageOrReject(input: {
+    tenantId: string;
+    moduleSlug?: string;
+    metricType: UsageMetricType;
+    quantity: number;
+    unit: string;
+    resourceType?: string;
+    resourceId?: string;
+    idempotencyKey?: string;
+    credits?: number;
+    metadata?: Record<string, unknown>;
+  }) {
+    const limits = await this.getTenantPlanLimits(input.tenantId);
+    const credits = input.credits ?? input.quantity;
+    if (credits > 0) {
+      const remaining = await this.remainingMonthlyCredits(input.tenantId, limits);
+      if (remaining < credits) {
+        throw new ForbiddenException('Monthly credit quota exceeded for this workspace.');
+      }
+    }
+
+    return this.prisma.usageEvent.create({
+      data: {
+        tenantId: input.tenantId,
+        moduleSlug: input.moduleSlug,
+        metricType: input.metricType,
+        quantity: new Prisma.Decimal(input.quantity),
+        unit: input.unit,
+        resourceType: input.resourceType,
+        resourceId: input.resourceId,
+        idempotencyKey: input.idempotencyKey,
+        billingPeriod: this.billingPeriodFor(new Date()),
+        metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
+      },
+    });
+  }
+
+  async getTenantPlanLimits(tenantId: string): Promise<TenantPlanLimits> {
+    const account = await this.prisma.billingAccount.findUnique({
+      where: { tenantId },
+      include: { plan: true },
+    });
+    if (!account) {
+      throw new NotFoundException('Billing account was not found for tenant.');
+    }
+
+    return this.limitsFromPlan(account.plan);
+  }
+
+  async assertCanCreateTenantForUser(userId: string) {
+    const ownedMemberships = await this.prisma.userMembership.findMany({
+      where: { userId, role: 'OWNER' },
+      include: { tenant: { include: { billingAccount: { include: { plan: true } } } } },
+    });
+
+    const limits = this.limitsForUserTenantCreation(ownedMemberships.map((membership) => membership.tenant.billingAccount?.plan));
+    if (ownedMemberships.length >= limits.maxTenants) {
+      throw new ForbiddenException(
+        `Workspace limit reached for your current plan. Plan ${limits.planKey} allows ${limits.maxTenants} workspace(s).`,
+      );
+    }
+
+    return limits;
   }
 
   async ensureDefaultModuleEntitlements(moduleSlug: string) {
@@ -391,11 +577,20 @@ export class BillingService implements OnModuleInit {
   private async seedCorePlans() {
     const plans = [
       {
+        key: 'trial',
+        displayName: 'Trial',
+        commercialFeatureFlag: null,
+        requiredPublicModules: 0,
+        featureEnabled: true,
+        entitlements: this.defaultPlanEntitlements('trial'),
+      },
+      {
         key: 'light',
         displayName: 'Light',
         commercialFeatureFlag: 'billing.plan.light.commercial',
         requiredPublicModules: 1,
         featureEnabled: true,
+        entitlements: this.defaultPlanEntitlements('light'),
       },
       {
         key: 'pro',
@@ -403,6 +598,7 @@ export class BillingService implements OnModuleInit {
         commercialFeatureFlag: 'billing.plan.pro.commercial',
         requiredPublicModules: 2,
         featureEnabled: false,
+        entitlements: this.defaultPlanEntitlements('pro'),
       },
       {
         key: 'premium',
@@ -410,15 +606,16 @@ export class BillingService implements OnModuleInit {
         commercialFeatureFlag: 'billing.plan.premium.commercial',
         requiredPublicModules: 3,
         featureEnabled: false,
+        entitlements: this.defaultPlanEntitlements('premium'),
       },
     ];
 
     await Promise.all(
-      plans.map((plan) =>
+      plans.filter((plan) => plan.commercialFeatureFlag).map((plan) =>
         this.prisma.billingFeatureFlag.upsert({
-          where: { key: plan.commercialFeatureFlag },
+          where: { key: plan.commercialFeatureFlag! },
           create: {
-            key: plan.commercialFeatureFlag,
+            key: plan.commercialFeatureFlag!,
             enabled: plan.featureEnabled,
           },
           update: {},
@@ -436,12 +633,11 @@ export class BillingService implements OnModuleInit {
             status: BillingPlanStatus.ACTIVE,
             commercialFeatureFlag: plan.commercialFeatureFlag,
             requiredPublicModules: plan.requiredPublicModules,
+            entitlements: plan.entitlements as Prisma.InputJsonValue,
           },
           update: {
             displayName: plan.displayName,
-            status: BillingPlanStatus.ACTIVE,
             commercialFeatureFlag: plan.commercialFeatureFlag,
-            requiredPublicModules: plan.requiredPublicModules,
           },
         }),
       ),
@@ -481,6 +677,98 @@ export class BillingService implements OnModuleInit {
       BillingStatus.INCOMPLETE,
     ];
     return billable.includes(status);
+  }
+
+  private limitsFromPlan(plan: { key: string; entitlements: Prisma.JsonValue }): TenantPlanLimits {
+    const entitlements = this.objectFromUnknown(plan.entitlements);
+    const quotas = this.objectFromUnknown(entitlements.quotas);
+    const moduleTiers = Array.isArray(entitlements.allowedModuleTiers)
+      ? entitlements.allowedModuleTiers.filter((tier): tier is ModuleTier =>
+          Object.values(ModuleTier).includes(tier as ModuleTier),
+        )
+      : this.defaultPlanEntitlements(plan.key).allowedModuleTiers;
+
+    return {
+      planKey: plan.key,
+      maxTenants: this.numberFromUnknown(quotas.maxTenants, this.defaultPlanEntitlements(plan.key).quotas.maxTenants),
+      monthlyCredits: this.numberFromUnknown(quotas.monthlyCredits, this.defaultPlanEntitlements(plan.key).quotas.monthlyCredits),
+      maxUsersPerTenant: this.numberFromUnknown(quotas.maxUsersPerTenant, this.defaultPlanEntitlements(plan.key).quotas.maxUsersPerTenant),
+      maxModules: this.numberFromUnknown(quotas.maxModules, this.defaultPlanEntitlements(plan.key).quotas.maxModules),
+      maxActiveChannelSets: this.numberFromUnknown(quotas.maxActiveChannelSets, this.defaultPlanEntitlements(plan.key).quotas.maxActiveChannelSets),
+      allowedModuleTiers: moduleTiers,
+      custom: this.objectFromUnknown(entitlements.custom),
+    };
+  }
+
+  private limitsForUserTenantCreation(plans: Array<{ key: string; entitlements: Prisma.JsonValue } | null | undefined>) {
+    if (plans.length === 0) {
+      return this.limitsFromPlan({
+        key: 'trial',
+        entitlements: this.defaultPlanEntitlements('trial') as Prisma.JsonValue,
+      });
+    }
+
+    return plans
+      .filter((plan): plan is { key: string; entitlements: Prisma.JsonValue } => !!plan)
+      .map((plan) => this.limitsFromPlan(plan))
+      .sort((a, b) => b.maxTenants - a.maxTenants)[0];
+  }
+
+  private async remainingMonthlyCredits(tenantId: string, limits: TenantPlanLimits) {
+    const used = await this.prisma.usageEvent.aggregate({
+      where: {
+        tenantId,
+        billingPeriod: this.billingPeriodFor(new Date()),
+      },
+      _sum: { quantity: true },
+    });
+    const usedCredits = Number(used._sum.quantity ?? 0);
+    return Math.max(0, limits.monthlyCredits - usedCredits);
+  }
+
+  private billingPeriodFor(date: Date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private defaultPlanEntitlements(planKey: string) {
+    const byPlan: Record<string, {
+      allowedModuleTiers: ModuleTier[];
+      quotas: {
+        maxTenants: number;
+        monthlyCredits: number;
+        maxUsersPerTenant: number;
+        maxModules: number;
+        maxActiveChannelSets: number;
+      };
+      custom: Record<string, unknown>;
+    }> = {
+      trial: {
+        allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT],
+        quotas: { maxTenants: 1, monthlyCredits: 500, maxUsersPerTenant: 1, maxModules: 1, maxActiveChannelSets: 1 },
+        custom: {},
+      },
+      light: {
+        allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT],
+        quotas: { maxTenants: 1, monthlyCredits: 3000, maxUsersPerTenant: 3, maxModules: 3, maxActiveChannelSets: 1 },
+        custom: {},
+      },
+      pro: {
+        allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT, ModuleTier.PRO],
+        quotas: { maxTenants: 2, monthlyCredits: 15000, maxUsersPerTenant: 15, maxModules: 12, maxActiveChannelSets: 5 },
+        custom: {},
+      },
+      premium: {
+        allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT, ModuleTier.PRO, ModuleTier.PREMIUM],
+        quotas: { maxTenants: 4, monthlyCredits: 60000, maxUsersPerTenant: 50, maxModules: 50, maxActiveChannelSets: 20 },
+        custom: {},
+      },
+    };
+
+    return byPlan[planKey] ?? byPlan.trial;
+  }
+
+  private numberFromUnknown(value: unknown, fallback: number) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
   }
 
   private stripePriceIdForPlan(plan: { key: string; metadata: Prisma.JsonValue }) {
@@ -859,7 +1147,7 @@ export class BillingService implements OnModuleInit {
   }
 
   private validPlanKey(value: unknown) {
-    return value === 'light' || value === 'pro' || value === 'premium'
+    return value === 'trial' || value === 'light' || value === 'pro' || value === 'premium'
       ? value
       : undefined;
   }

@@ -213,3 +213,43 @@ Conversation messages can arrive rapidly. Future workers should use per-conversa
 - Pending: failed/runtime-invalid projection strategy if operators need sanitized visibility.
 - Risks: current rejection happens synchronously in the result ingestion path.
 - Next recommended step: add sanitized invalid-output timeline/audit projection if operational support needs it.
+
+## 2026-05-14 Stage 4A — Pulse Schedule Queue Boundary
+
+- Changed: Pulse entry ingestion now checks Pulse-owned operational schedule data before enqueueing inbound processing.
+- Completed: outside-hours interactions record an operational event and enqueue a waiting timeline interaction instead of pushing the entry through normal inbound processing.
+- Pending: delayed resume processing at `nextOpeningAt`.
+- Risks: waiting interaction is currently a timeline projection, not a delayed resume worker.
+- Next recommended step: add a delayed `pulse.inbound` resume job keyed by `nextOpeningAt`.
+
+## 2026-05-14 Stage 4B — Membership Queue Note
+
+- Changed: no queue behavior changed in membership CRUD.
+- Completed: membership mutations are synchronous platform operations with audit logs.
+- Pending: cache invalidation events may be needed once membership/permission Redis hotpaths are introduced.
+- Risks: future cached permissions must be invalidated on membership create/update/delete.
+- Next recommended step: emit cache invalidation or audit-derived events when permission cache is added.
+
+## 2026-05-14 Stage 4C — Permission Cache Invalidation
+
+- Changed: membership create/update/delete now invalidates the Redis permission cache synchronously.
+- Completed: no async queue is required for current single-key invalidation.
+- Pending: distributed invalidation events if role/permission models expand to broad policy changes.
+- Risks: direct DB mutations bypass application invalidation and rely on TTL.
+- Next recommended step: add policy-change invalidation once persisted roles are introduced.
+
+## 2026-05-14 Stage 4D — Authorization Fixture Queue Note
+
+- Changed: no queue behavior changed.
+- Completed: stale-session fixture validates DB-backed resolver behavior without queue dependencies.
+- Pending: none for queues.
+- Risks: future async permission invalidation must preserve current resolver guarantees.
+- Next recommended step: keep authorization cache invalidation synchronous until broad policy invalidation requires events.
+
+## 2026-05-14 Stage 4E — Runtime Action Queue Safety
+
+- Changed: runtime action enqueue now receives live actor permissions after revalidation.
+- Completed: governance denials are converted to skipped action plans and no `pulse.actions` job is enqueued.
+- Pending: failed/skipped metrics for runtime action governance.
+- Risks: skipped action visibility currently depends on timeline projection.
+- Next recommended step: add observability counters for runtime action skipped reasons.

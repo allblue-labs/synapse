@@ -1,8 +1,9 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Permission, roleHasAllPermissions } from '@synapse/contracts';
+import { Permission } from '@synapse/contracts';
 import { AuthenticatedUser } from '../types/authenticated-user';
 import { AuditAction, AuditService } from '../audit/audit.service';
+import { PermissionResolverService } from './permission-resolver.service';
 import { IS_PUBLIC_KEY } from './public.decorator';
 import { PERMISSIONS_KEY } from './permissions.decorator';
 
@@ -26,6 +27,7 @@ export class PermissionsGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly audit: AuditService,
+    private readonly permissions: PermissionResolverService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -46,7 +48,10 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
+    const request = context.switchToHttp().getRequest<{
+      user?: AuthenticatedUser;
+      tenantId?: string;
+    }>();
     const user = request.user;
 
     if (!user?.role) {
@@ -55,16 +60,19 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('Authentication required.');
     }
 
-    const granted = roleHasAllPermissions(user.role, required);
+    const resolved = await this.permissions.resolve(user, request.tenantId ?? user.tenantId);
+    const granted = required.every((permission) => resolved.permissions.includes(permission));
     if (!granted) {
       await this.audit.record({
-        tenantId: user.tenantId,
+        tenantId: request.tenantId ?? user.tenantId,
         actorUserId: user.sub,
         action: AuditAction.AUTH_FORBIDDEN,
         resourceType: 'RoutePermission',
         metadata: {
           required,
-          role: user.role,
+          jwtRole: user.role,
+          resolvedRole: resolved.role ?? null,
+          source: resolved.source,
         },
       });
       throw new ForbiddenException(

@@ -30,6 +30,8 @@ export const PULSE_EVENT_TYPES = {
   CONTEXT_ASSEMBLY_FAILED: 'pulse.context.assembly_failed',
   UNSUPPORTED_MESSAGE_TYPE: 'pulse.unsupported_message_type',
   FLOW_TRANSITIONED: 'pulse.flow.transitioned',
+  OUTSIDE_BUSINESS_HOURS: 'pulse.schedule.outside_business_hours',
+  WAITING_INTERACTION_ENQUEUED: 'pulse.schedule.waiting_interaction_enqueued',
 } as const;
 
 export type PulseEventType = typeof PULSE_EVENT_TYPES[keyof typeof PULSE_EVENT_TYPES];

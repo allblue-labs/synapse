@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { IngestPulseRuntimeResultUseCase } from './ingest-pulse-runtime-result.use-case';
 import { PULSE_CONTEXT_PACK_VERSION } from '../../contracts/pulse.contracts';
 import { PULSE_EVENT_TYPES } from '../../domain/pulse-event-types';
@@ -13,6 +13,9 @@ describe('IngestPulseRuntimeResultUseCase', () => {
   };
   const queues = {
     enqueueTimeline: jest.fn(),
+  };
+  const permissions = {
+    resolve: jest.fn(),
   };
 
   const actor = {
@@ -85,6 +88,11 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       enqueued: [{ action: 'ticket.advance_flow', idempotencyKey: 'action-idem' }],
       skipped: [],
     });
+    permissions.resolve.mockResolvedValue({
+      role: actor.role,
+      permissions: actor.permissions,
+      source: 'membership',
+    });
   });
 
   it('loads tenant-scoped execution context, transitions lifecycle, and plans governed actions', async () => {
@@ -92,6 +100,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       runtimeLifecycle as never,
       planner as never,
       queues as never,
+      permissions as never,
     );
 
     await expect(useCase.execute({
@@ -132,6 +141,12 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       actor,
       traceId: 'trace-1',
     });
+    expect(permissions.resolve).toHaveBeenCalledWith({
+      sub: 'user-1',
+      email: 'operator@example.com',
+      role: 'tenant_operator',
+      tenantId: 'tenant-1',
+    }, 'tenant-1');
     expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: 'tenant-1',
       eventType: PULSE_EVENT_TYPES.RUNTIME_EXECUTION_RESULT_INGESTED,
@@ -156,6 +171,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       runtimeLifecycle as never,
       planner as never,
       queues as never,
+      permissions as never,
     );
 
     await expect(useCase.execute({
@@ -171,6 +187,56 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       },
     });
     expect(planner.plan).not.toHaveBeenCalled();
+    expect(permissions.resolve).not.toHaveBeenCalled();
+  });
+
+  it('revalidates actor snapshot permissions and skips runtime action planning when current permissions deny it', async () => {
+    permissions.resolve.mockResolvedValue({
+      role: 'tenant_viewer',
+      permissions: ['tickets:read'],
+      source: 'membership',
+    });
+    planner.plan.mockRejectedValue(new ForbiddenException('Missing required action permission(s): tickets:write'));
+    const useCase = new IngestPulseRuntimeResultUseCase(
+      runtimeLifecycle as never,
+      planner as never,
+      queues as never,
+      permissions as never,
+    );
+
+    await expect(useCase.execute({
+      tenantId: 'tenant-1',
+      executionRequestId: 'exec-1',
+      status: 'SUCCEEDED',
+      output: {
+        decisionSummary: 'Advance flow safely.',
+        confidence: 0.91,
+        nextState: 'collect_context',
+        recommendedActions: ['ticket.advance_flow'],
+      },
+      traceId: 'trace-1',
+    })).resolves.toEqual({
+      execution: expect.objectContaining({ id: 'exec-1', status: 'SUCCEEDED' }),
+      actionPlan: {
+        enqueued: [],
+        skipped: [{ action: 'runtime.output', reason: 'actor_permission_revalidation_failed' }],
+      },
+    });
+
+    expect(planner.plan).toHaveBeenCalledWith(expect.objectContaining({
+      actor: expect.objectContaining({
+        role: 'tenant_viewer',
+        permissions: ['tickets:read'],
+      }),
+    }));
+    expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
+      eventType: PULSE_EVENT_TYPES.RUNTIME_EXECUTION_RESULT_INGESTED,
+      payload: expect.objectContaining({
+        actionPlan: expect.objectContaining({
+          skipped: [{ action: 'runtime.output', reason: 'actor_permission_revalidation_failed' }],
+        }),
+      }),
+    }));
   });
 
   it('rejects successful runtime output with actions outside the context schema before lifecycle transition', async () => {
@@ -178,6 +244,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       runtimeLifecycle as never,
       planner as never,
       queues as never,
+      permissions as never,
     );
 
     await expect(useCase.execute({
@@ -202,6 +269,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       runtimeLifecycle as never,
       planner as never,
       queues as never,
+      permissions as never,
     );
 
     await expect(useCase.execute({
@@ -227,6 +295,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       runtimeLifecycle as never,
       planner as never,
       queues as never,
+      permissions as never,
     );
 
     await expect(useCase.execute({
@@ -258,6 +327,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       runtimeLifecycle as never,
       planner as never,
       queues as never,
+      permissions as never,
     );
 
     await expect(useCase.execute({
@@ -282,6 +352,7 @@ describe('IngestPulseRuntimeResultUseCase', () => {
       runtimeLifecycle as never,
       planner as never,
       queues as never,
+      permissions as never,
     );
 
     await expect(useCase.execute({

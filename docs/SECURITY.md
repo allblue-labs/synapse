@@ -576,3 +576,47 @@ Not yet configured. Required before production:
 - Pending: reusable schema validation for nested/action-specific payloads.
 - Risks: current validation protects the V1 output envelope, not future arbitrary JSON schemas.
 - Next recommended step: declare action output/payload schema metadata on Pulse action definitions.
+
+## 2026-05-14 Stage 4A — Governance Boundary Security
+
+- Changed: plan, quota, credit, tenant-limit, and module-tier checks are centralized in platform billing/governance services.
+- Completed: Pulse schedule handling does not read or enforce billing/subscription state.
+- Completed: tenantless users are allowed to authenticate but tenant-scoped/module routes still require a workspace; module activation without a workspace returns a clear business error.
+- Pending: full membership CRUD, permission assignment APIs, and RLS fixture validation.
+- Risks: JWT still contains a role snapshot for route permission checks; membership-based session switching must replace this as the long-term source of truth.
+- Next recommended step: implement workspace selection and membership-backed permission resolution.
+
+## 2026-05-14 Stage 4B — Membership CRUD Security
+
+- Changed: tenant membership management now validates actor membership before assignment, role changes, or removal.
+- Completed: role escalation, duplicate membership assignment, platform-user attachment, cross-tenant membership lookup, and last-owner removal are blocked.
+- Completed: forbidden membership operations write audit events.
+- Pending: live permission resolution from membership records and cache invalidation after membership updates.
+- Risks: selected sessions still carry a role snapshot until guard resolution is upgraded.
+- Next recommended step: add membership/permission cache with DB fallback and invalidate it on membership mutations.
+
+## 2026-05-14 Stage 4C — Live Authorization Security
+
+- Changed: tenant route permissions now resolve from live membership state with Redis acceleration.
+- Completed: stale JWT role snapshots no longer decide tenant permissions by themselves.
+- Completed: authorization denials record JWT role, resolved role, and permission source for audit analysis.
+- Pending: DB-backed stale-session downgrade tests.
+- Risks: direct database membership edits rely on cache TTL unless an operational invalidation path is used.
+- Next recommended step: add persisted fixtures for role downgrade while a session is active.
+
+## 2026-05-14 Stage 4D — Authorization Fixture Security
+
+- Changed: added database fixture coverage for stale-session role downgrade and tenant-specific permission resolution.
+- Completed: fixture verifies a stale admin JWT is denied after membership becomes viewer.
+- Pending: execute fixture against live Postgres in dev/CI.
+- Risks: fixture did not run locally because the configured database was unreachable.
+- Next recommended step: run DB fixtures after `docker compose up` and migrations.
+
+## 2026-05-14 Stage 4E — Runtime Actor Revalidation Security
+
+- Changed: runtime actor snapshots are revalidated before Pulse automatic actions are planned.
+- Completed: stale snapshot permissions are replaced with live resolved membership permissions.
+- Completed: action governance failures from revalidation are skipped instead of enqueueing unsafe work.
+- Pending: database fixture for runtime callback after actor downgrade.
+- Risks: timeline should make skipped automatic actions understandable without exposing raw internals.
+- Next recommended step: add sanitized timeline labels for authorization-skipped runtime actions.

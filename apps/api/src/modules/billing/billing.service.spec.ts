@@ -2,6 +2,7 @@ import {
   BillingPlanStatus,
   BillingStatus,
   ModuleCatalogStatus,
+  ModuleTier,
   ModulePurchaseStatus,
   StripeWebhookEventStatus,
 } from '@prisma/client';
@@ -22,6 +23,8 @@ function createPrismaMock() {
       upsert: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      delete: jest.fn(),
     },
     billingPlanModuleEntitlement: {
       upsert: jest.fn(),
@@ -29,6 +32,7 @@ function createPrismaMock() {
     billingAccount: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
     moduleCatalogItem: {
       findUnique: jest.fn(),
@@ -39,6 +43,13 @@ function createPrismaMock() {
     },
     stripeWebhookEvent: {
       findUnique: jest.fn(),
+      create: jest.fn(),
+    },
+    userMembership: {
+      findMany: jest.fn(),
+    },
+    usageEvent: {
+      aggregate: jest.fn(),
       create: jest.fn(),
     },
   };
@@ -95,7 +106,7 @@ describe('BillingService', () => {
     global.fetch = originalFetch;
   });
 
-  it('seeds Light, Pro, and Premium plans with commercial feature flags', async () => {
+  it('seeds Trial, Light, Pro, and Premium plans with configurable entitlements', async () => {
     const { service, prisma } = createService();
     prisma.billingFeatureFlag.upsert.mockResolvedValue({});
     prisma.billingPlan.upsert.mockResolvedValue({});
@@ -103,6 +114,18 @@ describe('BillingService', () => {
     await service.onModuleInit();
 
     expect(prisma.billingFeatureFlag.upsert).toHaveBeenCalledTimes(3);
+    expect(prisma.billingPlan.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { key: 'trial' },
+        create: expect.objectContaining({
+          key: 'trial',
+          displayName: 'Trial',
+          entitlements: expect.objectContaining({
+            quotas: expect.objectContaining({ maxTenants: 1 }),
+          }),
+        }),
+      }),
+    );
     expect(prisma.billingPlan.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { key: 'light' },
@@ -135,6 +158,7 @@ describe('BillingService', () => {
       id: 'module_pulse',
       status: ModuleCatalogStatus.PUBLIC,
       storeVisible: true,
+      tier: ModuleTier.LIGHT,
     });
     prisma.modulePurchase.findUnique.mockResolvedValue({
       status: ModulePurchaseStatus.ACTIVE,
@@ -150,12 +174,14 @@ describe('BillingService', () => {
       id: 'module_pulse',
       status: ModuleCatalogStatus.PUBLIC,
       storeVisible: true,
+      tier: ModuleTier.LIGHT,
     });
     prisma.modulePurchase.findUnique.mockResolvedValue(null);
     prisma.billingAccount.findUnique.mockResolvedValue({
       status: BillingStatus.ACTIVE,
       plan: {
         key: 'light',
+        entitlements: {},
         status: BillingPlanStatus.ACTIVE,
         moduleEntitlements: [{ id: 'entitlement_1' }],
       },
@@ -170,6 +196,63 @@ describe('BillingService', () => {
     prisma.moduleCatalogItem.count.mockResolvedValue(1);
 
     await expect(service.canEnableModule('tenant_a', 'pulse')).resolves.toBe(true);
+  });
+
+  it('rejects tenant creation when the owning user reached plan tenant limits', async () => {
+    const { service, prisma } = createService();
+    prisma.userMembership.findMany.mockResolvedValue([
+      {
+        tenant: {
+          billingAccount: {
+            plan: {
+              key: 'light',
+              entitlements: {
+                quotas: { maxTenants: 1 },
+                allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT],
+              },
+            },
+          },
+        },
+      },
+    ]);
+
+    await expect(service.assertCanCreateTenantForUser('user-1')).rejects.toThrow('Workspace limit reached');
+  });
+
+  it('denies module access when the tenant plan does not allow the module tier', async () => {
+    const { service, prisma } = createService();
+    prisma.moduleCatalogItem.findUnique.mockResolvedValue({
+      id: 'module-premium',
+      status: ModuleCatalogStatus.PUBLIC,
+      storeVisible: true,
+      tier: ModuleTier.PREMIUM,
+    });
+    prisma.modulePurchase.findUnique.mockResolvedValue(null);
+    prisma.billingAccount.findUnique.mockResolvedValue({
+      status: BillingStatus.ACTIVE,
+      plan: {
+        key: 'light',
+        entitlements: {
+          allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT],
+          quotas: { maxTenants: 1, monthlyCredits: 3000, maxUsersPerTenant: 3, maxModules: 3, maxActiveChannelSets: 1 },
+        },
+        status: BillingPlanStatus.ACTIVE,
+        moduleEntitlements: [{ id: 'entitlement_1' }],
+      },
+    });
+    prisma.billingPlan.findUnique.mockResolvedValue({
+      key: 'light',
+      status: BillingPlanStatus.ACTIVE,
+      commercialFeatureFlag: 'billing.plan.light.commercial',
+      requiredPublicModules: 1,
+    });
+    prisma.billingFeatureFlag.findUnique.mockResolvedValue({ enabled: true });
+    prisma.moduleCatalogItem.count.mockResolvedValue(1);
+
+    await expect(service.canUseModuleFeature({
+      tenantId: 'tenant-a',
+      moduleSlug: 'premium-module',
+    })).resolves.toBe(false);
   });
 
   it('denies plan-entitled modules when the commercial flag is disabled', async () => {

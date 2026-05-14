@@ -588,3 +588,43 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: display-safe runtime result failure reasons if operators need visibility into invalid automation outputs.
 - Risks: frontend must not render raw schema-validation messages from internal runtime payloads.
 - Next recommended step: expose sanitized timeline/status DTOs for runtime validation failures when needed.
+
+## 2026-05-14 Stage 4A — Frontend Contract Note
+
+- Changed: backend now supports tenantless registration/login and explicit workspace creation.
+- Completed: module activation without a workspace receives the business error: `You must create at least one workspace before activating modules.`
+- Pending: frontend owner must add workspace creation/selection flows and admin plan/quota management screens.
+- Risks: admin plan entitlement JSON should be edited through constrained forms, not raw unrestricted JSON.
+- Next recommended step: deliver frontend contracts for workspace creation and plan/quota admin forms.
+
+## 2026-05-14 Stage 4B — Workspace Selection UX Contract
+
+- Changed: `GET /v1/users/me` may include `memberships` for tenantless or platform sessions.
+- Completed: `POST /v1/auth/workspace` switches the cookie session into a selected tenant membership.
+- Pending: frontend workspace picker and account switcher integration.
+- Risks: frontend must not silently pick the first membership when multiple workspaces exist.
+- Next recommended step: frontend should show explicit workspace selection after login when no tenant is selected.
+
+## 2026-05-14 Stage 4C — Live Permission UX Note
+
+- Changed: backend authorization can reflect membership role changes before the user logs out.
+- Completed: `users/me` remains the read contract for frontend permissions, while guards enforce live membership permissions on protected routes.
+- Pending: frontend should refresh `users/me` after workspace selection and after membership admin changes.
+- Risks: cached UI permissions can lag backend enforcement.
+- Next recommended step: frontend should treat 403 responses as authority and refresh session/user state.
+
+## 2026-05-14 Stage 4D — Stale Session UX Note
+
+- Changed: DB fixture documents expected stale-session behavior.
+- Completed: after backend role downgrade, protected writes should fail even if the browser still displays older permissions.
+- Pending: frontend refresh strategy after 403.
+- Risks: UI may appear permissive until it refreshes `users/me`.
+- Next recommended step: frontend should refresh current user state on authorization failures.
+
+## 2026-05-14 Stage 4E — Runtime Action Skip UX Note
+
+- Changed: runtime actions can now be skipped because current actor permissions no longer allow the side effect.
+- Completed: backend reports skipped action plans instead of enqueueing unsafe work.
+- Pending: display-safe labels for skipped runtime automation actions.
+- Risks: operators may see execution success with no action if UI does not show skip reason.
+- Next recommended step: expose sanitized skip reasons in timeline/read DTOs.

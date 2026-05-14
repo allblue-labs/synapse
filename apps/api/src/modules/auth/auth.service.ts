@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuditStatus, PlatformRole, UserRole } from '@prisma/client';
 import type { AuthRole } from '@synapse/contracts';
@@ -24,6 +24,13 @@ export interface IssuedSession {
   };
 }
 
+export interface SelectWorkspaceInput {
+  userId: string;
+  email: string;
+  tenantId: string;
+  ip?: string;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -35,28 +42,46 @@ export class AuthService {
 
   async register(dto: RegisterDto, ip?: string): Promise<IssuedSession> {
     const normalizedEmail = dto.email.toLowerCase().trim();
-    const slug = dto.tenantSlug.toLowerCase().trim();
+    const shouldCreateTenant = dto.createTenant === true || !!dto.tenantName || !!dto.tenantSlug;
 
     const existingUser = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       throw new ConflictException('A user with this email already exists.');
     }
 
-    const existingTenant = await this.prisma.tenant.findUnique({ where: { slug } });
-    if (existingTenant) {
-      throw new ConflictException('A tenant with this slug already exists.');
+    if (shouldCreateTenant && (!dto.tenantName || !dto.tenantSlug)) {
+      throw new BadRequestException('tenantName and tenantSlug are required when creating an initial workspace.');
     }
 
     const passwordHash = await argon2.hash(dto.password);
     const result = await this.prisma.$transaction(async (tx) => {
+      if (!shouldCreateTenant) {
+        const user = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            name: dto.name,
+            passwordHash,
+          },
+        });
+
+        return { tenant: null, user };
+      }
+
+      const slug = dto.tenantSlug!.toLowerCase().trim();
+      const existingTenant = await tx.tenant.findUnique({ where: { slug } });
+      if (existingTenant) {
+        throw new ConflictException('A tenant with this slug already exists.');
+      }
+
       const tenant = await tx.tenant.create({
         data: {
-          name: dto.tenantName,
+          name: dto.tenantName!,
           slug,
           status: 'ACTIVE',
           billingAccount: {
             create: {
-              planKey: 'light'
+              planKey: 'trial',
+              status: 'TRIALING',
             }
           }
         }
@@ -80,15 +105,20 @@ export class AuthService {
     });
 
     await this.audit.record({
-      tenantId:    result.tenant.id,
+      tenantId:    result.tenant?.id,
       actorUserId: result.user.id,
       action:      AuditAction.AUTH_REGISTERED,
       status:      AuditStatus.SUCCESS,
       ipAddress:   ip,
-      metadata:    { tenantSlug: slug },
+      metadata:    { tenantSlug: result.tenant?.slug ?? null },
     });
 
-    return this.issueSession(result.user.id, result.user.email, result.tenant.id, UserRole.OWNER);
+    return this.issueSession(
+      result.user.id,
+      result.user.email,
+      result.tenant?.id,
+      result.tenant ? UserRole.OWNER : 'tenant_viewer',
+    );
   }
 
   async login(dto: LoginDto, ip: string): Promise<IssuedSession> {
@@ -148,12 +178,13 @@ export class AuthService {
     if (!membership) {
       await this.audit.record({
         actorUserId: user.id,
-        action:      AuditAction.AUTH_LOGIN_FAILED,
-        status:      AuditStatus.FAILURE,
+        action:      AuditAction.AUTH_LOGIN_SUCCEEDED,
+        status:      AuditStatus.SUCCESS,
         ipAddress:   ip,
-        metadata:    { email, reason: 'no_tenant_membership' },
+        metadata:    { email, role: 'tenant_viewer', tenantId: null },
       });
-      throw new UnauthorizedException('User is not assigned to a tenant.');
+      await this.lockout.recordSuccess(email, ip);
+      return this.issueSession(user.id, user.email, undefined, 'tenant_viewer');
     }
 
     await this.lockout.recordSuccess(email, ip);
@@ -168,6 +199,47 @@ export class AuthService {
     });
 
     return this.issueSession(user.id, user.email, membership.tenantId, membership.role);
+  }
+
+  async selectWorkspace(input: SelectWorkspaceInput): Promise<IssuedSession> {
+    const membership = await this.prisma.userMembership.findUnique({
+      where: {
+        tenantId_userId: {
+          tenantId: input.tenantId,
+          userId: input.userId,
+        },
+      },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!membership) {
+      await this.audit.record({
+        tenantId: input.tenantId,
+        actorUserId: input.userId,
+        action: AuditAction.AUTH_FORBIDDEN,
+        status: AuditStatus.FAILURE,
+        ipAddress: input.ip,
+        resourceType: 'UserMembership',
+        metadata: { reason: 'workspace_selection_denied' },
+      });
+      throw new UnauthorizedException('User is not assigned to this workspace.');
+    }
+
+    await this.audit.record({
+      tenantId: input.tenantId,
+      actorUserId: input.userId,
+      action: AuditAction.AUTH_LOGIN_SUCCEEDED,
+      status: AuditStatus.SUCCESS,
+      ipAddress: input.ip,
+      metadata: { reason: 'workspace_selected', role: membership.role },
+    });
+
+    return this.issueSession(
+      membership.user.id,
+      membership.user.email,
+      membership.tenantId,
+      membership.role,
+    );
   }
 
   /**

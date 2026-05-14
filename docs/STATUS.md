@@ -657,3 +657,51 @@ Last updated: 2026-05-07
 - Pending: replace the pragmatic V1 validator with a reusable schema utility if Context Pack schemas expand beyond the current subset.
 - Risks: validator intentionally supports the current Pulse output schema subset only; nested action payload schemas still need definition-driven metadata.
 - Next recommended step: add action/output schema metadata to `PulseActionDefinition` and derive stricter runtime output contracts from it.
+
+## 2026-05-14 Stage 4A — Platform Governance + Pulse Schedule Boundary
+
+- Changed: user registration no longer has to create a workspace; users can exist tenantless and create workspaces later through the tenant lifecycle API.
+- Completed: tenant creation now calls platform-owned plan governance before creating a workspace. Trial/Light allow 1 workspace, Pro allows 2, Premium allows 4 through configurable plan entitlement JSON rather than module-owned rules.
+- Completed: billing/platform governance exposes module-access helpers: `isModuleEnabledForTenant`, `canUseModuleFeature`, `consumeUsageOrReject`, and `getTenantPlanLimits`.
+- Completed: Pulse gained module-owned operational schedule persistence and schedule decisions for outside-hours interactions without owning subscriptions, credits, quotas, or billing.
+- Pending: full production CRUD expansion for memberships/roles/permissions/promotions and DB-backed RLS fixtures.
+- Risks: plan/quota templates are stored in `BillingPlan.entitlements` and need admin UI integration by frontend owner; RLS remains documented as hybrid until Prisma session-variable strategy is validated.
+- Next recommended step: finish membership CRUD with membership-based JWT/session selection so `user.role` is no longer treated as the long-term source of truth.
+
+## 2026-05-14 Stage 4B — Membership CRUD + Workspace Session Selection
+
+- Changed: added tenant membership CRUD APIs and explicit workspace session selection.
+- Completed: tenant memberships can be listed, created, role-updated, and removed with pagination/filter DTOs, audit events, tenant scoping, duplicate checks, platform-user assignment blocking, role-escalation prevention, and last-owner protection.
+- Completed: `POST /v1/auth/workspace` validates the authenticated user's membership before issuing a tenant-scoped session cookie.
+- Completed: `GET /v1/users/me` can now return available memberships for tenantless sessions so frontend can drive workspace selection.
+- Pending: move route permission resolution fully from JWT role snapshot to live membership/permission lookup with cache.
+- Risks: JWT still carries the selected membership role for compatibility with existing guards.
+- Next recommended step: implement membership-backed permission resolution in `PermissionsGuard` with a Redis/cache hotpath and DB fallback.
+
+## 2026-05-14 Stage 4C — Live Membership Permission Resolution
+
+- Changed: `PermissionsGuard` now resolves permissions through `PermissionResolverService` instead of trusting only the JWT role snapshot.
+- Completed: tenant permissions are loaded from `UserMembership` using tenant/user scope, cached in Redis for a short TTL, and fall back to Prisma when cache is unavailable or cold.
+- Completed: membership create/update/delete invalidates the affected user/tenant permission cache.
+- Completed: tenantless sessions have no tenant permissions until a workspace is selected; platform roles still resolve through platform role permissions.
+- Pending: configurable role/permission persistence beyond enum-backed roles.
+- Risks: JWT still carries role for compatibility and observability, but authorization now records both JWT and resolved role on denials.
+- Next recommended step: add DB-backed permission fixtures for stale session role changes and cross-tenant cache isolation.
+
+## 2026-05-14 Stage 4D — Permission Resolver DB Fixtures
+
+- Changed: added opt-in database fixtures for membership-backed authorization.
+- Completed: fixture covers stale session downgrade denial, tenant-specific membership resolution, and no-membership permission denial.
+- Completed: normal Jest run keeps DB fixtures skipped unless `RUN_DATABASE_TESTS=1`.
+- Pending: run fixture in a live database environment after Postgres is available on the configured `DATABASE_URL`.
+- Risks: local execution currently failed because Postgres was unreachable at `localhost:5435`.
+- Next recommended step: start the dev database, apply migrations, and run `RUN_DATABASE_TESTS=1 npm test -- permission-resolver.database-fixtures`.
+
+## 2026-05-14 Stage 4E — Runtime Actor Permission Revalidation
+
+- Changed: Pulse runtime result ingestion now revalidates the saved actor snapshot against live membership permissions before planning automatic actions.
+- Completed: successful runtime outputs still transition lifecycle, but action planning receives the current resolved role/permissions instead of trusting historical snapshot permissions.
+- Completed: governance denials during runtime action planning are converted into a skipped action plan and do not enqueue side-effect jobs.
+- Pending: DB fixture for runtime actor downgrade once local Postgres is available.
+- Risks: runtime lifecycle success and action authorization are now intentionally separate outcomes; operators may need clear timeline labels for skipped actions.
+- Next recommended step: enforce `maxUsersPerTenant` during membership creation through platform plan limits.

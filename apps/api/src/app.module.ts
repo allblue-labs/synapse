@@ -7,7 +7,7 @@ import { envSchema } from './config/env.schema';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { RedisModule } from './common/redis/redis.module';
 import { AuditModule } from './common/audit/audit.module';
-import { JwtAuthGuard, PermissionsGuard } from './common/authorization';
+import { JwtAuthGuard, PermissionResolverService, PermissionsGuard } from './common/authorization';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
@@ -77,7 +77,8 @@ import { RuntimeModule } from './core/runtime/runtime.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: TenantGuard },
-    { provide: APP_GUARD, useClass: PermissionsGuard }
+    { provide: APP_GUARD, useClass: PermissionsGuard },
+    PermissionResolverService
   ]
 })
 export class AppModule {}

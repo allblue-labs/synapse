@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { AuthRole, ExecutionResponseContract, Permission } from '@synapse/contracts';
+import { PermissionResolverService } from '../../../../common/authorization';
 import { RuntimeExecutionLifecycleService } from '../../../../core/runtime/runtime-execution-lifecycle.service';
 import { PULSE_CONTEXT_PACK_VERSION, PulseContextPack } from '../../contracts/pulse.contracts';
 import { PULSE_EVENT_TYPES } from '../../domain/pulse-event-types';
@@ -27,6 +28,7 @@ export class IngestPulseRuntimeResultUseCase {
     private readonly runtimeLifecycle: RuntimeExecutionLifecycleService,
     private readonly planner: PulseRuntimeActionPlannerService,
     private readonly queues: PulseQueueService,
+    private readonly permissions: PermissionResolverService,
   ) {}
 
   async execute(input: IngestPulseRuntimeResultInput): Promise<IngestPulseRuntimeResultOutput> {
@@ -34,7 +36,7 @@ export class IngestPulseRuntimeResultUseCase {
     this.assertPulseRequest(request.context.moduleSlug);
 
     const contextPack = this.extractContextPack(request.input);
-    const actor = this.extractActorSnapshot(request.context.metadata);
+    const actorSnapshot = this.extractActorSnapshot(request.context.metadata);
 
     if (input.status === 'SUCCEEDED') {
       if (!input.output) {
@@ -48,7 +50,7 @@ export class IngestPulseRuntimeResultUseCase {
       tenantId: input.tenantId,
       executionId: input.executionRequestId,
       status: input.status,
-      actorUserId: actor.userId,
+      actorUserId: actorSnapshot.userId,
       output: input.output,
       errorMessage: input.errorMessage,
     });
@@ -67,16 +69,8 @@ export class IngestPulseRuntimeResultUseCase {
       throw new BadRequestException('Pulse runtime result requires output for successful executions.');
     }
 
-    const actionPlan = await this.planner.plan({
-      tenantId: input.tenantId,
-      executionRequestId: input.executionRequestId,
-      ticketId: this.stringField(contextPack.ticketState, 'id'),
-      conversationId: this.stringField(contextPack.conversationState, 'id'),
-      allowedActions: contextPack.allowedActions,
-      output,
-      actor,
-      traceId: input.traceId,
-    });
+    const actor = await this.revalidateActorSnapshot(input.tenantId, actorSnapshot);
+    const actionPlan = await this.planActions(input, contextPack, output, actor);
 
     await this.recordResult(input, execution, actionPlan);
     await this.recordActionPlan(input, contextPack, actionPlan);
@@ -250,6 +244,62 @@ export class IngestPulseRuntimeResultUseCase {
       role: snapshot.role as AuthRole,
       permissions: snapshot.permissions as Permission[],
     };
+  }
+
+  private async revalidateActorSnapshot(
+    tenantId: string,
+    actor: {
+      userId: string;
+      email: string;
+      role: AuthRole;
+      permissions: Permission[];
+    },
+  ) {
+    const resolved = await this.permissions.resolve({
+      sub: actor.userId,
+      email: actor.email,
+      role: actor.role,
+      tenantId,
+    }, tenantId);
+
+    return {
+      ...actor,
+      role: resolved.role ?? actor.role,
+      permissions: [...resolved.permissions],
+    };
+  }
+
+  private async planActions(
+    input: IngestPulseRuntimeResultInput,
+    contextPack: PulseContextPack,
+    output: Record<string, unknown>,
+    actor: {
+      userId: string;
+      email: string;
+      role: AuthRole;
+      permissions: Permission[];
+    },
+  ): Promise<PulseRuntimeActionPlannerResult> {
+    try {
+      return await this.planner.plan({
+        tenantId: input.tenantId,
+        executionRequestId: input.executionRequestId,
+        ticketId: this.stringField(contextPack.ticketState, 'id'),
+        conversationId: this.stringField(contextPack.conversationState, 'id'),
+        allowedActions: contextPack.allowedActions,
+        output,
+        actor,
+        traceId: input.traceId,
+      });
+    } catch (err) {
+      if (err instanceof ForbiddenException) {
+        return {
+          enqueued: [],
+          skipped: [{ action: 'runtime.output', reason: 'actor_permission_revalidation_failed' }],
+        };
+      }
+      throw err;
+    }
   }
 
   private async recordResult(

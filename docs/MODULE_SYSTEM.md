@@ -552,3 +552,43 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: action definitions should own richer schema metadata for generated output/action contracts.
 - Risks: prepared-only action contracts need their own module metadata path.
 - Next recommended step: define schema metadata for real and prepared-only Pulse actions.
+
+## 2026-05-14 Stage 4A — Platform Module Access Governance
+
+- Changed: module access checks are exposed from platform billing/governance instead of being embedded in modules.
+- Completed: module enablement checks now include catalog/store visibility, commercial plan activity, module tier allowance, active purchases, and optional credit availability.
+- Pending: onboarding state enforcement and quota-specific module feature gates per module capability.
+- Risks: prepared module features still need explicit platform feature keys before fine-grained quota checks.
+- Next recommended step: define feature keys per module capability and route them through `canUseModuleFeature`.
+
+## 2026-05-14 Stage 4B — Workspace-Aware Module Access
+
+- Changed: workspace selection is now explicit before tenant module access.
+- Completed: module routes continue to require tenant context; tenantless users must select/create a workspace first.
+- Pending: module onboarding state checks after membership/session selection stabilizes.
+- Risks: frontend must not assume a default workspace when multiple memberships exist.
+- Next recommended step: add module onboarding state to platform governance responses.
+
+## 2026-05-14 Stage 4C — Module Route Authorization Source
+
+- Changed: module route permissions now benefit from live membership permission resolution.
+- Completed: a stale session role cannot keep module permissions after the membership role is changed and cache invalidation/TTL takes effect.
+- Pending: module-specific permission override models.
+- Risks: module permissions still map from tenant role constants.
+- Next recommended step: define persisted module permission overrides after role CRUD is modeled.
+
+## 2026-05-14 Stage 4D — Module Authorization Fixture Note
+
+- Changed: authorization fixture validates the same permission resolver used by module routes.
+- Completed: stale sessions cannot retain tenant write permissions after membership downgrade in the resolver path.
+- Pending: module-route HTTP fixture for stale session denial.
+- Risks: current fixture targets the guard/resolver boundary, not full HTTP module endpoints.
+- Next recommended step: add HTTP e2e for `POST /modules/:name/enable` after DB test app setup is standardized.
+
+## 2026-05-14 Stage 4E — Module Runtime Action Authorization
+
+- Changed: Pulse module runtime actions now re-check platform-owned RBAC before enqueue.
+- Completed: module-owned runtime context does not become an authorization authority.
+- Pending: module action metadata for richer skipped reasons.
+- Risks: prepared-only actions still need consistent skip semantics.
+- Next recommended step: standardize runtime action skipped reason contracts.

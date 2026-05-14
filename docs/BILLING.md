@@ -517,3 +517,44 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: usage metering mapper for completed, valid side-effect handlers.
 - Risks: validation failures are not billable usage events and should remain visible only through audit/operational telemetry.
 - Next recommended step: map usage candidates server-side only after successful handler completion.
+
+## 2026-05-14 Stage 4A — Plan/Quota Governance
+
+- Changed: Billing plans now seed configurable entitlement templates for Trial, Light, Pro, and Premium.
+- Completed: entitlement JSON carries `maxTenants`, `monthlyCredits`, `maxUsersPerTenant`, `maxModules`, `maxActiveChannelSets`, and allowed module tiers.
+- Completed: admin-managed plan CRUD exists through backend billing plan endpoints; deletion is blocked when tenants are assigned to the plan.
+- Pending: promotions/discounts/credit packs remain future billing models unless added explicitly.
+- Risks: quota templates are configurable but not yet surfaced in frontend admin UI.
+- Next recommended step: expose admin plan/quota forms and add usage counter Redis hotpath after policy stabilizes.
+
+## 2026-05-14 Stage 4B — Membership Billing Boundary
+
+- Changed: membership CRUD does not own plan, quota, credit, or billing policy.
+- Completed: membership changes are RBAC/audit operations only; tenant limits and plan limits remain in billing/platform governance.
+- Pending: enforce `maxUsersPerTenant` from plan limits during membership creation.
+- Risks: without the user-count quota check, memberships can exceed plan policy.
+- Next recommended step: call `getTenantPlanLimits` from membership creation to enforce `maxUsersPerTenant`.
+
+## 2026-05-14 Stage 4C — Authorization Cache Billing Note
+
+- Changed: no billing behavior changed.
+- Completed: permission cache is scoped to authorization only and does not cache credits, quotas, or usage counters.
+- Pending: separate Redis hotpaths for plan/quota and usage counters.
+- Risks: do not reuse membership permission cache for billing decisions.
+- Next recommended step: add dedicated plan/quota cache in platform governance.
+
+## 2026-05-14 Stage 4D — Billing Test Boundary Note
+
+- Changed: no billing behavior changed.
+- Completed: authorization DB fixtures remain RBAC-only and do not exercise plan/credit decisions.
+- Pending: DB fixtures for plan/quota enforcement remain separate work.
+- Risks: mixing RBAC fixtures with billing assertions would blur ownership boundaries.
+- Next recommended step: add billing quota DB fixtures independently.
+
+## 2026-05-14 Stage 4E — Runtime Authorization Billing Boundary
+
+- Changed: no billing behavior changed.
+- Completed: runtime actor revalidation uses RBAC only; credits/usage remain platform billing/governance responsibilities.
+- Pending: connect runtime usage consumption to `consumeUsageOrReject`.
+- Risks: action skips due to RBAC must not be counted as completed billable automations.
+- Next recommended step: enforce `maxUsersPerTenant` and then add runtime usage consumption boundaries.

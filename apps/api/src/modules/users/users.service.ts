@@ -24,17 +24,27 @@ export class UsersService {
 
     const platformRole = this.toAuthRole(user.platformRole);
     if (platformRole && !tenantId) {
+      const memberships = await this.listMemberships(user.id);
       return {
         id: user.id,
         email: user.email,
         name: user.name,
         role: platformRole,
         permissions: permissionsForRole(platformRole),
+        memberships,
       };
     }
 
     if (!tenantId) {
-      throw new NotFoundException('User membership not found.');
+      const memberships = await this.listMemberships(user.id);
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: 'tenant_viewer',
+        permissions: [],
+        memberships,
+      };
     }
 
     const membership = await this.prisma.userMembership.findUnique({
@@ -69,6 +79,25 @@ export class UsersService {
         slug: membership.tenant.slug,
       },
     };
+  }
+
+  private async listMemberships(userId: string) {
+    const memberships = await this.prisma.userMembership.findMany({
+      where: { userId },
+      select: {
+        tenantId: true,
+        role: true,
+        tenant: { select: { name: true, slug: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return memberships.map((membership) => ({
+      tenantId: membership.tenantId,
+      tenantName: membership.tenant.name,
+      tenantSlug: membership.tenant.slug,
+      role: membership.role as UserRole,
+    }));
   }
 
   private toAuthRole(role: string | null): 'super_admin' | 'admin' | 'tester' | null {

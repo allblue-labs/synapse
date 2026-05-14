@@ -1,8 +1,9 @@
 import { Body, Controller, HttpCode, HttpStatus, Ip, Post, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { IsString } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { Public } from '../../common/authorization';
+import { AllowTenantless, Public } from '../../common/authorization';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -12,6 +13,11 @@ import {
   buildSessionCookieOptions,
   SESSION_COOKIE_NAME,
 } from './session.constants';
+
+class SelectWorkspaceDto {
+  @IsString()
+  tenantId!: string;
+}
 
 /**
  * Auth surface — strictly cookie-based.
@@ -52,6 +58,24 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const session = await this.authService.login(dto, ip);
+    this.setSessionCookie(res, session.token);
+    return { user: session.user };
+  }
+
+  @AllowTenantless()
+  @Post('workspace')
+  async selectWorkspace(
+    @Body() dto: SelectWorkspaceDto,
+    @Req() req: Request & { user: AuthenticatedUser },
+    @Ip() ip: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const session = await this.authService.selectWorkspace({
+      userId: req.user.sub,
+      email: req.user.email,
+      tenantId: dto.tenantId,
+      ip,
+    });
     this.setSessionCookie(res, session.token);
     return { user: session.user };
   }

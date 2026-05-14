@@ -682,3 +682,43 @@ Last updated: 2026-05-07
 - Pending: definition-backed schemas for action-specific output/payload requirements.
 - Risks: current validator is intentionally scoped to the Pulse V1 runtime output shape.
 - Next recommended step: extend `PulseActionDefinition` with output/action schema metadata and derive Context Pack contracts from those definitions.
+
+## 2026-05-14 Stage 4A — Governance-Owned Plan Limits
+
+- Changed: platform billing/governance now owns tenant limits, module tier checks, credit checks, and module enablement contracts.
+- Completed: Trial/Light/Pro/Premium quota templates are seeded as configurable plan entitlements; tenant creation is plan-limited; Pulse schedule data stays inside Pulse only.
+- Pending: complete memberships/roles/permissions CRUD and replace single-tenant login selection with explicit workspace selection.
+- Risks: quota values are configurable but still seeded from backend templates; admin CRUD needs frontend integration.
+- Next recommended step: implement membership CRUD and session/workspace switching contracts.
+
+## 2026-05-14 Stage 4B — Membership CRUD and Workspace Switching
+
+- Changed: tenant membership management and workspace session switching are now backend-supported.
+- Completed: membership list/create/update/remove APIs exist with tenant scope, DTO validation, audit logs, role-escalation prevention, and last-owner protection.
+- Pending: live membership-backed permission resolution and Redis membership/permission cache.
+- Risks: existing route guards still use the selected role from JWT for compatibility.
+- Next recommended step: resolve permissions from membership data server-side on each request, with cache fallback strategy.
+
+## 2026-05-14 Stage 4C — Membership Permission Cache
+
+- Changed: route authorization now uses live membership permission resolution with Redis acceleration.
+- Completed: Redis caches tenant membership permissions by tenant/user and Prisma remains source of truth.
+- Pending: persisted role/permission CRUD models beyond enum roles.
+- Risks: cache invalidation currently covers membership mutations in the API path; direct DB changes require TTL expiry or operational invalidation.
+- Next recommended step: add DB fixtures for stale JWT role downgrade/upgrade behavior.
+
+## 2026-05-14 Stage 4D — Authorization DB Fixtures
+
+- Changed: added opt-in DB fixture coverage for live membership authorization behavior.
+- Completed: stale JWT role downgrade, tenant-specific membership lookup, and no-membership denial are covered.
+- Pending: execute in live dev database/CI.
+- Risks: fixtures require Postgres availability and current migrations.
+- Next recommended step: wire these DB fixtures into a database-enabled CI lane.
+
+## 2026-05-14 Stage 4E — Runtime Actor Revalidation
+
+- Changed: runtime result action planning revalidates actor permissions before side effects.
+- Completed: stale actor snapshots cannot enqueue governed Pulse actions after current membership permissions change.
+- Pending: DB fixture for runtime actor downgrade.
+- Risks: skipped action plans need operator-facing timeline clarity.
+- Next recommended step: enforce plan `maxUsersPerTenant` in membership creation.

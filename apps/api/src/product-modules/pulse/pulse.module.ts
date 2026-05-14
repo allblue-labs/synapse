@@ -6,6 +6,7 @@ import {MessagesModule} from '../../modules/messages/messages.module';
 import {QueueModule} from '../../modules/queue/queue.module';
 import {UsageModule} from '../../modules/usage/usage.module';
 import {RuntimeModule} from '../../core/runtime/runtime.module';
+import {PermissionResolverService} from '../../common/authorization';
 import {PulseController} from './pulse.controller';
 import {PulseRuntimeResultController} from './pulse-runtime-result.controller';
 import {ListQueueUseCase} from './application/use-cases/list-queue.use-case';
@@ -26,6 +27,7 @@ import {RetryEntryUseCase} from './application/use-cases/retry-entry.use-case';
 import {TicketLifecycleUseCase} from './application/use-cases/ticket-lifecycle.use-case';
 import {PulseKnowledgeContextUseCase} from './application/use-cases/pulse-knowledge-context.use-case';
 import {PulseSchedulingIntegrationUseCase} from './application/use-cases/pulse-scheduling-integration.use-case';
+import {PulseOperationalScheduleService} from './application/services/pulse-operational-schedule.service';
 import {AssemblePulseContextUseCase} from './application/use-cases/assemble-pulse-context.use-case';
 import {IngestPulseRuntimeResultUseCase} from './application/use-cases/ingest-pulse-runtime-result.use-case';
 import {PulseTicketAdvanceFlowActionHandler} from './application/actions/pulse-ticket-advance-flow-action.handler';
@@ -79,6 +81,7 @@ const USE_CASES = [
   TicketLifecycleUseCase,
   PulseKnowledgeContextUseCase,
   PulseSchedulingIntegrationUseCase,
+  PulseOperationalScheduleService,
   AssemblePulseContextUseCase,
   IngestPulseRuntimeResultUseCase,
 ];
@@ -107,6 +110,7 @@ const USE_CASES = [
     PulseTicketAdvanceFlowActionHandler,
     PulseActionGovernanceService,
     PulseRuntimeActionPlannerService,
+    PermissionResolverService,
     PulseQueueService,
     {provide: PULSE_REPOSITORY, useClass: PulseRepository},
     {provide: PULSE_OPERATIONAL_EVENT_REPOSITORY, useClass: PulseOperationalEventRepository},

@@ -620,3 +620,62 @@ Not yet configured. Required before production:
 - Pending: database fixture for runtime callback after actor downgrade.
 - Risks: timeline should make skipped automatic actions understandable without exposing raw internals.
 - Next recommended step: add sanitized timeline labels for authorization-skipped runtime actions.
+
+## 2026-05-14 Stage 4F — Membership Quota Security
+
+- Changed: membership creation now enforces plan user quota before write.
+- Completed: quota rejection avoids membership persistence and permission cache invalidation.
+- Pending: DB fixture for quota rejection.
+- Risks: direct DB writes bypass application security.
+- Next recommended step: add DB fixture and consider database-side guardrails after plan model stabilizes.
+
+## 2026-05-14 Stage 4G — Plan Limit Cache Security
+
+- Changed: tenant plan limits are cached with a short TTL for authorization/governance hotpaths.
+- Completed: cache parsing is strict and invalid cache values fall back to PostgreSQL.
+- Completed: invalidation is best-effort and cache failure does not block billing mutations.
+- Pending: DB fixture for invalidation behavior.
+- Risks: direct DB writes rely on TTL expiry.
+- Next recommended step: document operational cache invalidation for manual plan/account edits.
+
+## 2026-05-14 Stage 4H — Usage Consumption Security
+
+- Changed: action usage is consumed only after handler permission checks, validation, and side effects.
+- Completed: failed/non-retryable action jobs do not consume usage.
+- Completed: usage writes are idempotent by action idempotency key.
+- Pending: usage cost metadata per action definition.
+- Risks: side effect succeeds but usage write failure causes retry; handlers must remain idempotent.
+- Next recommended step: add side-effect idempotency fixtures for action handlers.
+
+## 2026-05-14 Stage 4I — Usage Idempotency Security
+
+- Changed: existing idempotent usage events are resolved before quota checks.
+- Completed: tenant/idempotency lookup prevents duplicate retries from consuming or requiring extra credits.
+- Completed: opt-in DB fixture verifies the same idempotency key is isolated by tenant.
+- Pending: run DB fixture after Postgres is available.
+- Risks: untrusted callers must never control action idempotency keys directly.
+- Next recommended step: add raw queue ingress restrictions and action side-effect idempotency tests.
+
+## 2026-05-14 Stage 4J — Action Side-Effect Idempotency Security
+
+- Changed: duplicate `ticket.advance_flow` action keys are blocked at the lifecycle boundary.
+- Completed: repeated action jobs do not emit new operational events, audit events, or usage records.
+- Pending: DB fixture execution after Postgres is available.
+- Risks: metadata guard does not fully prevent simultaneous first-write races.
+- Next recommended step: model a tenant-scoped action execution ledger with a unique action idempotency key.
+
+## 2026-05-14 Stage 4K — Action Ledger Security
+
+- Changed: action side-effect idempotency is backed by a tenant-scoped unique database key.
+- Completed: duplicate succeeded action keys cannot reapply side effects; in-progress duplicates are rejected before mutation.
+- Pending: transaction boundary and replay/abuse metrics for repeated conflicts.
+- Risks: ledger metadata must remain audit-safe and must not include raw provider payloads or secrets.
+- Next recommended step: add transaction-scoped action execution and conflict observability.
+
+## 2026-05-14 Stage 4L — Transactional Action Security
+
+- Changed: action-driven side effects now share a database transaction.
+- Completed: audit and usage are committed only when the ticket mutation and ledger completion commit.
+- Pending: persisted DB fixture and conflict observability.
+- Risks: long transactions must stay small and must not include network/provider calls.
+- Next recommended step: keep external calls outside DB transactions and use the ledger to coordinate durable state.

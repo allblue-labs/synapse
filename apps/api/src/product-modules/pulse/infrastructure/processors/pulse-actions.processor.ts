@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { UsageMetricType } from '@prisma/client';
 import { Job, UnrecoverableError } from 'bullmq';
+import { BillingService } from '../../../../modules/billing/billing.service';
 import { PulseActionHandlerRegistry } from '../../application/actions/pulse-action-handler.registry';
 import {
   PulseActionPayloadValidationException,
@@ -32,6 +34,7 @@ export class PulseActionsProcessor extends WorkerHost {
   constructor(
     private readonly queues: PulseQueueService,
     private readonly handlers: PulseActionHandlerRegistry,
+    private readonly billing: BillingService,
   ) {
     super();
   }
@@ -81,6 +84,7 @@ export class PulseActionsProcessor extends WorkerHost {
       if (handler) {
         this.assertHandlerPermissions(job.data);
         const result = await handler.execute(job.data);
+        await this.consumeUsageForCompletedAction(job.data, result.sideEffectsApplied);
         await this.queues.enqueueTimeline({
           tenantId: job.data.tenantId,
           idempotencyKey: `pulse.timeline:${job.data.tenantId}:${job.data.idempotencyKey}:action-completed`,
@@ -168,6 +172,35 @@ export class PulseActionsProcessor extends WorkerHost {
     if (missing.length > 0) {
       throw new ForbiddenException(`Missing required action permission(s): ${missing.join(', ')}`);
     }
+  }
+
+  private async consumeUsageForCompletedAction(job: PulseActionJob, sideEffectsApplied: boolean) {
+    if (!sideEffectsApplied) {
+      return;
+    }
+
+    const definition = this.handlers.definition(job.action);
+    if (definition?.usageCandidate !== 'workflow_run') {
+      return;
+    }
+
+    await this.billing.consumeUsageOrReject({
+      tenantId: job.tenantId,
+      moduleSlug: 'pulse',
+      metricType: UsageMetricType.WORKFLOW_RUN,
+      quantity: 1,
+      unit: 'workflow_run',
+      resourceType: 'PulseAction',
+      resourceId: job.ticketId ?? job.conversationId ?? job.idempotencyKey,
+      idempotencyKey: `pulse-action-usage:${job.idempotencyKey}`,
+      credits: 1,
+      metadata: {
+        action: job.action,
+        ticketId: job.ticketId ?? null,
+        conversationId: job.conversationId ?? null,
+        usageCandidate: definition.usageCandidate,
+      },
+    });
   }
 
   private failureClass(error: unknown) {

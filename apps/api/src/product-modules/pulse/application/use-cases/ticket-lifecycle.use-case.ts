@@ -1,6 +1,7 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, PulseActorType, PulseTicketStatus } from '@prisma/client';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { AuditStatus, Prisma, PulseActionExecutionStatus, PulseActorType, PulseTicketStatus } from '@prisma/client';
 import { AuditService } from '../../../../common/audit/audit.service';
+import { PrismaService } from '../../../../common/prisma/prisma.service';
 import { AuthenticatedUser } from '../../../../common/types/authenticated-user';
 import { UsageMeteringService, UsageMetricType } from '../../../../modules/usage/usage-metering.service';
 import {
@@ -33,6 +34,7 @@ export class TicketLifecycleUseCase {
     private readonly events: IPulseOperationalEventRepository,
     private readonly audit: AuditService,
     private readonly usage: UsageMeteringService,
+    private readonly prisma: PrismaService,
   ) {}
 
   assignTicket(
@@ -41,7 +43,7 @@ export class TicketLifecycleUseCase {
     actor: AuthenticatedUser,
     input: { assignedUserId: string; note?: string },
   ) {
-    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_ASSIGN, 'assign_ticket', async (ticket) => ({
+    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_ASSIGN, 'assign_ticket', {}, async (ticket) => ({
       assignedUserId: input.assignedUserId,
       metadata: this.mergeMetadata(ticket, {
         assignment: {
@@ -64,7 +66,7 @@ export class TicketLifecycleUseCase {
     actor: AuthenticatedUser,
     input: { resolutionSummary?: string },
   ) {
-    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_RESOLVE, 'resolve_ticket', async (ticket) => {
+    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_RESOLVE, 'resolve_ticket', {}, async (ticket) => {
       this.ensureNotTerminal(ticket, 'resolve');
       const resolvedAt = new Date();
       return {
@@ -91,7 +93,7 @@ export class TicketLifecycleUseCase {
     actor: AuthenticatedUser,
     input: { reason?: string },
   ) {
-    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_REOPEN, 'reopen_ticket', async (ticket) => {
+    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_REOPEN, 'reopen_ticket', {}, async (ticket) => {
       if (ticket.status !== PulseTicketStatus.RESOLVED && ticket.status !== PulseTicketStatus.CANCELLED) {
         throw new BadRequestException('Only resolved or cancelled tickets can be reopened.');
       }
@@ -117,7 +119,7 @@ export class TicketLifecycleUseCase {
     actor: AuthenticatedUser,
     input: { reason?: string; priority?: number },
   ) {
-    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_ESCALATE, 'escalate_ticket', async (ticket) => {
+    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_ESCALATE, 'escalate_ticket', {}, async (ticket) => {
       this.ensureNotTerminal(ticket, 'escalate');
       return {
         status: PulseTicketStatus.PENDING_REVIEW,
@@ -143,7 +145,7 @@ export class TicketLifecycleUseCase {
     actor: AuthenticatedUser,
     input: { reason?: string },
   ) {
-    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_CANCEL, 'cancel_ticket', async (ticket) => {
+    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_CANCEL, 'cancel_ticket', {}, async (ticket) => {
       this.ensureNotTerminal(ticket, 'cancel');
       return {
         status: PulseTicketStatus.CANCELLED,
@@ -166,7 +168,7 @@ export class TicketLifecycleUseCase {
     actor: AuthenticatedUser,
     input: { summary: string; confidence?: number; decision?: Record<string, unknown> },
   ) {
-    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_OPERATOR_REVIEW, 'submit_operator_review', async (ticket) => {
+    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_OPERATOR_REVIEW, 'submit_operator_review', {}, async (ticket) => {
       this.ensureNotTerminal(ticket, 'review');
       return {
         status: PulseTicketStatus.OPEN,
@@ -199,27 +201,49 @@ export class TicketLifecycleUseCase {
       confidence?: number;
       note?: string;
       aiDecisionSummary?: Record<string, unknown>;
+      actionIdempotencyKey?: string;
     },
   ) {
-    return this.mutate(tenantId, ticketId, actor, PULSE_EVENT_TYPES.TICKET_FLOW_ADVANCE, 'advance_flow_state', async (ticket) => {
-      this.ensureNotTerminal(ticket, 'advance flow state');
-      const previousState = this.currentFlowState(ticket);
-      if (!isPulseFlowState(input.nextState)) {
-        throw new BadRequestException(`Unsupported Pulse flow state "${input.nextState}".`);
-      }
-      const confidenceDecision = evaluatePulseConfidence({
-        requestedState: input.nextState,
-        confidence: input.confidence,
-        transitionSource: input.transitionSource ?? 'manual',
-      });
-      assertPulseFlowTransition(previousState, confidenceDecision.effectiveState);
-      const statusUpdate = this.ticketStatusForFlowState(confidenceDecision.effectiveState);
-      return {
-        ...statusUpdate,
-        confidence: input.confidence ?? ticket.confidence,
-        metadata: this.mergeMetadata(ticket, {
-          flowState: confidenceDecision.effectiveState,
-          flowTransition: {
+    return this.mutate(
+      tenantId,
+      ticketId,
+      actor,
+      PULSE_EVENT_TYPES.TICKET_FLOW_ADVANCE,
+      'advance_flow_state',
+      { actionIdempotencyKey: input.actionIdempotencyKey },
+      async (ticket) => {
+        this.ensureNotTerminal(ticket, 'advance flow state');
+        const previousState = this.currentFlowState(ticket);
+        if (!isPulseFlowState(input.nextState)) {
+          throw new BadRequestException(`Unsupported Pulse flow state "${input.nextState}".`);
+        }
+        const confidenceDecision = evaluatePulseConfidence({
+          requestedState: input.nextState,
+          confidence: input.confidence,
+          transitionSource: input.transitionSource ?? 'manual',
+        });
+        assertPulseFlowTransition(previousState, confidenceDecision.effectiveState);
+        const statusUpdate = this.ticketStatusForFlowState(confidenceDecision.effectiveState);
+        return {
+          ...statusUpdate,
+          confidence: input.confidence ?? ticket.confidence,
+          metadata: this.mergeMetadata(ticket, {
+            flowState: confidenceDecision.effectiveState,
+            flowTransition: {
+              previousState,
+              requestedState: input.nextState,
+              nextState: confidenceDecision.effectiveState,
+              source: input.transitionSource ?? 'manual',
+              confidence: input.confidence,
+              confidenceDecision,
+              note: input.note,
+              aiDecisionSummary: input.aiDecisionSummary,
+              actionIdempotencyKey: input.actionIdempotencyKey,
+              advancedByUserId: actor.sub,
+              advancedAt: new Date().toISOString(),
+            },
+          }),
+          eventData: {
             previousState,
             requestedState: input.nextState,
             nextState: confidenceDecision.effectiveState,
@@ -228,22 +252,11 @@ export class TicketLifecycleUseCase {
             confidenceDecision,
             note: input.note,
             aiDecisionSummary: input.aiDecisionSummary,
-            advancedByUserId: actor.sub,
-            advancedAt: new Date().toISOString(),
+            actionIdempotencyKey: input.actionIdempotencyKey,
           },
-        }),
-        eventData: {
-          previousState,
-          requestedState: input.nextState,
-          nextState: confidenceDecision.effectiveState,
-          source: input.transitionSource ?? 'manual',
-          confidence: input.confidence,
-          confidenceDecision,
-          note: input.note,
-          aiDecisionSummary: input.aiDecisionSummary,
-        },
-      };
-    });
+        };
+      },
+    );
   }
 
   private async mutate(
@@ -252,6 +265,7 @@ export class TicketLifecycleUseCase {
     actor: AuthenticatedUser,
     eventType: string,
     action: string,
+    options: { actionIdempotencyKey?: string },
     build: (ticket: PulseTicketRecord) => Promise<{
       status?: PulseTicketStatus;
       assignedUserId?: string | null;
@@ -262,6 +276,18 @@ export class TicketLifecycleUseCase {
       eventData?: Record<string, unknown>;
     }>,
   ) {
+    if (options.actionIdempotencyKey) {
+      return this.mutateActionTransaction(
+        tenantId,
+        ticketId,
+        actor,
+        eventType,
+        action,
+        options.actionIdempotencyKey,
+        build,
+      );
+    }
+
     const ticket = await this.tickets.findById(tenantId, ticketId);
     if (!ticket) {
       throw new NotFoundException('Pulse ticket not found.');
@@ -312,7 +338,7 @@ export class TicketLifecycleUseCase {
       unit: action === 'advance_flow_state' ? 'flow_transition' : 'ticket_operation',
       resourceType: 'PulseTicket',
       resourceId: updated.id,
-      idempotencyKey: `pulse-ticket-${action}:${updated.id}`,
+      idempotencyKey: this.usageIdempotencyKey(action, updated.id),
       metadata: {
         action,
         eventType,
@@ -322,6 +348,195 @@ export class TicketLifecycleUseCase {
     });
 
     return updated;
+  }
+
+  private mutateActionTransaction(
+    tenantId: string,
+    ticketId: string,
+    actor: AuthenticatedUser,
+    eventType: string,
+    action: string,
+    actionIdempotencyKey: string,
+    build: (ticket: PulseTicketRecord) => Promise<{
+      status?: PulseTicketStatus;
+      assignedUserId?: string | null;
+      confidence?: number | null;
+      priority?: number;
+      metadata?: Prisma.InputJsonValue;
+      resolvedAt?: Date | null;
+      eventData?: Record<string, unknown>;
+    }>,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const ticket = await tx.pulseTicket.findFirst({
+        where: { tenantId, id: ticketId },
+        select: this.ticketSelect(),
+      });
+      if (!ticket) {
+        throw new NotFoundException('Pulse ticket not found.');
+      }
+
+      const claim = await tx.pulseActionExecution.upsert({
+        where: {
+          tenantId_idempotencyKey: {
+            tenantId,
+            idempotencyKey: actionIdempotencyKey,
+          },
+        },
+        create: {
+          tenantId,
+          action,
+          idempotencyKey: actionIdempotencyKey,
+          ticketId,
+          conversationId: ticket.conversationId,
+          metadata: {
+            eventType,
+            actorUserId: actor.sub,
+          },
+        },
+        update: {
+          attempts: { increment: 1 },
+        },
+        select: {
+          status: true,
+          attempts: true,
+        },
+      });
+
+      if (claim.status === PulseActionExecutionStatus.SUCCEEDED) {
+        return ticket;
+      }
+      if (claim.status === PulseActionExecutionStatus.STARTED && claim.attempts > 1) {
+        throw new ConflictException('Pulse action execution is already in progress.');
+      }
+
+      if (claim.status === PulseActionExecutionStatus.FAILED) {
+        await tx.pulseActionExecution.update({
+          where: {
+            tenantId_idempotencyKey: {
+              tenantId,
+              idempotencyKey: actionIdempotencyKey,
+            },
+          },
+          data: {
+            status: PulseActionExecutionStatus.STARTED,
+            errorMessage: null,
+            failedAt: null,
+            startedAt: new Date(),
+          },
+        });
+      }
+
+      const update = await build(ticket);
+      update.metadata = this.withConsumedActionIdempotencyKey(
+        (update.metadata ?? this.metadata(ticket)) as Prisma.InputJsonValue,
+        actionIdempotencyKey,
+        action,
+        eventType,
+      );
+
+      const updated = await tx.pulseTicket.update({
+        where: { id: ticketId },
+        data: {
+          status: update.status,
+          assignedUserId: update.assignedUserId,
+          confidence: update.confidence,
+          priority: update.priority,
+          metadata: update.metadata,
+          resolvedAt: update.resolvedAt,
+        },
+        select: this.ticketSelect(),
+      });
+
+      await tx.pulseOperationalEvent.create({
+        data: {
+          tenantId,
+          eventType,
+          actorType: PulseActorType.USER,
+          actorUserId: actor.sub,
+          conversationId: updated.conversationId ?? undefined,
+          ticketId: updated.id,
+          payload: pulseEventPayload(action, {
+            ticketId: updated.id,
+            previousStatus: ticket.status,
+            nextStatus: updated.status,
+            ...update.eventData,
+          }),
+          metadata: {
+            usageCandidate: 'ticket_operation',
+            permissionScope: 'tickets:write',
+            actionIdempotencyKey,
+          },
+        },
+      });
+
+      await tx.auditEvent.create({
+        data: {
+          tenantId,
+          actorUserId: actor.sub,
+          action: eventType,
+          resourceType: 'PulseTicket',
+          resourceId: updated.id,
+          status: AuditStatus.SUCCESS,
+          metadata: pulseEventPayload(action, {
+            previousStatus: ticket.status,
+            nextStatus: updated.status,
+          }),
+        },
+      });
+
+      const usageIdempotencyKey = this.usageIdempotencyKey(action, updated.id, actionIdempotencyKey);
+      await tx.usageEvent.upsert({
+        where: {
+          tenantId_idempotencyKey: {
+            tenantId,
+            idempotencyKey: usageIdempotencyKey,
+          },
+        },
+        create: {
+          tenantId,
+          moduleSlug: 'pulse',
+          metricType: UsageMetricType.WORKFLOW_RUN,
+          quantity: 1,
+          unit: action === 'advance_flow_state' ? 'flow_transition' : 'ticket_operation',
+          resourceType: 'PulseTicket',
+          resourceId: updated.id,
+          idempotencyKey: usageIdempotencyKey,
+          billingPeriod: this.billingPeriodFor(new Date()),
+          metadata: {
+            action,
+            eventType,
+            previousStatus: ticket.status,
+            nextStatus: updated.status,
+            actionIdempotencyKey,
+          },
+        },
+        update: {},
+      });
+
+      await tx.pulseActionExecution.update({
+        where: {
+          tenantId_idempotencyKey: {
+            tenantId,
+            idempotencyKey: actionIdempotencyKey,
+          },
+        },
+        data: {
+          status: PulseActionExecutionStatus.SUCCEEDED,
+          completedAt: new Date(),
+          errorMessage: null,
+          metadata: {
+            action,
+            eventType,
+            ticketId: updated.id,
+            previousStatus: ticket.status,
+            nextStatus: updated.status,
+          },
+        },
+      });
+
+      return updated;
+    });
   }
 
   private ensureNotTerminal(ticket: PulseTicketRecord, action: string) {
@@ -343,6 +558,74 @@ export class TicketLifecycleUseCase {
     }
 
     return ticket.metadata as TicketMetadata;
+  }
+
+  private hasConsumedActionIdempotencyKey(ticket: PulseTicketRecord, key: string) {
+    return Object.prototype.hasOwnProperty.call(this.actionIdempotencyKeys(this.metadata(ticket)), key);
+  }
+
+  private withConsumedActionIdempotencyKey(
+    metadata: Prisma.InputJsonValue,
+    key: string,
+    action: string,
+    eventType: string,
+  ): Prisma.InputJsonValue {
+    const base = this.objectMetadata(metadata);
+    return {
+      ...base,
+      actionIdempotencyKeys: {
+        ...this.actionIdempotencyKeys(base),
+        [key]: {
+          action,
+          eventType,
+          consumedAt: new Date().toISOString(),
+        },
+      },
+    } as Prisma.InputJsonValue;
+  }
+
+  private actionIdempotencyKeys(metadata: TicketMetadata) {
+    const keys = metadata.actionIdempotencyKeys;
+    if (!keys || typeof keys !== 'object' || Array.isArray(keys)) {
+      return {};
+    }
+
+    return keys as Record<string, unknown>;
+  }
+
+  private objectMetadata(metadata: Prisma.InputJsonValue): TicketMetadata {
+    if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+      return {};
+    }
+
+    return metadata as TicketMetadata;
+  }
+
+  private usageIdempotencyKey(action: string, ticketId: string, actionIdempotencyKey?: string) {
+    if (actionIdempotencyKey) {
+      return `pulse-ticket-${action}:${ticketId}:${actionIdempotencyKey}`;
+    }
+
+    return `pulse-ticket-${action}:${ticketId}`;
+  }
+
+  private billingPeriodFor(date: Date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+  }
+
+  private ticketSelect() {
+    return {
+      id: true,
+      tenantId: true,
+      conversationId: true,
+      type: true,
+      status: true,
+      assignedUserId: true,
+      confidence: true,
+      metadata: true,
+      priority: true,
+      resolvedAt: true,
+    } satisfies Prisma.PulseTicketSelect;
   }
 
   private currentFlowState(ticket: PulseTicketRecord): PulseFlowState | null {

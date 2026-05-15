@@ -4,6 +4,7 @@ import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { PermissionResolverService } from '../../common/authorization';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { CreateMembershipDto, ListMembershipsQueryDto, UpdateMembershipRoleDto } from './dto/memberships.dto';
 
 const ROLE_RANK: Record<UserRole, number> = {
@@ -19,6 +20,7 @@ export class MembershipsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly permissions: PermissionResolverService,
+    private readonly billing: BillingService,
   ) {}
 
   async list(tenantId: string, query: ListMembershipsQueryDto) {
@@ -87,6 +89,8 @@ export class MembershipsService {
     if (existing) {
       throw new ConflictException('User is already a member of this tenant.');
     }
+
+    await this.assertUserQuotaAvailable(tenantId);
 
     const membership = await this.prisma.userMembership.create({
       data: { tenantId, userId: user.id, role: dto.role },
@@ -193,6 +197,19 @@ export class MembershipsService {
     const owners = await this.prisma.userMembership.count({ where: { tenantId, role: UserRole.OWNER } });
     if (owners <= 1) {
       throw new ConflictException('Cannot remove the last tenant owner.');
+    }
+  }
+
+  private async assertUserQuotaAvailable(tenantId: string) {
+    const [limits, currentUsers] = await Promise.all([
+      this.billing.getTenantPlanLimits(tenantId),
+      this.prisma.userMembership.count({ where: { tenantId } }),
+    ]);
+
+    if (currentUsers >= limits.maxUsersPerTenant) {
+      throw new ForbiddenException(
+        `User limit reached for this workspace. Plan ${limits.planKey} allows ${limits.maxUsersPerTenant} user(s).`,
+      );
     }
   }
 

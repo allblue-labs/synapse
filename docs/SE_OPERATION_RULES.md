@@ -54,3 +54,10 @@
 - Direct database changes require TTL expiry or explicit operational invalidation.
 - Database fixtures for permission resolution run only with `RUN_DATABASE_TESTS=1`.
 - Runtime actor snapshots must be revalidated against live membership permissions before automatic actions are enqueued.
+- Membership creation must enforce platform-owned `maxUsersPerTenant`; modules must not enforce this limit.
+- Tenant plan limits may be cached in Redis, but PostgreSQL billing plan/account data remains source of truth.
+- Completed real module action side effects may become usage only through platform billing governance, never through module-owned billing logic.
+- Duplicate usage calls with the same tenant/idempotency key must return the existing usage event before evaluating remaining credits.
+- Real module action handlers must persist and check a stable action idempotency key before reapplying operational side effects.
+- Pulse action side effects must claim `pulse_action_executions` by `tenantId + idempotencyKey` before mutating operational state.
+- Action-driven Pulse lifecycle side effects must keep ledger, ticket, event, audit, and usage writes inside one database transaction.

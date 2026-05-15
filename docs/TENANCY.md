@@ -573,3 +573,60 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: cross-tenant runtime actor fixture.
 - Risks: saved actor snapshots from old requests without current memberships will skip actions.
 - Next recommended step: add DB fixture for missing actor membership at runtime callback time.
+
+## 2026-05-14 Stage 4F — Tenant User Quota
+
+- Changed: tenant membership creation now counts current memberships for the tenant before adding another user.
+- Completed: plan `maxUsersPerTenant` is enforced per tenant/workspace.
+- Pending: database fixture with real billing plan/account.
+- Risks: quota count includes all roles, including owners.
+- Next recommended step: add DB fixture for Light plan max 3 users.
+
+## 2026-05-14 Stage 4G — Tenant Plan Cache Boundary
+
+- Changed: tenant plan limit cache keys are scoped by tenant id.
+- Completed: cache miss/fallback reads the tenant's billing account and plan only.
+- Pending: cross-tenant cache fixture.
+- Risks: Redis namespace isolation remains operationally important across environments.
+- Next recommended step: add DB/cache fixture proving tenant A limits do not serve tenant B.
+
+## 2026-05-14 Stage 4H — Tenant Action Usage Boundary
+
+- Changed: Pulse action usage records are written with the action job tenant id.
+- Completed: usage idempotency remains tenant-scoped through `tenantId + idempotencyKey`.
+- Pending: two-tenant fixture for duplicate action idempotency keys across tenants.
+- Risks: raw action jobs must never be accepted from untrusted external callers.
+- Next recommended step: add DB fixture proving tenant A action usage cannot affect tenant B usage.
+
+## 2026-05-14 Stage 4I — Tenant Usage Idempotency Fixture
+
+- Changed: tenant-scoped idempotency behavior now has an opt-in DB fixture.
+- Completed: fixture seeds two tenants, two billing accounts, and verifies a shared idempotency key creates one usage event per tenant.
+- Pending: fixture execution requires local Postgres at `localhost:5435`.
+- Risks: Redis/cache is not involved in this guarantee; PostgreSQL remains the authority.
+- Next recommended step: add cross-tenant action processor fixture once action side-effect fixtures are introduced.
+
+## 2026-05-14 Stage 4J — Tenant Action Idempotency
+
+- Changed: action idempotency keys are stored inside tenant-owned Pulse ticket metadata.
+- Completed: retries are checked only after tenant-scoped ticket lookup, so another tenant cannot satisfy or bypass the guard.
+- Pending: DB fixture execution for duplicate action delivery.
+- Risks: metadata size must stay bounded if many action keys are retained per ticket.
+- Next recommended step: move long-lived action idempotency records into a tenant-scoped action execution table.
+
+## 2026-05-14 Stage 4K — Tenant Action Execution Ledger
+
+- Changed: `pulse_action_executions` is tenant-owned and cascades with tenant deletion.
+- Completed: unique idempotency is scoped by `tenantId`, so equal action keys across tenants remain isolated.
+- Completed: indexes support tenant/status, tenant/ticket, and tenant/action lookups.
+- Pending: two-tenant DB fixture execution once Postgres is available.
+- Risks: direct raw writes to the table must preserve tenant scope and stable idempotency keys.
+- Next recommended step: add cross-tenant action ledger fixtures.
+
+## 2026-05-14 Stage 4L — Tenant Transaction Boundary
+
+- Changed: transaction-scoped action writes use tenant id in every ledger, ticket, event, audit, and usage operation.
+- Completed: duplicate action checks happen after tenant-scoped ticket lookup.
+- Pending: two-tenant transactional fixture execution.
+- Risks: future transaction helpers must not drop tenant filters when abstracted.
+- Next recommended step: add transaction helper tests with two tenants.

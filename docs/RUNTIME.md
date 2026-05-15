@@ -305,3 +305,59 @@ interface PainClient {
 - Pending: DB fixture for actor downgrade between execution request and result callback.
 - Risks: saved actor snapshots remain historical and should not be reused as current authorization elsewhere.
 - Next recommended step: apply the same revalidation pattern to other runtime-driven side effects as they are added.
+
+## 2026-05-14 Stage 4F — Runtime User Quota Note
+
+- Changed: no runtime behavior changed.
+- Completed: membership quota enforcement reduces over-provisioned tenant users before runtime interactions.
+- Pending: runtime usage quota enforcement through `consumeUsageOrReject`.
+- Risks: runtime usage quota is separate from user quota.
+- Next recommended step: wire runtime usage consumption boundaries after plan/quota cache.
+
+## 2026-05-14 Stage 4G — Runtime Plan Cache Readiness
+
+- Changed: platform now has cached tenant plan limits for runtime usage governance.
+- Completed: `getTenantPlanLimits` can be used in runtime hotpaths without repeated billing joins.
+- Pending: connect runtime execution and action usage to `consumeUsageOrReject`.
+- Risks: runtime must still treat billing service as authority, not Redis/cache.
+- Next recommended step: add usage consumption before runtime execution dispatch and action completion.
+
+## 2026-05-14 Stage 4H — Runtime Usage Boundary Note
+
+- Changed: runtime-derived Pulse actions now become usage only when the backend action handler applies a real side effect.
+- Completed: provider calls are still not metered because this NestJS backend does not execute real LLM providers yet.
+- Pending: AI execution usage at the future provider dispatch boundary.
+- Risks: runtime success and billable action success are separate lifecycle outcomes.
+- Next recommended step: meter provider calls only when external runtime/provider execution exists.
+
+## 2026-05-14 Stage 4I — Runtime Usage Retry Note
+
+- Changed: runtime-derived action usage retries are now safe at the platform usage layer.
+- Completed: duplicate runtime/action callbacks that reuse the same usage idempotency key do not require additional credits.
+- Pending: replay protection for external runtime callbacks remains separate.
+- Risks: runtime callback replay security must not rely on usage idempotency alone.
+- Next recommended step: add callback replay protection before external runtime provider callbacks are enabled.
+
+## 2026-05-14 Stage 4J — Runtime Action Idempotency Note
+
+- Changed: runtime-planned `ticket.advance_flow` actions now carry the queue idempotency key into the Pulse lifecycle boundary.
+- Completed: duplicate runtime action delivery does not apply the same flow transition twice.
+- Pending: external callback replay protection and DB fixture execution.
+- Risks: runtime callback replay and action execution idempotency are related but separate controls.
+- Next recommended step: add signed callback replay storage before connecting an external runtime service.
+
+## 2026-05-14 Stage 4K — Runtime Action Ledger Readiness
+
+- Changed: runtime-planned Pulse actions now have a durable backend execution ledger.
+- Completed: ledger status models prepare for future runtime callback/action troubleshooting without implementing runtime orchestration.
+- Pending: external runtime callback replay ledger remains separate.
+- Risks: action ledger does not authenticate external runtime callbacks.
+- Next recommended step: add callback replay protection before external runtime integration.
+
+## 2026-05-14 Stage 4L — Runtime Action Transaction Readiness
+
+- Changed: runtime-derived `ticket.advance_flow` side effects commit atomically after action planning.
+- Completed: runtime output can succeed while action execution still remains governed by the transactional action ledger.
+- Pending: callback replay protection and external runtime authentication.
+- Risks: runtime callback replay control must remain separate from action transaction idempotency.
+- Next recommended step: implement callback replay storage before external runtime callbacks are enabled.

@@ -592,3 +592,59 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: module action metadata for richer skipped reasons.
 - Risks: prepared-only actions still need consistent skip semantics.
 - Next recommended step: standardize runtime action skipped reason contracts.
+
+## 2026-05-14 Stage 4F — Module Boundary Note
+
+- Changed: no module behavior changed.
+- Completed: user quota enforcement lives in platform membership/billing flow, not in Pulse or module logic.
+- Pending: module-specific user/member limits if ever modeled as platform feature keys.
+- Risks: modules must not duplicate user quota checks.
+- Next recommended step: keep module feature limits behind platform `canUseModuleFeature`.
+
+## 2026-05-14 Stage 4G — Module Access Plan Cache
+
+- Changed: platform plan-limit cache is available for module access hotpaths.
+- Completed: modules still ask Synapse platform for governance; they do not read Redis directly.
+- Pending: route module feature usage through cached plan-limit helpers where needed.
+- Risks: modules must not depend on cache keys or billing table shape.
+- Next recommended step: keep module-facing contracts stable around `canUseModuleFeature`.
+
+## 2026-05-14 Stage 4H — Module Usage Boundary
+
+- Changed: Pulse action definitions can drive platform usage consumption only through the action processor and `BillingService`.
+- Completed: Pulse remains module-owned for operational action semantics; subscription, credit, and usage writes stay platform-owned.
+- Pending: module-facing usage cost contract for future skills/actions.
+- Risks: future modules must not write usage events directly or enforce credits internally.
+- Next recommended step: standardize module action usage metadata as advisory input to platform governance.
+
+## 2026-05-14 Stage 4I — Module Usage Retry Contract
+
+- Changed: module-triggered usage retries are deduplicated by platform usage idempotency.
+- Completed: Pulse does not own retry billing behavior; it only supplies tenant/module/action context.
+- Pending: shared helper for action usage metadata across future modules.
+- Risks: modules must generate stable idempotency keys for retryable jobs.
+- Next recommended step: document action idempotency-key rules in module developer contracts.
+
+## 2026-05-14 Stage 4J — Module Action Idempotency Contract
+
+- Changed: Pulse `ticket.advance_flow` treats the action job idempotency key as the operational side-effect key.
+- Completed: duplicate action delivery is skipped inside Pulse domain logic, while billing idempotency remains platform-owned.
+- Pending: shared action execution contract for future modules.
+- Risks: every future side-effect action must declare and persist its own idempotency boundary.
+- Next recommended step: define a common action execution ledger contract.
+
+## 2026-05-14 Stage 4K — Pulse-Owned Action Execution Ledger
+
+- Changed: Pulse owns its module-specific action execution ledger.
+- Completed: ledger is operational module data, not platform billing/subscription governance.
+- Pending: reusable module contract for future modules that need side-effect idempotency.
+- Risks: platform must not centralize module-specific action state in Synapse core tables.
+- Next recommended step: document an extractable-first action ledger pattern for modules.
+
+## 2026-05-14 Stage 4L — Transactional Module Action Pattern
+
+- Changed: Pulse action side effects now use a module-owned transaction boundary.
+- Completed: transaction covers only durable module/platform ledgers and does not call external providers.
+- Pending: reusable transaction-aware module repository contracts.
+- Risks: future modules must avoid long-running work inside DB transactions.
+- Next recommended step: document a module action transaction pattern before adding more actions.

@@ -558,3 +558,62 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: connect runtime usage consumption to `consumeUsageOrReject`.
 - Risks: action skips due to RBAC must not be counted as completed billable automations.
 - Next recommended step: enforce `maxUsersPerTenant` and then add runtime usage consumption boundaries.
+
+## 2026-05-14 Stage 4F — User Quota Billing Enforcement
+
+- Changed: `maxUsersPerTenant` is now enforced during membership creation.
+- Completed: membership creation consumes `BillingService.getTenantPlanLimits` and blocks when the plan quota is exhausted.
+- Pending: plan/quota cache and DB fixture.
+- Risks: quota reads currently hit Postgres through billing account/plan lookup.
+- Next recommended step: add Redis cache for tenant plan limits with safe invalidation on plan/account changes.
+
+## 2026-05-14 Stage 4G — Tenant Plan Limits Cache
+
+- Changed: tenant plan limits now use Redis cache with PostgreSQL fallback.
+- Completed: cache keys are `billing:tenant-plan-limits:<tenantId>` with 60 second TTL.
+- Completed: cache invalidates best-effort on plan updates/deletes, feature flag changes, Stripe customer provisioning, subscription reconciliation, and invoice status reconciliation.
+- Pending: usage counter cache and DB invalidation fixtures.
+- Risks: manual DB edits require TTL expiry or explicit operational invalidation.
+- Next recommended step: wire runtime usage consumption through billing governance and add usage counter hotpath.
+
+## 2026-05-14 Stage 4H — Pulse Action Usage Consumption
+
+- Changed: completed real Pulse action side effects now record `WORKFLOW_RUN` usage through platform billing governance.
+- Completed: `BillingService.consumeUsageOrReject` is idempotent when an idempotency key is supplied, preventing duplicate usage rows on action retries.
+- Completed: prepared-only, skipped, failed, validation-denied, and no-side-effect actions are not billed.
+- Pending: configurable usage costs per action definition and provider-backed AI call usage once runtime provider dispatch is real.
+- Risks: usage is recorded after the side-effect handler completes; handlers must remain idempotent if the usage write or timeline projection fails.
+- Next recommended step: add action-side-effect idempotency fixtures and introduce configurable action usage cost metadata.
+
+## 2026-05-14 Stage 4I — Usage Idempotency Quota Safety
+
+- Changed: duplicate idempotent usage calls return the existing event before credit quota evaluation.
+- Completed: retrying the same operation cannot be rejected just because its first attempt consumed the final available credit.
+- Completed: added unit tests plus an opt-in database fixture for tenant-scoped idempotency.
+- Pending: run DB fixture with local Postgres and add usage counter cache later.
+- Risks: concurrent first writes still rely on PostgreSQL unique constraints.
+- Next recommended step: add action side-effect idempotency fixtures and then usage counter hotpath.
+
+## 2026-05-14 Stage 4J — Action Usage Side-Effect Boundary
+
+- Changed: action-driven flow transition usage keys now include the action idempotency key.
+- Completed: duplicate `ticket.advance_flow` delivery does not create lifecycle usage records after the first successful side effect.
+- Pending: DB fixture execution with local Postgres.
+- Risks: action processor-level usage remains separately idempotent through `pulse-action-usage:<jobKey>`.
+- Next recommended step: consolidate action lifecycle and billing usage under a durable action execution ledger.
+
+## 2026-05-14 Stage 4K — Action Ledger Billing Boundary
+
+- Changed: action execution ledger gates operational side effects before lifecycle usage writes.
+- Completed: billing remains platform-owned; the ledger only decides whether Pulse should apply the operational action.
+- Pending: transaction boundary between action ledger success and usage write.
+- Risks: if usage write fails after side effects, ledger status can still require reconciliation.
+- Next recommended step: make action side effects, operational events, audit, usage, and ledger completion transaction-aware.
+
+## 2026-05-14 Stage 4L — Transactional Usage Boundary
+
+- Changed: action-driven lifecycle usage writes now share the same transaction as ticket mutation and ledger success.
+- Completed: `WORKFLOW_RUN` usage for `ticket.advance_flow` cannot commit without the ticket update and action execution success marker.
+- Pending: DB fixture execution and future platform-governed credit pre-reservation.
+- Risks: this covers lifecycle usage, while action-processor-level governed usage remains separately idempotent.
+- Next recommended step: design credit reservation/commit semantics before external paid actions.

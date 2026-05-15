@@ -253,3 +253,59 @@ Conversation messages can arrive rapidly. Future workers should use per-conversa
 - Pending: failed/skipped metrics for runtime action governance.
 - Risks: skipped action visibility currently depends on timeline projection.
 - Next recommended step: add observability counters for runtime action skipped reasons.
+
+## 2026-05-14 Stage 4F — Membership Quota Queue Note
+
+- Changed: no queue behavior changed.
+- Completed: user quota enforcement is synchronous before membership persistence.
+- Pending: none for queues.
+- Risks: async invitation workflows would need to reserve or re-check quota at acceptance time.
+- Next recommended step: re-check quota in any future invitation acceptance flow.
+
+## 2026-05-14 Stage 4G — Plan Cache Queue Note
+
+- Changed: no queue behavior changed.
+- Completed: plan-limit cache invalidation is synchronous/best-effort in billing mutation paths.
+- Pending: async invalidation events only if broad plan policy changes become expensive.
+- Risks: future async invitation acceptance must re-read cached/fallback plan limits.
+- Next recommended step: keep quota enforcement at final write/acceptance boundaries.
+
+## 2026-05-14 Stage 4H — Action Usage Queue Note
+
+- Changed: `pulse.actions` now records governed workflow usage after a real side-effect handler succeeds.
+- Completed: action usage uses the action job idempotency key with a `pulse-action-usage:` prefix.
+- Pending: queue metrics for usage-recording failures and retry visibility.
+- Risks: side-effect handlers must be idempotent because usage/timeline failures happen after handler execution.
+- Next recommended step: add action handler idempotency fixtures before enabling more side-effect actions.
+
+## 2026-05-14 Stage 4I — Queue Usage Retry Safety
+
+- Changed: retries that reuse the same action usage idempotency key return the existing usage event.
+- Completed: usage quota is checked only for first-time usage keys.
+- Pending: processor fixture for repeated action job delivery.
+- Risks: action side effects and timeline projection need the same retry discipline.
+- Next recommended step: add repeated-delivery fixtures for real action handlers.
+
+## 2026-05-14 Stage 4J — Action Queue Retry Safety
+
+- Changed: `pulse.actions` idempotency keys now flow into `ticket.advance_flow` side-effect persistence.
+- Completed: repeated delivery of the same action key skips lifecycle side effects after the first success.
+- Pending: DB fixture execution and observability counter for duplicate skips.
+- Risks: simultaneous duplicate workers can still race without a dedicated action execution table.
+- Next recommended step: introduce a durable action execution ledger before scaling action worker concurrency.
+
+## 2026-05-14 Stage 4K — Action Ledger Queue Semantics
+
+- Changed: `pulse.actions` side effects now claim a durable action execution row.
+- Completed: succeeded duplicates are skipped and in-progress duplicates raise conflict for retry.
+- Pending: queue metrics for `already_succeeded` and `in_progress` outcomes.
+- Risks: BullMQ retries remain separate from business idempotency and must keep stable job ids.
+- Next recommended step: add processor observability counters for action ledger outcomes.
+
+## 2026-05-14 Stage 4L — Transactional Queue Side Effects
+
+- Changed: action queue side effects commit through a single database transaction for `ticket.advance_flow`.
+- Completed: queue retry sees durable ledger status and cannot partially commit lifecycle writes.
+- Pending: queue metrics for transaction conflicts and duplicate skips.
+- Risks: worker concurrency should be scaled after conflict observability exists.
+- Next recommended step: add counters/logging for action transaction outcomes.

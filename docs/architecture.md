@@ -199,3 +199,45 @@ These fixtures are skipped by default and run with `RUN_DATABASE_TESTS=1` when a
 Runtime actor snapshots are now attribution records, not authorization authorities.
 
 Pulse result ingestion revalidates the actor against live membership permissions before automatic actions are planned, keeping runtime callbacks aligned with current RBAC.
+
+## 2026-05-14 Membership User Quota Enforcement
+
+Membership creation now consumes platform plan limits before adding tenant users.
+
+This keeps commercial governance in Synapse billing/platform services while tenant membership remains the RBAC persistence model.
+
+## 2026-05-14 Tenant Plan Limits Cache
+
+Tenant plan limits are now cached in Redis with PostgreSQL fallback.
+
+The cache accelerates governance hotpaths such as membership quota checks, while billing tables remain the source of truth and mutation paths perform best-effort invalidation.
+
+## 2026-05-14 Governed Pulse Action Usage
+
+Pulse action handlers now report completed workflow side effects to platform billing through `BillingService.consumeUsageOrReject`.
+
+The module remains responsible for operational action semantics, while Synapse platform remains responsible for usage idempotency, credits, quotas, and billing governance.
+
+## 2026-05-14 Usage Idempotency Retry Safety
+
+Usage idempotency now resolves an existing tenant/idempotency-key event before quota checks.
+
+This prevents retry loops from turning a successful first usage write into a later quota failure while preserving first-write credit enforcement.
+
+## 2026-05-14 Pulse Action Side-Effect Idempotency
+
+Pulse `ticket.advance_flow` now persists consumed action idempotency keys in ticket metadata.
+
+This gives normal BullMQ retries a durable skip path for duplicate operational side effects while the next architecture step remains a dedicated action execution ledger for concurrent duplicate protection.
+
+## 2026-05-14 Durable Pulse Action Execution Ledger
+
+Pulse now owns `pulse_action_executions`, a tenant-scoped ledger for operational action idempotency.
+
+The ledger claims action keys before side effects and records `STARTED`, `SUCCEEDED`, or `FAILED`, keeping operational action state inside the module while Synapse platform continues to own governance and billing.
+
+## 2026-05-14 Transactional Pulse Action Execution
+
+Pulse `ticket.advance_flow` now commits ledger claim, ticket mutation, operational event, audit event, usage event, and ledger completion in one Prisma transaction.
+
+The transaction contains only database work; external provider/runtime calls remain outside this boundary.

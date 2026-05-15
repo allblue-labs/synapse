@@ -7,6 +7,7 @@ import {QueueModule} from '../../modules/queue/queue.module';
 import {UsageModule} from '../../modules/usage/usage.module';
 import {RuntimeModule} from '../../core/runtime/runtime.module';
 import {PermissionResolverService} from '../../common/authorization';
+import {BillingModule} from '../../modules/billing/billing.module';
 import {PulseController} from './pulse.controller';
 import {PulseRuntimeResultController} from './pulse-runtime-result.controller';
 import {ListQueueUseCase} from './application/use-cases/list-queue.use-case';
@@ -36,6 +37,7 @@ import {PulseActionGovernanceService} from './application/actions/pulse-action-g
 import {PulseRuntimeActionPlannerService} from './application/actions/pulse-runtime-action-planner.service';
 import {PulseRepository} from './infrastructure/repositories/pulse.repository';
 import {PulseOperationalEventRepository} from './infrastructure/repositories/pulse-operational-event.repository';
+import {PulseActionExecutionRepository} from './infrastructure/repositories/pulse-action-execution.repository';
 import {PulseTicketRepository} from './infrastructure/repositories/pulse-ticket.repository';
 import {PulseChannelRepository} from './infrastructure/repositories/pulse-channel.repository';
 import {PulseConversationRepository} from './infrastructure/repositories/pulse-conversation.repository';
@@ -53,6 +55,7 @@ import {PulseTimelineProcessor} from './infrastructure/processors/pulse-timeline
 import {PulseActionsProcessor} from './infrastructure/processors/pulse-actions.processor';
 import {PULSE_REPOSITORY} from './domain/ports/pulse-repository.port';
 import {PULSE_OPERATIONAL_EVENT_REPOSITORY} from './domain/ports/pulse-operational-event-repository.port';
+import {PULSE_ACTION_EXECUTION_REPOSITORY} from './domain/ports/pulse-action-execution-repository.port';
 import {PULSE_TICKET_REPOSITORY} from './domain/ports/pulse-ticket-repository.port';
 import {PULSE_CHANNEL_REPOSITORY} from './domain/ports/pulse-channel-repository.port';
 import {PULSE_CONVERSATION_REPOSITORY} from './domain/ports/pulse-conversation-repository.port';
@@ -94,6 +97,7 @@ const USE_CASES = [
     QueueModule,
     UsageModule,
     RuntimeModule,
+    BillingModule,
     BullModule.registerQueue(
       ...Object.values(PULSE_QUEUES).map((name) => ({name})),
     ),
@@ -114,6 +118,7 @@ const USE_CASES = [
     PulseQueueService,
     {provide: PULSE_REPOSITORY, useClass: PulseRepository},
     {provide: PULSE_OPERATIONAL_EVENT_REPOSITORY, useClass: PulseOperationalEventRepository},
+    {provide: PULSE_ACTION_EXECUTION_REPOSITORY, useClass: PulseActionExecutionRepository},
     {provide: PULSE_TICKET_REPOSITORY, useClass: PulseTicketRepository},
     {provide: PULSE_CHANNEL_REPOSITORY, useClass: PulseChannelRepository},
     {provide: PULSE_CONVERSATION_REPOSITORY, useClass: PulseConversationRepository},

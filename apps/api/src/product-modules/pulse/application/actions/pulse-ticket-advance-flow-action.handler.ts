@@ -63,6 +63,7 @@ export class PulseTicketAdvanceFlowActionHandler implements PulseActionHandler {
         confidence: payload.confidence,
         note: payload.note,
         aiDecisionSummary: payload.aiDecisionSummary,
+        actionIdempotencyKey: job.idempotencyKey,
       },
     );
 

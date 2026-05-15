@@ -60,6 +60,7 @@ describe('PulseTicketAdvanceFlowActionHandler', () => {
         confidence: 0.9,
         note: 'Runtime recommended collecting more context.',
         aiDecisionSummary: undefined,
+        actionIdempotencyKey: 'idem-1',
       },
     );
   });

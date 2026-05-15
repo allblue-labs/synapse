@@ -1281,3 +1281,115 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Successful runtime execution can produce a skipped action plan when authorization changed.
 
 **Next recommended step:** add DB fixture coverage for runtime actor downgrade.
+
+---
+
+## 2026-05-14 — Membership creation consumes platform plan limits
+
+**Decision:** Enforce `maxUsersPerTenant` in membership creation by calling platform billing/governance.
+
+**Reason:** Memberships are tenant RBAC data, but user-count limits are commercial governance owned by Synapse platform.
+
+**Consequence:** Membership creation blocks before persistence when the tenant's plan user quota is full.
+
+**Status:** Implemented.
+
+**Risk:** Enforcement is currently application-level.
+
+**Next recommended step:** cache plan/quota reads through Redis with Postgres fallback.
+
+---
+
+## 2026-05-14 — Tenant plan limits use Redis as cache only
+
+**Decision:** Cache resolved tenant plan limits in Redis with a short TTL and PostgreSQL fallback.
+
+**Reason:** Membership/module/runtime hotpaths need plan/quota data without repeatedly joining billing account and plan tables.
+
+**Consequence:** Redis accelerates reads but is never the source of truth. Billing plan/account mutations invalidate affected tenant cache keys best-effort.
+
+**Status:** Implemented for `getTenantPlanLimits`.
+
+**Risk:** Direct database edits bypass invalidation and rely on TTL expiry.
+
+**Next recommended step:** add DB fixture coverage for invalidation and wire usage consumption boundaries.
+
+---
+
+## 2026-05-14 — Bill only completed real action side effects
+
+**Decision:** Record operational workflow usage only after a registered Pulse action handler completes with `sideEffectsApplied: true`.
+
+**Reason:** Prepared-only, skipped, failed, and validation-denied actions should not become billable workflow usage.
+
+**Consequence:** `pulse.actions` calls platform `consumeUsageOrReject` for real workflow side effects and uses idempotency keys for retry safety.
+
+**Status:** Implemented for `ticket.advance_flow`.
+
+**Risk:** Credit cost is currently fixed at one workflow run per side-effect action.
+
+**Next recommended step:** add configurable usage cost metadata to action definitions.
+
+---
+
+## 2026-05-14 — Idempotent usage retries bypass quota checks
+
+**Decision:** When `consumeUsageOrReject` receives an idempotency key that already exists for the same tenant, return the existing usage event before checking remaining monthly credits.
+
+**Reason:** A retry of the same completed operation must not fail because the first attempt legitimately consumed the remaining credit.
+
+**Consequence:** Usage idempotency is tenant-scoped and retry-safe while first-time usage still enforces plan credit limits.
+
+**Status:** Implemented with unit coverage and opt-in DB fixture coverage.
+
+**Risk:** Concurrent first attempts still depend on database uniqueness/upsert semantics.
+
+**Next recommended step:** add side-effect idempotency fixtures for Pulse action handlers.
+
+---
+
+## 2026-05-14 — Pulse action side effects use action idempotency keys
+
+**Decision:** Persist consumed action idempotency keys in Pulse ticket metadata for `ticket.advance_flow`.
+
+**Reason:** BullMQ retries can re-run the same action job; the operational side effect must not mutate the ticket or emit operational/audit/usage events again.
+
+**Consequence:** Replayed action jobs return the current ticket state and avoid duplicate side effects.
+
+**Status:** Implemented for `ticket.advance_flow`.
+
+**Risk:** Metadata-based idempotency is not a substitute for a transaction-level action execution ledger under concurrent duplicate delivery.
+
+**Next recommended step:** add a durable action execution ledger before introducing high-impact external action handlers.
+
+---
+
+## 2026-05-14 — Pulse action executions use a tenant-scoped ledger
+
+**Decision:** Add `pulse_action_executions` with a unique `tenantId + idempotencyKey` constraint and explicit execution statuses.
+
+**Reason:** Action retries and concurrent delivery need a durable guard outside mutable ticket metadata.
+
+**Consequence:** `ticket.advance_flow` claims an action key before side effects, skips already-succeeded duplicates, and rejects in-progress duplicates for retry.
+
+**Status:** Implemented with migration and repository coverage.
+
+**Risk:** The claim and downstream ticket/event/audit/usage writes are not yet enclosed in a single transaction.
+
+**Next recommended step:** introduce a transaction boundary for lifecycle action execution.
+
+---
+
+## 2026-05-14 — Action-driven Pulse lifecycle writes are transactional
+
+**Decision:** Run `ticket.advance_flow` ledger claim, ticket mutation, operational event, audit event, usage event, and ledger completion inside one Prisma transaction.
+
+**Reason:** Action retries and partial failures must not leave operational state, audit, usage, and execution status inconsistent.
+
+**Consequence:** Duplicate completed action keys skip without writes; duplicate in-progress keys fail before mutation; successful action side effects commit together.
+
+**Status:** Implemented for action-driven flow advancement.
+
+**Risk:** This is implemented directly in the action-driven lifecycle path until repositories become transaction-aware.
+
+**Next recommended step:** add transaction-aware repository contracts before more side-effect handlers are added.

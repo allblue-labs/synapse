@@ -705,3 +705,69 @@ Last updated: 2026-05-07
 - Pending: DB fixture for runtime actor downgrade once local Postgres is available.
 - Risks: runtime lifecycle success and action authorization are now intentionally separate outcomes; operators may need clear timeline labels for skipped actions.
 - Next recommended step: enforce `maxUsersPerTenant` during membership creation through platform plan limits.
+
+## 2026-05-14 Stage 4F — Membership User Quota Enforcement
+
+- Changed: tenant membership creation now checks platform-owned plan limits before adding a user.
+- Completed: `MembershipsService` calls `BillingService.getTenantPlanLimits(tenantId)` and blocks creation when current memberships are at or above `maxUsersPerTenant`.
+- Completed: quota denial returns a clear business error and does not create the membership or invalidate permission cache.
+- Pending: DB fixture for user quota enforcement and Redis plan/quota cache.
+- Risks: direct database inserts can still bypass application-level quota checks.
+- Next recommended step: add a platform plan/quota Redis hotpath with DB fallback.
+
+## 2026-05-14 Stage 4G — Tenant Plan Limits Cache
+
+- Changed: `BillingService.getTenantPlanLimits` now uses Redis as a short-lived tenant plan/quota hotpath.
+- Completed: cache miss falls back to PostgreSQL billing account/plan state, writes a 60 second cache entry, and returns typed limits.
+- Completed: plan updates/deletes, feature flag changes, Stripe subscription/invoice reconciliation, and Stripe customer provisioning invalidate affected tenant plan-limit cache keys on a best-effort basis.
+- Pending: DB fixture for plan/account mutation invalidation and usage counter Redis hotpath.
+- Risks: direct database changes bypass invalidation and rely on short TTL.
+- Next recommended step: add runtime usage consumption boundaries through `consumeUsageOrReject`.
+
+## 2026-05-14 Stage 4H — Governed Pulse Action Usage Consumption
+
+- Changed: real Pulse action handlers now consume platform-governed usage only after successful side effects.
+- Completed: `pulse.actions` records `WORKFLOW_RUN` usage through `BillingService.consumeUsageOrReject` when a registered handler completes with `sideEffectsApplied: true` and declares `usageCandidate: workflow_run`.
+- Completed: prepared-only, skipped, failed, validation-denied, and no-side-effect actions do not create billable usage.
+- Completed: `consumeUsageOrReject` is now idempotent when an idempotency key is supplied.
+- Pending: runtime provider AI call usage consumption when provider calls become real.
+- Risks: workflow-run credit cost is currently a simple quantity/credit of 1.
+- Next recommended step: add usage consumption for runtime execution dispatch once provider execution is implemented.
+
+## 2026-05-14 Stage 4I — Usage Idempotency Fixtures
+
+- Changed: `BillingService.consumeUsageOrReject` now returns an existing usage event before quota checks when the same tenant/idempotency key was already recorded.
+- Completed: this prevents idempotent retries from being rejected after the first attempt consumed the last available monthly credit.
+- Completed: added opt-in database fixture coverage for duplicate action usage retries and tenant-scoped idempotency keys.
+- Pending: run `RUN_DATABASE_TESTS=1 npm test -- billing-usage.database-fixtures` after local Postgres is available on `localhost:5435`.
+- Risks: concurrent first-attempt races still rely on the database unique key and upsert behavior.
+- Next recommended step: add action handler side-effect idempotency fixtures before enabling additional real actions.
+
+## 2026-05-14 Stage 4J — Pulse Action Side-Effect Idempotency
+
+- Changed: `ticket.advance_flow` now passes the action job idempotency key into `TicketLifecycleUseCase`.
+- Completed: `advanceFlowState` records consumed action idempotency keys in ticket metadata and returns the existing ticket without update/event/audit/usage when the same action key is retried.
+- Completed: lifecycle usage idempotency keys include the action idempotency key for action-driven flow transitions.
+- Completed: added unit coverage and an opt-in DB fixture for duplicate action delivery.
+- Pending: run `RUN_DATABASE_TESTS=1 npm test -- ticket-lifecycle.database-fixtures` once local Postgres is available.
+- Risks: concurrent first delivery of the same action can still race before metadata is persisted; DB-level action execution ledger may be needed later.
+- Next recommended step: add a durable action execution ledger or transaction-level guard before adding high-impact side-effect handlers.
+
+## 2026-05-14 Stage 4K — Durable Pulse Action Execution Ledger
+
+- Changed: added tenant-scoped `pulse_action_executions` persistence with `STARTED`, `SUCCEEDED`, and `FAILED` statuses.
+- Completed: `TicketLifecycleUseCase` now claims `tenantId + actionIdempotencyKey` before action-driven flow side effects and marks the execution succeeded or failed.
+- Completed: duplicate succeeded actions return the current tenant-owned ticket without reapplying side effects; duplicate in-progress actions fail fast with conflict for retry.
+- Completed: added Prisma migration `20260514110000_add_pulse_action_execution_ledger` and repository/unit coverage.
+- Pending: apply migration in Docker/dev database and run DB fixtures.
+- Risks: side effects are still not wrapped in one database transaction with the ledger update.
+- Next recommended step: move lifecycle action mutation/event/audit/usage writes into a transaction boundary around the ledger claim.
+
+## 2026-05-14 Stage 4L — Transactional Action Execution Boundary
+
+- Changed: action-driven ticket lifecycle mutations now run inside one Prisma transaction.
+- Completed: ledger claim, ticket update, Pulse operational event, audit event, usage event, and ledger success update commit atomically for `ticket.advance_flow`.
+- Completed: duplicate `SUCCEEDED` action keys return the ticket without writes; duplicate `STARTED` action keys return conflict before mutation.
+- Pending: DB fixture execution after local Postgres is available.
+- Risks: transactional path currently covers action-driven flow advancement; manual ticket lifecycle APIs still use the existing service/repository path.
+- Next recommended step: expand transaction-aware repositories or a shared transaction runner before adding more side-effect action handlers.

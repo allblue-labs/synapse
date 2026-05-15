@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { AuditService } from '../../common/audit/audit.service';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { BillingService } from '../billing/billing.service';
 import { MembershipsService } from './memberships.service';
 
 describe('MembershipsService', () => {
@@ -25,6 +26,9 @@ describe('MembershipsService', () => {
   const permissions = {
     invalidate: jest.fn(),
   };
+  const billing = {
+    getTenantPlanLimits: jest.fn(),
+  };
   const actor = {
     sub: 'owner-1',
     email: 'owner@example.com',
@@ -34,6 +38,10 @@ describe('MembershipsService', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    billing.getTenantPlanLimits.mockResolvedValue({
+      planKey: 'light',
+      maxUsersPerTenant: 3,
+    });
   });
 
   function service() {
@@ -41,6 +49,7 @@ describe('MembershipsService', () => {
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
       permissions as never,
+      billing as unknown as BillingService,
     );
   }
 
@@ -79,6 +88,7 @@ describe('MembershipsService', () => {
       name: 'Operator',
       platformRole: null,
     });
+    prisma.userMembership.count.mockResolvedValue(1);
     prisma.userMembership.create.mockResolvedValue({
       id: 'membership-1',
       tenantId: 'tenant-1',
@@ -93,7 +103,33 @@ describe('MembershipsService', () => {
       email: 'operator@example.com',
       role: UserRole.OPERATOR,
     })).resolves.toEqual(expect.objectContaining({ role: UserRole.OPERATOR }));
+    expect(billing.getTenantPlanLimits).toHaveBeenCalledWith('tenant-1');
     expect(permissions.invalidate).toHaveBeenCalledWith('operator-1', 'tenant-1');
+  });
+
+  it('rejects membership creation when the workspace reached plan user quota', async () => {
+    prisma.userMembership.findUnique
+      .mockResolvedValueOnce({ id: 'actor-membership', role: UserRole.OWNER })
+      .mockResolvedValueOnce(null);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'operator-1',
+      email: 'operator@example.com',
+      name: 'Operator',
+      platformRole: null,
+    });
+    billing.getTenantPlanLimits.mockResolvedValue({
+      planKey: 'light',
+      maxUsersPerTenant: 1,
+    });
+    prisma.userMembership.count.mockResolvedValue(1);
+
+    await expect(service().create('tenant-1', actor, {
+      email: 'operator@example.com',
+      role: UserRole.OPERATOR,
+    })).rejects.toThrow('User limit reached');
+
+    expect(prisma.userMembership.create).not.toHaveBeenCalled();
+    expect(permissions.invalidate).not.toHaveBeenCalled();
   });
 
   it('prevents tenant admins from assigning owner memberships', async () => {

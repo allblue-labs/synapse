@@ -234,6 +234,12 @@ enum PulseSkillStatus {
   DISABLED
 }
 
+enum PulseActionExecutionStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+}
+
 enum IntegrationProvider {
   GOOGLE_CALENDAR
   OUTLOOK_CALENDAR
@@ -276,6 +282,7 @@ model Tenant {
   pulseConversations PulseConversation[]
   pulseTickets      PulseTicket[]
   pulseOperationalEvents PulseOperationalEvent[]
+  pulseActionExecutions PulseActionExecution[]
   pulsePlaybooks    PulsePlaybook[]
   pulseOperationalSchedules PulseOperationalSchedule[]
   pulseKnowledgeContexts PulseKnowledgeContext[]
@@ -846,6 +853,32 @@ model PulseOperationalEvent {
   @@index([tenantId, conversationId, occurredAt])
   @@index([tenantId, ticketId, occurredAt])
   @@map("pulse_operational_events")
+}
+
+model PulseActionExecution {
+  id             String                     @id @default(cuid())
+  tenantId       String
+  action         String
+  idempotencyKey String
+  ticketId       String?
+  conversationId String?
+  status         PulseActionExecutionStatus @default(STARTED)
+  attempts       Int                        @default(1)
+  metadata       Json                       @default("{}")
+  errorMessage   String?
+  startedAt      DateTime                   @default(now())
+  completedAt    DateTime?
+  failedAt       DateTime?
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, ticketId, updatedAt])
+  @@index([tenantId, action, status])
+  @@map("pulse_action_executions")
 }
 
 model PulsePlaybook {

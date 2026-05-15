@@ -557,3 +557,59 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: persisted role/permission overrides.
 - Risks: platform role snapshots in runtime requests still need clear policy if platform actors trigger tenant actions.
 - Next recommended step: add explicit platform-actor policy for tenant runtime actions.
+
+## 2026-05-14 Stage 4F — RBAC Membership Quota
+
+- Changed: membership create remains RBAC-controlled and now also checks platform user quota.
+- Completed: role escalation checks run before quota/persistence; quota failure still blocks write.
+- Pending: persisted role/permission overrides.
+- Risks: admin UX must distinguish forbidden RBAC from quota exhaustion.
+- Next recommended step: expose display-safe quota error handling in frontend contracts.
+
+## 2026-05-14 Stage 4G — RBAC/Quota Cache Note
+
+- Changed: no RBAC behavior changed.
+- Completed: plan-limit cache supports membership quota enforcement without making Redis an authorization authority.
+- Pending: persisted role/permission models.
+- Risks: quota cache must not be confused with membership permission cache.
+- Next recommended step: keep separate cache namespaces for quota and authorization data.
+
+## 2026-05-14 Stage 4H — Action Usage RBAC Note
+
+- Changed: no RBAC permissions changed.
+- Completed: action usage is recorded only after handler permission checks pass and a real side effect is applied.
+- Pending: DB fixture for downgraded actor plus usage non-emission.
+- Risks: authorization denials must stay non-billable.
+- Next recommended step: add fixture coverage proving forbidden action jobs do not create usage records.
+
+## 2026-05-14 Stage 4I — Usage Retry RBAC Note
+
+- Changed: no RBAC behavior changed.
+- Completed: usage retry safety is independent of role resolution and still requires the original operation to pass authorization before usage is first written.
+- Pending: forbidden action usage DB fixture.
+- Risks: idempotency must not be used as an authorization shortcut.
+- Next recommended step: test forbidden action jobs with duplicate idempotency keys.
+
+## 2026-05-14 Stage 4J — Action Retry RBAC Note
+
+- Changed: no role or permission behavior changed.
+- Completed: action idempotency is evaluated after the action processor permission check and tenant-scoped ticket lookup.
+- Pending: fixture for permission-denied duplicate action jobs.
+- Risks: retry idempotency must not authorize a user whose current permissions were revoked.
+- Next recommended step: combine actor revalidation and action idempotency in persisted fixtures.
+
+## 2026-05-14 Stage 4K — Action Ledger RBAC Note
+
+- Changed: no permission surface changed.
+- Completed: ledger claims happen after action processor permission validation and tenant-scoped ticket lookup.
+- Pending: fixture combining revoked actor permissions with existing action ledger rows.
+- Risks: ledger rows are not authorization grants and must never bypass live RBAC.
+- Next recommended step: test actor downgrade plus duplicate action delivery.
+
+## 2026-05-14 Stage 4L — Transactional Action RBAC Note
+
+- Changed: no RBAC behavior changed.
+- Completed: transaction starts only after action processor permission checks have allowed the handler path.
+- Pending: actor downgrade plus transaction fixture.
+- Risks: transaction idempotency must not replace live permission revalidation.
+- Next recommended step: combine permission revalidation, ledger conflict, and transaction assertions in DB fixtures.

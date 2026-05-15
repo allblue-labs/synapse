@@ -5,6 +5,7 @@ import {
   ModuleTier,
   ModulePurchaseStatus,
   StripeWebhookEventStatus,
+  UsageMetricType,
 } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'crypto';
@@ -51,6 +52,8 @@ function createPrismaMock() {
     usageEvent: {
       aggregate: jest.fn(),
       create: jest.fn(),
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
     },
   };
 }
@@ -73,14 +76,21 @@ function createService() {
       return undefined;
     }),
   };
+  const redis = {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+  };
   return {
     prisma,
     audit,
     config,
+    redis,
     service: new BillingService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
       config as unknown as ConfigService,
+      redis as never,
     ),
   };
 }
@@ -100,6 +110,10 @@ function signStripePayload(event: unknown, secret = 'whsec_test') {
 
 describe('BillingService', () => {
   const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -253,6 +267,126 @@ describe('BillingService', () => {
       tenantId: 'tenant-a',
       moduleSlug: 'premium-module',
     })).resolves.toBe(false);
+  });
+
+  it('caches tenant plan limits and falls back to PostgreSQL on cache miss', async () => {
+    const { service, prisma, redis } = createService();
+    redis.get.mockResolvedValue(null);
+    prisma.billingAccount.findUnique.mockResolvedValue({
+      tenantId: 'tenant-a',
+      plan: {
+        key: 'light',
+        entitlements: {
+          allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT],
+          quotas: {
+            maxTenants: 1,
+            monthlyCredits: 3000,
+            maxUsersPerTenant: 3,
+            maxModules: 3,
+            maxActiveChannelSets: 1,
+          },
+        },
+      },
+    });
+
+    await expect(service.getTenantPlanLimits('tenant-a')).resolves.toEqual(expect.objectContaining({
+      planKey: 'light',
+      maxUsersPerTenant: 3,
+    }));
+    expect(redis.get).toHaveBeenCalledWith('billing:tenant-plan-limits:tenant-a');
+    expect(redis.set).toHaveBeenCalledWith(
+      'billing:tenant-plan-limits:tenant-a',
+      expect.stringContaining('"planKey":"light"'),
+      'EX',
+      60,
+    );
+  });
+
+  it('uses cached tenant plan limits when available', async () => {
+    const { service, prisma, redis } = createService();
+    redis.get.mockResolvedValue(JSON.stringify({
+      planKey: 'pro',
+      maxTenants: 2,
+      monthlyCredits: 15000,
+      maxUsersPerTenant: 15,
+      maxModules: 12,
+      maxActiveChannelSets: 5,
+      allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT, ModuleTier.PRO],
+      custom: {},
+    }));
+
+    await expect(service.getTenantPlanLimits('tenant-a')).resolves.toEqual(expect.objectContaining({
+      planKey: 'pro',
+      maxUsersPerTenant: 15,
+    }));
+    expect(prisma.billingAccount.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('returns existing idempotent usage before quota checks', async () => {
+    const { service, prisma } = createService();
+    const existing = {
+      id: 'usage-1',
+      tenantId: 'tenant-a',
+      idempotencyKey: 'pulse-action-usage:job-1',
+    };
+    prisma.usageEvent.findUnique.mockResolvedValue(existing);
+
+    await expect(service.consumeUsageOrReject({
+      tenantId: 'tenant-a',
+      moduleSlug: 'pulse',
+      metricType: UsageMetricType.WORKFLOW_RUN,
+      quantity: 1,
+      unit: 'workflow_run',
+      idempotencyKey: 'pulse-action-usage:job-1',
+      credits: 1,
+    })).resolves.toBe(existing);
+
+    expect(prisma.billingAccount.findUnique).not.toHaveBeenCalled();
+    expect(prisma.usageEvent.aggregate).not.toHaveBeenCalled();
+    expect(prisma.usageEvent.upsert).not.toHaveBeenCalled();
+  });
+
+  it('creates idempotent usage with a tenant-scoped key after quota checks', async () => {
+    const { service, prisma, redis } = createService();
+    redis.get.mockResolvedValue(null);
+    prisma.usageEvent.findUnique.mockResolvedValue(null);
+    prisma.billingAccount.findUnique.mockResolvedValue({
+      tenantId: 'tenant-a',
+      plan: {
+        key: 'light',
+        entitlements: {
+          allowedModuleTiers: [ModuleTier.FREE, ModuleTier.LIGHT],
+          quotas: {
+            maxTenants: 1,
+            monthlyCredits: 3000,
+            maxUsersPerTenant: 3,
+            maxModules: 3,
+            maxActiveChannelSets: 1,
+          },
+        },
+      },
+    });
+    prisma.usageEvent.aggregate.mockResolvedValue({ _sum: { quantity: 0 } });
+    prisma.usageEvent.upsert.mockResolvedValue({ id: 'usage-1' });
+
+    await service.consumeUsageOrReject({
+      tenantId: 'tenant-a',
+      moduleSlug: 'pulse',
+      metricType: UsageMetricType.WORKFLOW_RUN,
+      quantity: 1,
+      unit: 'workflow_run',
+      idempotencyKey: 'pulse-action-usage:job-1',
+      credits: 1,
+    });
+
+    expect(prisma.usageEvent.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        tenantId_idempotencyKey: {
+          tenantId: 'tenant-a',
+          idempotencyKey: 'pulse-action-usage:job-1',
+        },
+      },
+    }));
   });
 
   it('denies plan-entitled modules when the commercial flag is disabled', async () => {

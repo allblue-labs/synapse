@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   NotFoundException,
   OnModuleInit,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -20,8 +22,10 @@ import {
 } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { BillingCheckoutSession, BillingPlanKey, BillingPortalSession } from '@synapse/contracts';
+import type { Redis } from 'ioredis';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
+import { REDIS_CLIENT } from '../../common/redis/redis.module';
 
 type StripeEvent = {
   id: string;
@@ -68,6 +72,8 @@ export type TenantPlanLimits = {
   custom: Record<string, unknown>;
 };
 
+const TENANT_PLAN_LIMITS_CACHE_TTL_SECONDS = 60;
+
 type StripeCustomerResponse = {
   id?: string;
 };
@@ -88,6 +94,9 @@ export class BillingService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
+    @Optional()
+    @Inject(REDIS_CLIENT)
+    private readonly redis?: Redis,
   ) {}
 
   async onModuleInit() {
@@ -175,6 +184,7 @@ export class BillingService implements OnModuleInit {
         requiredPublicModules: plan.requiredPublicModules,
       },
     });
+    await this.invalidatePlanLimitsForPlan(plan.key);
 
     return plan;
   }
@@ -193,6 +203,7 @@ export class BillingService implements OnModuleInit {
       resourceId: plan.id,
       metadata: { key },
     });
+    await this.invalidatePlanLimitsForPlan(key);
 
     return { deleted: true, key };
   }
@@ -216,6 +227,7 @@ export class BillingService implements OnModuleInit {
       resourceId: flag.id,
       metadata: { key, enabled },
     });
+    await this.invalidatePlanLimitsForFeatureFlag(key);
 
     return flag;
   }
@@ -491,6 +503,20 @@ export class BillingService implements OnModuleInit {
     credits?: number;
     metadata?: Record<string, unknown>;
   }) {
+    if (input.idempotencyKey) {
+      const existing = await this.prisma.usageEvent.findUnique({
+        where: {
+          tenantId_idempotencyKey: {
+            tenantId: input.tenantId,
+            idempotencyKey: input.idempotencyKey,
+          },
+        },
+      });
+      if (existing) {
+        return existing;
+      }
+    }
+
     const limits = await this.getTenantPlanLimits(input.tenantId);
     const credits = input.credits ?? input.quantity;
     if (credits > 0) {
@@ -500,23 +526,41 @@ export class BillingService implements OnModuleInit {
       }
     }
 
-    return this.prisma.usageEvent.create({
-      data: {
-        tenantId: input.tenantId,
-        moduleSlug: input.moduleSlug,
-        metricType: input.metricType,
-        quantity: new Prisma.Decimal(input.quantity),
-        unit: input.unit,
-        resourceType: input.resourceType,
-        resourceId: input.resourceId,
-        idempotencyKey: input.idempotencyKey,
-        billingPeriod: this.billingPeriodFor(new Date()),
-        metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
+    const data = {
+      tenantId: input.tenantId,
+      moduleSlug: input.moduleSlug,
+      metricType: input.metricType,
+      quantity: new Prisma.Decimal(input.quantity),
+      unit: input.unit,
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      idempotencyKey: input.idempotencyKey,
+      billingPeriod: this.billingPeriodFor(new Date()),
+      metadata: (input.metadata ?? {}) as Prisma.InputJsonValue,
+    };
+
+    if (!input.idempotencyKey) {
+      return this.prisma.usageEvent.create({ data });
+    }
+
+    return this.prisma.usageEvent.upsert({
+      where: {
+        tenantId_idempotencyKey: {
+          tenantId: input.tenantId,
+          idempotencyKey: input.idempotencyKey,
+        },
       },
+      create: data,
+      update: {},
     });
   }
 
   async getTenantPlanLimits(tenantId: string): Promise<TenantPlanLimits> {
+    const cached = await this.readTenantPlanLimitsCache(tenantId);
+    if (cached) {
+      return cached;
+    }
+
     const account = await this.prisma.billingAccount.findUnique({
       where: { tenantId },
       include: { plan: true },
@@ -525,7 +569,9 @@ export class BillingService implements OnModuleInit {
       throw new NotFoundException('Billing account was not found for tenant.');
     }
 
-    return this.limitsFromPlan(account.plan);
+    const limits = this.limitsFromPlan(account.plan);
+    await this.writeTenantPlanLimitsCache(tenantId, limits);
+    return limits;
   }
 
   async assertCanCreateTenantForUser(userId: string) {
@@ -700,6 +746,103 @@ export class BillingService implements OnModuleInit {
     };
   }
 
+  private async readTenantPlanLimitsCache(tenantId: string): Promise<TenantPlanLimits | null> {
+    if (!this.redis) return null;
+    try {
+      const value = await this.redis.get(this.tenantPlanLimitsCacheKey(tenantId));
+      if (!value) return null;
+      return this.parseTenantPlanLimits(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeTenantPlanLimitsCache(tenantId: string, limits: TenantPlanLimits) {
+    if (!this.redis) return;
+    try {
+      await this.redis.set(
+        this.tenantPlanLimitsCacheKey(tenantId),
+        JSON.stringify(limits),
+        'EX',
+        TENANT_PLAN_LIMITS_CACHE_TTL_SECONDS,
+      );
+    } catch {
+      // Cache is an accelerator only. PostgreSQL remains source of truth.
+    }
+  }
+
+  private async invalidateTenantPlanLimits(tenantId: string) {
+    if (!this.redis) return;
+    try {
+      await this.redis.del(this.tenantPlanLimitsCacheKey(tenantId));
+    } catch {
+      // Best-effort cache invalidation; short TTL bounds stale reads.
+    }
+  }
+
+  private async invalidatePlanLimitsForPlan(planKey: string) {
+    if (!this.redis) return;
+    try {
+      const accounts = await this.prisma.billingAccount.findMany({
+        where: { planKey },
+        select: { tenantId: true },
+      });
+      await Promise.all(accounts.map((account) => this.invalidateTenantPlanLimits(account.tenantId)));
+    } catch {
+      // Best-effort cache invalidation; short TTL bounds stale reads.
+    }
+  }
+
+  private async invalidatePlanLimitsForFeatureFlag(key: string) {
+    if (!this.redis) return;
+    try {
+      const plans = await this.prisma.billingPlan.findMany({
+        where: { commercialFeatureFlag: key },
+        select: { key: true },
+      });
+      await Promise.all(plans.map((plan) => this.invalidatePlanLimitsForPlan(plan.key)));
+    } catch {
+      // Best-effort cache invalidation; short TTL bounds stale reads.
+    }
+  }
+
+  private tenantPlanLimitsCacheKey(tenantId: string) {
+    return `billing:tenant-plan-limits:${tenantId}`;
+  }
+
+  private parseTenantPlanLimits(value: unknown): TenantPlanLimits | null {
+    const object = this.objectFromUnknown(value);
+    if (
+      typeof object.planKey !== 'string' ||
+      typeof object.maxTenants !== 'number' ||
+      typeof object.monthlyCredits !== 'number' ||
+      typeof object.maxUsersPerTenant !== 'number' ||
+      typeof object.maxModules !== 'number' ||
+      typeof object.maxActiveChannelSets !== 'number' ||
+      !Array.isArray(object.allowedModuleTiers)
+    ) {
+      return null;
+    }
+
+    const allowedModuleTiers = object.allowedModuleTiers.filter((tier): tier is ModuleTier =>
+      Object.values(ModuleTier).includes(tier as ModuleTier),
+    );
+    if (allowedModuleTiers.length === 0) {
+      return null;
+    }
+
+    return {
+      planKey: object.planKey,
+      maxTenants: object.maxTenants,
+      monthlyCredits: object.monthlyCredits,
+      maxUsersPerTenant: object.maxUsersPerTenant,
+      maxModules: object.maxModules,
+      maxActiveChannelSets: object.maxActiveChannelSets,
+      allowedModuleTiers,
+      custom: this.objectFromUnknown(object.custom),
+    };
+  }
+
   private limitsForUserTenantCreation(plans: Array<{ key: string; entitlements: Prisma.JsonValue } | null | undefined>) {
     if (plans.length === 0) {
       return this.limitsFromPlan({
@@ -834,6 +977,7 @@ export class BillingService implements OnModuleInit {
       where: { tenantId: input.tenantId },
       data: { stripeCustomerId: response.id },
     });
+    await this.invalidateTenantPlanLimits(input.tenantId);
 
     await this.audit.record({
       tenantId: input.tenantId,
@@ -1084,7 +1228,7 @@ export class BillingService implements OnModuleInit {
       throw new Error('Stripe subscription webhook cannot be matched to a tenant.');
     }
 
-    await this.prisma.billingAccount.update({
+    const account = await this.prisma.billingAccount.update({
       where,
       data: {
         ...(customerId && { stripeCustomerId: customerId }),
@@ -1094,6 +1238,7 @@ export class BillingService implements OnModuleInit {
         ...(planKey && { planKey }),
       },
     });
+    await this.invalidateTenantPlanLimits(account.tenantId);
   }
 
   private async reconcileInvoiceStatus(invoice: Record<string, unknown>, status: BillingStatus) {
@@ -1110,13 +1255,14 @@ export class BillingService implements OnModuleInit {
       throw new Error('Stripe invoice webhook cannot be matched to a tenant.');
     }
 
-    await this.prisma.billingAccount.update({
+    const account = await this.prisma.billingAccount.update({
       where,
       data: {
         status,
         ...(currentPeriodEnd && { currentPeriodEnd }),
       },
     });
+    await this.invalidateTenantPlanLimits(account.tenantId);
   }
 
   private stringFromExpandable(value: unknown) {

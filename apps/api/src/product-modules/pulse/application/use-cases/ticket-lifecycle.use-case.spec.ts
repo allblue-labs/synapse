@@ -1,5 +1,5 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { PulseTicketStatus, PulseTicketType } from '@prisma/client';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { PulseActionExecutionStatus, PulseTicketStatus, PulseTicketType } from '@prisma/client';
 import { TicketLifecycleUseCase } from './ticket-lifecycle.use-case';
 
 const actor = {
@@ -28,6 +28,28 @@ describe('TicketLifecycleUseCase', () => {
     update: jest.fn(),
   };
   const events = { record: jest.fn() };
+  const tx = {
+    pulseTicket: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    pulseActionExecution: {
+      upsert: jest.fn(),
+      update: jest.fn(),
+    },
+    pulseOperationalEvent: {
+      create: jest.fn(),
+    },
+    auditEvent: {
+      create: jest.fn(),
+    },
+    usageEvent: {
+      upsert: jest.fn(),
+    },
+  };
+  const prisma = {
+    $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+  };
   const audit = { record: jest.fn() };
   const usage = { record: jest.fn() };
 
@@ -36,6 +58,7 @@ describe('TicketLifecycleUseCase', () => {
     events as never,
     audit as never,
     usage as never,
+    prisma as never,
   );
 
   beforeEach(() => {
@@ -46,6 +69,20 @@ describe('TicketLifecycleUseCase', () => {
       ...input,
       metadata: input.metadata ?? baseTicket.metadata,
     }));
+    tx.pulseTicket.findFirst.mockResolvedValue(baseTicket);
+    tx.pulseTicket.update.mockImplementation(({ data }) => ({
+      ...baseTicket,
+      ...data,
+      metadata: data.metadata ?? baseTicket.metadata,
+    }));
+    tx.pulseActionExecution.upsert.mockResolvedValue({
+      status: PulseActionExecutionStatus.STARTED,
+      attempts: 1,
+    });
+    tx.pulseActionExecution.update.mockResolvedValue({});
+    tx.pulseOperationalEvent.create.mockResolvedValue({});
+    tx.auditEvent.create.mockResolvedValue({});
+    tx.usageEvent.upsert.mockResolvedValue({});
   });
 
   it('assigns a ticket and emits operational and audit events', async () => {
@@ -174,22 +211,87 @@ describe('TicketLifecycleUseCase', () => {
       nextState: 'intake',
       transitionSource: 'manual',
       confidence: 0.88,
+      actionIdempotencyKey: 'pulse.actions:tenant-1:exec-1:ticket.advance_flow:ticket-1',
     });
 
-    expect(tickets.update).toHaveBeenCalledWith(
-      'tenant-1',
-      'ticket-1',
+    expect(tx.pulseTicket.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        confidence: 0.88,
-        metadata: expect.objectContaining({
-          flowState: 'intake',
-          flowTransition: expect.objectContaining({
-            nextState: 'intake',
-            source: 'manual',
+        data: expect.objectContaining({
+          confidence: 0.88,
+          metadata: expect.objectContaining({
+            flowState: 'intake',
+            flowTransition: expect.objectContaining({
+              nextState: 'intake',
+              source: 'manual',
+              actionIdempotencyKey: 'pulse.actions:tenant-1:exec-1:ticket.advance_flow:ticket-1',
+            }),
+            actionIdempotencyKeys: expect.objectContaining({
+              'pulse.actions:tenant-1:exec-1:ticket.advance_flow:ticket-1': expect.objectContaining({
+                action: 'advance_flow_state',
+                eventType: 'pulse.ticket.advance_flow_state',
+              }),
+            }),
           }),
         }),
       }),
     );
+    expect(tx.pulseActionExecution.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({
+        tenantId: 'tenant-1',
+        action: 'advance_flow_state',
+        idempotencyKey: 'pulse.actions:tenant-1:exec-1:ticket.advance_flow:ticket-1',
+        ticketId: 'ticket-1',
+        conversationId: 'conversation-1',
+      }),
+    }));
+    expect(tx.pulseActionExecution.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: PulseActionExecutionStatus.SUCCEEDED,
+      }),
+    }));
+  });
+
+  it('does not reapply an already succeeded action execution key', async () => {
+    tx.pulseActionExecution.upsert.mockResolvedValue({
+      status: PulseActionExecutionStatus.SUCCEEDED,
+      attempts: 2,
+    });
+
+    await expect(useCase.advanceFlowState('tenant-1', 'ticket-1', actor, {
+      nextState: 'collect_context',
+      transitionSource: 'ai',
+      confidence: 0.91,
+      actionIdempotencyKey: 'pulse.actions:tenant-1:exec-1:ticket.advance_flow:ticket-1',
+    })).resolves.toEqual(expect.objectContaining({
+      id: 'ticket-1',
+    }));
+
+    expect(tx.pulseTicket.update).not.toHaveBeenCalled();
+    expect(events.record).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(usage.record).not.toHaveBeenCalled();
+    expect(tx.pulseOperationalEvent.create).not.toHaveBeenCalled();
+    expect(tx.auditEvent.create).not.toHaveBeenCalled();
+    expect(tx.usageEvent.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate in-progress action execution keys without side effects', async () => {
+    tx.pulseActionExecution.upsert.mockResolvedValue({
+      status: PulseActionExecutionStatus.STARTED,
+      attempts: 2,
+    });
+
+    await expect(useCase.advanceFlowState('tenant-1', 'ticket-1', actor, {
+      nextState: 'collect_context',
+      transitionSource: 'ai',
+      confidence: 0.91,
+      actionIdempotencyKey: 'pulse.actions:tenant-1:exec-1:ticket.advance_flow:ticket-1',
+    })).rejects.toBeInstanceOf(ConflictException);
+
+    expect(tx.pulseTicket.update).not.toHaveBeenCalled();
+    expect(events.record).not.toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(usage.record).not.toHaveBeenCalled();
   });
 
   it('rejects invalid flow transitions', async () => {

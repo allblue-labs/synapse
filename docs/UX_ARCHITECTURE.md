@@ -628,3 +628,59 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: display-safe labels for skipped runtime automation actions.
 - Risks: operators may see execution success with no action if UI does not show skip reason.
 - Next recommended step: expose sanitized skip reasons in timeline/read DTOs.
+
+## 2026-05-14 Stage 4F — User Quota UX Note
+
+- Changed: membership creation can return a business quota error when plan user limit is reached.
+- Completed: backend message includes plan key and allowed user count.
+- Pending: frontend should display quota exhaustion as billing/plan state, not generic access denial.
+- Risks: admins may confuse role permission failure with quota exhaustion.
+- Next recommended step: document frontend error mapping for membership creation.
+
+## 2026-05-14 Stage 4G — Plan Cache UX Note
+
+- Changed: no frontend contract changed.
+- Completed: quota checks should remain semantically identical while plan limits are cached.
+- Pending: frontend error mapping for quota exhaustion.
+- Risks: cache TTL may cause very short delay after manual plan edits.
+- Next recommended step: frontend should allow retry after plan changes and treat backend error as source of truth.
+
+## 2026-05-14 Stage 4H — Action Usage UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: billable workflow usage is backend-governed and should be surfaced later through usage/billing summaries, not action payloads.
+- Pending: display-safe usage summary endpoints for action-level workflow runs if product needs them.
+- Risks: operators should not infer billing state from timeline action labels alone.
+- Next recommended step: keep frontend usage displays tied to billing summary APIs.
+
+## 2026-05-14 Stage 4I — Usage Retry UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: backend retries of the same action usage do not create duplicate billing rows or require extra credits.
+- Pending: none for frontend until usage summaries expose action usage.
+- Risks: frontend should not retry raw action jobs directly.
+- Next recommended step: keep retries behind backend workflow/action APIs.
+
+## 2026-05-14 Stage 4J — Action Retry UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: repeated backend delivery of the same Pulse action does not produce duplicate ticket transitions.
+- Pending: display-safe action retry status is not exposed yet.
+- Risks: frontend should continue treating backend timeline/status as source of truth.
+- Next recommended step: expose sanitized action status only through timeline/read DTOs if needed.
+
+## 2026-05-14 Stage 4K — Action Ledger UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: duplicate action delivery is backend-controlled through the Pulse action ledger.
+- Pending: optional read DTOs for action execution status if operator troubleshooting needs them.
+- Risks: frontend should not render ledger internals directly.
+- Next recommended step: expose only sanitized timeline/action status summaries if needed.
+
+## 2026-05-14 Stage 4L — Transactional Action UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: action timeline, ticket state, and usage are less likely to diverge after backend retries/failures.
+- Pending: sanitized action status DTOs if needed for support tooling.
+- Risks: UI should still rely on read APIs rather than assuming immediate queue completion.
+- Next recommended step: keep action execution details behind backend-safe status summaries.

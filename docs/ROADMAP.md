@@ -722,3 +722,59 @@ Last updated: 2026-05-07
 - Pending: DB fixture for runtime actor downgrade.
 - Risks: skipped action plans need operator-facing timeline clarity.
 - Next recommended step: enforce plan `maxUsersPerTenant` in membership creation.
+
+## 2026-05-14 Stage 4F — User Quota Enforcement
+
+- Changed: membership creation now enforces plan user limits.
+- Completed: user quota policy remains in platform billing/governance and memberships consume it through a service contract.
+- Pending: DB fixture and cache strategy for plan/quota reads.
+- Risks: quota checks are application-level only.
+- Next recommended step: add plan/quota Redis cache with Postgres fallback.
+
+## 2026-05-14 Stage 4G — Plan/Quota Cache
+
+- Changed: tenant plan limits are now cached in Redis with PostgreSQL fallback.
+- Completed: cache invalidation is best-effort on billing plan/account mutation paths.
+- Pending: DB fixture for invalidation behavior and usage counter cache.
+- Risks: direct DB edits rely on TTL.
+- Next recommended step: wire runtime usage consumption to platform billing governance.
+
+## 2026-05-14 Stage 4H — Action Usage Consumption
+
+- Changed: completed real Pulse actions now record governed workflow usage.
+- Completed: side-effect action completion consumes `WORKFLOW_RUN` through platform billing governance.
+- Pending: provider-backed runtime AI call metering.
+- Risks: current workflow-run credit cost is fixed at 1.
+- Next recommended step: add provider-call usage once runtime dispatch performs real provider calls.
+
+## 2026-05-14 Stage 4I — Usage Retry Safety
+
+- Changed: idempotent usage retries now short-circuit before quota checks.
+- Completed: unit coverage and opt-in DB fixture were added for tenant-scoped usage idempotency.
+- Pending: execute DB fixture once Postgres is running locally.
+- Risks: action side-effect idempotency still needs persisted coverage.
+- Next recommended step: add fixture coverage for action handler side effects and timeline retry behavior.
+
+## 2026-05-14 Stage 4J — Action Side-Effect Retry Safety
+
+- Changed: Pulse flow advancement is now idempotent for repeated action job keys.
+- Completed: duplicate action delivery skips ticket mutation, operational event, audit event, and lifecycle usage writes.
+- Pending: DB fixture execution in a live local database.
+- Risks: metadata-based guard is sufficient for normal retries but not a full concurrent execution ledger.
+- Next recommended step: introduce a durable action execution ledger before enabling more powerful action handlers.
+
+## 2026-05-14 Stage 4K — Durable Action Ledger
+
+- Changed: Pulse now has a database-backed action execution ledger.
+- Completed: ledger unique key is `tenantId + idempotencyKey`; indexes cover status, ticket, and action query paths.
+- Pending: transactional lifecycle write boundary and DB fixture execution.
+- Risks: current ledger narrows duplicate delivery risk but does not yet make all side-effect writes atomic.
+- Next recommended step: add transaction-scoped action execution orchestration for `ticket.advance_flow`.
+
+## 2026-05-14 Stage 4L — Transaction-Scoped Action Execution
+
+- Changed: `ticket.advance_flow` side effects are now transaction-scoped.
+- Completed: ledger, ticket, operational event, audit, and usage writes share one commit boundary.
+- Pending: DB fixture execution and reusable transaction-aware repository pattern.
+- Risks: manual lifecycle mutations remain non-transactional between event/audit/usage services.
+- Next recommended step: introduce shared transaction-capable repository contracts for future actions.

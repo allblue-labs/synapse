@@ -29,6 +29,7 @@ describe('PulseActionsProcessor', () => {
       action: 'ticket.advance_flow',
       permissions: ['tickets:write'],
       validationFailureClass: 'non_retryable_validation',
+      usageCandidate: 'workflow_run',
     },
     canHandle: jest.fn().mockReturnValue(false),
     execute: jest.fn(),
@@ -36,6 +37,9 @@ describe('PulseActionsProcessor', () => {
   const registry = {
     find: jest.fn(),
     definition: jest.fn(),
+  };
+  const billing = {
+    consumeUsageOrReject: jest.fn(),
   };
 
   beforeEach(() => {
@@ -47,10 +51,11 @@ describe('PulseActionsProcessor', () => {
     registry.definition.mockImplementation((action) => (
       advanceFlowHandler.canHandle(action) ? advanceFlowHandler.definition : null
     ));
+    billing.consumeUsageOrReject.mockResolvedValue({});
   });
 
   it('projects allowed actions as prepared no-side-effect timeline events', async () => {
-    const processor = new PulseActionsProcessor(queues as never, registry as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
 
     await processor.process(createJob() as never);
 
@@ -82,6 +87,7 @@ describe('PulseActionsProcessor', () => {
       }),
     }));
     expect(queues.enqueueFailed).not.toHaveBeenCalled();
+    expect(billing.consumeUsageOrReject).not.toHaveBeenCalled();
   });
 
   it('executes typed handlers for supported real actions', async () => {
@@ -90,7 +96,8 @@ describe('PulseActionsProcessor', () => {
       sideEffectsApplied: true,
       result: { ticketId: 'ticket-1', status: 'OPEN' },
     });
-    const processor = new PulseActionsProcessor(queues as never, registry as never);
+    advanceFlowHandler.definition.usageCandidate = 'workflow_run';
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
 
     await processor.process(createJob({
       action: 'ticket.advance_flow',
@@ -127,11 +134,57 @@ describe('PulseActionsProcessor', () => {
         sideEffectsApplied: true,
       }),
     }));
+    expect(billing.consumeUsageOrReject).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'tenant-1',
+      moduleSlug: 'pulse',
+      metricType: 'WORKFLOW_RUN',
+      quantity: 1,
+      unit: 'workflow_run',
+      resourceType: 'PulseAction',
+      resourceId: 'ticket-1',
+      idempotencyKey: 'pulse-action-usage:pulse.actions:tenant-1:ticket-1:advance',
+      credits: 1,
+      metadata: expect.objectContaining({
+        action: 'ticket.advance_flow',
+        usageCandidate: 'workflow_run',
+      }),
+    }));
+  });
+
+  it('does not consume usage when real handler completes without side effects', async () => {
+    advanceFlowHandler.canHandle.mockImplementation((action) => action === 'ticket.advance_flow');
+    advanceFlowHandler.definition.usageCandidate = 'workflow_run';
+    advanceFlowHandler.execute.mockResolvedValue({
+      sideEffectsApplied: false,
+      result: { prepared: true },
+    });
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
+
+    await processor.process(createJob({
+      action: 'ticket.advance_flow',
+      idempotencyKey: 'pulse.actions:tenant-1:ticket-1:advance',
+      actor: {
+        userId: 'user-1',
+        email: 'operator@example.com',
+        role: 'tenant_operator',
+        permissions: ['tickets:write'],
+      },
+      payload: {
+        actor: {
+          userId: 'user-1',
+          email: 'operator@example.com',
+          role: 'tenant_operator',
+        },
+        nextState: 'collect_context',
+      },
+    }) as never);
+
+    expect(billing.consumeUsageOrReject).not.toHaveBeenCalled();
   });
 
   it('rejects real handlers when the queued actor snapshot lacks required permissions', async () => {
     advanceFlowHandler.canHandle.mockImplementation((action) => action === 'ticket.advance_flow');
-    const processor = new PulseActionsProcessor(queues as never, registry as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
 
     await expect(processor.process(createJob({
       action: 'ticket.advance_flow',
@@ -178,7 +231,7 @@ describe('PulseActionsProcessor', () => {
     advanceFlowHandler.execute.mockRejectedValue(
       new PulseActionPayloadValidationException('ticket.advance_flow requires supported nextState.'),
     );
-    const processor = new PulseActionsProcessor(queues as never, registry as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
 
     await expect(processor.process(createJob({
       action: 'ticket.advance_flow',
@@ -216,7 +269,7 @@ describe('PulseActionsProcessor', () => {
   });
 
   it('skips actions outside the allowlist without applying side effects', async () => {
-    const processor = new PulseActionsProcessor(queues as never, registry as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
 
     await processor.process(createJob({
       action: 'provider.delete_all_data',
@@ -237,7 +290,7 @@ describe('PulseActionsProcessor', () => {
 
   it('captures action dispatch failures', async () => {
     queues.enqueueTimeline.mockRejectedValueOnce(new Error('timeline unavailable'));
-    const processor = new PulseActionsProcessor(queues as never, registry as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
 
     await expect(processor.process(createJob() as never)).rejects.toThrow('timeline unavailable');
 
@@ -264,7 +317,7 @@ describe('PulseActionsProcessor', () => {
   });
 
   it('rejects malformed action jobs before enqueueing timeline events', async () => {
-    const processor = new PulseActionsProcessor(queues as never, registry as never);
+    const processor = new PulseActionsProcessor(queues as never, registry as never, billing as never);
 
     await expect(processor.process(createJob({ payload: [] as never }) as never))
       .rejects.toBeInstanceOf(BadRequestException);

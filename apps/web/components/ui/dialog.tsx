@@ -100,7 +100,7 @@ export function Dialog({open, onClose, title, description, children, dismissable
         <div
           aria-hidden="true"
           onClick={handleClose}
-          className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm animate-fade-in"
+          className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm animate-fade-in-fast"
         />
 
         {/* Panel */}
@@ -111,8 +111,8 @@ export function Dialog({open, onClose, title, description, children, dismissable
           aria-labelledby={titleId}
           aria-describedby={description ? descriptionId : undefined}
           className={cn(
-            'relative z-10 w-full overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-elevated dark:border-zinc-800 dark:bg-zinc-900',
-            'animate-fade-in',
+            'relative z-10 w-full overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-elevated dark:border-zinc-800/70 dark:bg-zinc-900',
+            'animate-panel-in',
             SIZE[size],
           )}
         >

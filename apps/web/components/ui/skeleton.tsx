@@ -1,10 +1,19 @@
 import {cn} from '@/lib/utils';
 
+/**
+ * Skeleton — placeholder block for content that is loading.
+ *
+ * Refined for Stage 3: pairs the base opacity pulse (`animate-skeleton`)
+ * with the `shimmer-overlay` sheen so loading states feel intentional
+ * rather than dormant. Reduced-motion users get a static block via the
+ * global motion override.
+ */
 export function Skeleton({className}: {className?: string}) {
   return (
     <div
       className={cn(
-        'animate-skeleton rounded-md bg-zinc-200 dark:bg-zinc-800',
+        'shimmer-overlay relative overflow-hidden rounded-md bg-zinc-200/70 dark:bg-zinc-800/70',
+        'animate-skeleton',
         className,
       )}
     />

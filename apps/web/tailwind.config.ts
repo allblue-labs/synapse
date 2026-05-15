@@ -79,13 +79,25 @@ const config: Config = {
         'fade-bottom-dark':'linear-gradient(to bottom, transparent 0%, rgb(9 9 11) 100%)',
       },
       boxShadow: {
-        'soft':    '0 1px 2px 0 rgba(0,0,0,0.04), 0 1px 3px 0 rgba(0,0,0,0.06)',
-        'card':    '0 4px 16px -2px rgba(0,0,0,0.06), 0 2px 4px -1px rgba(0,0,0,0.04)',
-        'elevated':'0 20px 60px -10px rgba(0,0,0,0.12), 0 8px 24px -8px rgba(0,0,0,0.08)',
-        'dock':    '0 1px 0 0 rgba(255,255,255,0.04) inset, 0 12px 36px -10px rgba(2,6,23,0.18), 0 2px 8px -2px rgba(2,6,23,0.10)',
-        'rail':    '0 0 0 1px rgba(255,255,255,0.04) inset, 0 30px 80px -20px rgba(2,6,23,0.20)',
-        'glow':    '0 0 0 1px rgba(59,130,246,0.18), 0 8px 24px -4px rgba(59,130,246,0.30)',
-        'glow-lg': '0 0 0 1px rgba(59,130,246,0.20), 0 24px 60px -12px rgba(59,130,246,0.35)',
+        // Single source of truth for elevation.
+        // - hairline      : nearly invisible — just a sub-pixel border on glass
+        // - soft          : 1-line depth for tiles that sit on the ambient
+        // - card          : day-to-day card depth, directional
+        // - dock          : sticky floating chrome (cluster cards, hero stats)
+        // - rail          : long vertical surfaces (sidebars, ticker)
+        // - elevated      : transient elevation (dialogs, popovers)
+        // - glass         : glass surface with thin inner highlight + soft drop
+        // - glow / glow-lg: brand-glow accent for hero CTAs only
+        'hairline':     '0 0 0 1px rgba(15,23,42,0.04)',
+        'soft':         '0 1px 2px -1px rgba(15,23,42,0.04), 0 1px 2px 0 rgba(15,23,42,0.04)',
+        'card':         '0 1px 0 0 rgba(15,23,42,0.04), 0 6px 18px -8px rgba(15,23,42,0.08), 0 2px 6px -2px rgba(15,23,42,0.04)',
+        'dock':         '0 1px 0 0 rgba(255,255,255,0.04) inset, 0 8px 24px -10px rgba(15,23,42,0.12), 0 2px 6px -2px rgba(15,23,42,0.06)',
+        'rail':         '0 0 0 1px rgba(255,255,255,0.03) inset, 0 18px 48px -20px rgba(15,23,42,0.14)',
+        'elevated':     '0 14px 40px -10px rgba(15,23,42,0.14), 0 4px 12px -4px rgba(15,23,42,0.06)',
+        'glass':        '0 1px 0 0 rgba(255,255,255,0.50) inset, 0 1px 1px -1px rgba(15,23,42,0.05), 0 4px 12px -6px rgba(15,23,42,0.06)',
+        'glass-dark':   '0 1px 0 0 rgba(255,255,255,0.04) inset, 0 1px 1px -1px rgba(0,0,0,0.30), 0 4px 12px -6px rgba(0,0,0,0.35)',
+        'glow':         '0 0 0 1px rgba(59,130,246,0.16), 0 6px 18px -6px rgba(59,130,246,0.24)',
+        'glow-lg':      '0 0 0 1px rgba(59,130,246,0.20), 0 24px 60px -12px rgba(59,130,246,0.32)',
         'inner-border': 'inset 0 0 0 1px rgba(255,255,255,0.06)',
       },
       transitionTimingFunction: {
@@ -94,16 +106,24 @@ const config: Config = {
         'soft':    'cubic-bezier(0.4, 0, 0.2, 1)',
       },
       animation: {
-        'fade-in':       'fadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1)',
-        'fade-in-fast':  'fadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1)',
-        'slide-up':      'slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
-        'slide-down':    'slideDown 0.32s cubic-bezier(0.22, 1, 0.36, 1)',
-        'slide-in-right':'slideInRight 0.32s cubic-bezier(0.22, 1, 0.36, 1)',
-        'panel-in':      'panelIn 0.42s cubic-bezier(0.22, 1, 0.36, 1)',
-        'pop-in':        'popIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        // Enter / exit
+        'fade-in':       'fadeIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'fade-in-fast':  'fadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'fade-out':      'fadeOut 0.22s cubic-bezier(0.4, 0, 0.2, 1) both',
+        'slide-up':      'slideUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'slide-down':    'slideDown 0.32s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'slide-in-right':'slideInRight 0.32s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'slide-in-left': 'slideInLeft 0.32s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'panel-in':      'panelIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both',
+        'pop-in':        'popIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        // Microinteraction
+        'press':         'press 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        'count-up':      'countUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) both',
+        // Ambient / status
         'skeleton':      'skeleton 1.5s ease-in-out infinite',
         'pulse-glow':    'pulseGlow 3s ease-in-out infinite',
         'pulse-dot':     'pulseDot 1.6s ease-in-out infinite',
+        'spinner':       'spinnerRotate 0.85s linear infinite',
         'gradient':      'gradient 12s ease infinite',
         'float':         'float 6s ease-in-out infinite',
         'shimmer':       'shimmer 2.4s linear infinite',
@@ -128,6 +148,27 @@ const config: Config = {
         slideInRight: {
           '0%':   {opacity: '0', transform: 'translateX(16px)'},
           '100%': {opacity: '1', transform: 'translateX(0)'},
+        },
+        slideInLeft: {
+          '0%':   {opacity: '0', transform: 'translateX(-12px)'},
+          '100%': {opacity: '1', transform: 'translateX(0)'},
+        },
+        fadeOut: {
+          '0%':   {opacity: '1'},
+          '100%': {opacity: '0'},
+        },
+        press: {
+          '0%':   {transform: 'scale(1)'},
+          '40%':  {transform: 'scale(0.96)'},
+          '100%': {transform: 'scale(1)'},
+        },
+        countUp: {
+          '0%':   {opacity: '0', transform: 'translateY(6px)'},
+          '100%': {opacity: '1', transform: 'translateY(0)'},
+        },
+        spinnerRotate: {
+          '0%':   {transform: 'rotate(0deg)'},
+          '100%': {transform: 'rotate(360deg)'},
         },
         panelIn: {
           '0%':   {opacity: '0', transform: 'translateY(8px) scale(0.985)', filter: 'blur(2px)'},

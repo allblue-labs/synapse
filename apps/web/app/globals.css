@@ -37,9 +37,11 @@
     text-wrap: pretty;
   }
 
-  /* Focus rings — keyboard only */
+  /* Focus rings — keyboard only.
+     Thinner ring + offset 1px so the focus halo doesn't blow out
+     glass surfaces. Brand-tinted in light, brand-light in dark. */
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-brand-400 dark:ring-offset-zinc-950;
+    @apply outline-none ring-2 ring-brand-500/70 ring-offset-[1.5px] ring-offset-white dark:ring-brand-400/70 dark:ring-offset-zinc-950;
   }
   :focus:not(:focus-visible) { outline: none; }
 
@@ -56,7 +58,10 @@
 
 @layer components {
 
-  /* ── Display heading ───────────────────────────────── */
+  /* ── Typography scale ────────────────────────────────
+     Single source of truth for type sizes used across the
+     app. Pages stay free of ad-hoc `text-2xl font-bold
+     tracking-tight` chains. */
   .h-display {
     font-size: clamp(2.75rem, 6vw, 4.75rem);
     line-height: 1.04;
@@ -69,8 +74,32 @@
     letter-spacing: -0.035em;
     font-weight: 700;
   }
+  .t-h1 {
+    @apply text-[1.75rem] font-bold leading-tight tracking-[-0.03em] text-zinc-900 dark:text-zinc-50 sm:text-[2rem];
+  }
+  .t-h2 {
+    @apply text-lg font-semibold leading-snug tracking-tight text-zinc-900 dark:text-zinc-100;
+  }
+  .t-h3 {
+    @apply text-sm font-semibold leading-snug tracking-tight text-zinc-900 dark:text-zinc-100;
+  }
+  .t-body {
+    @apply text-sm leading-relaxed text-zinc-600 dark:text-zinc-400;
+  }
+  .t-body-strong {
+    @apply text-sm font-medium leading-relaxed text-zinc-800 dark:text-zinc-200;
+  }
+  .t-small {
+    @apply text-[12px] leading-relaxed text-zinc-500 dark:text-zinc-500;
+  }
+  .t-meta {
+    @apply font-mono text-[11px] tabular-nums text-zinc-500 dark:text-zinc-500;
+  }
+  .t-meta-xs {
+    @apply font-mono text-[10px] tabular-nums text-zinc-400 dark:text-zinc-600;
+  }
   .h-eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.14em];
+    @apply text-[11px] font-semibold uppercase tracking-[0.16em];
   }
 
   /* ── Gradient text ─────────────────────────────────── */
@@ -187,43 +216,67 @@
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
   }
 
-  /* ── Card surfaces ─────────────────────────────────── */
+  /* ── Surface scale ───────────────────────────────────
+     Single visual language. Each surface declares what role
+     it plays in the layered hierarchy so future stages don't
+     reinvent variations:
+
+       card               opaque base; use sparingly
+       card-elevated      opaque base + day-to-day card shadow
+       surface-translucent core panel — frosted, sits on ambient
+       surface-floating   dialog / popover — heavier glass
+       surface-rail       long vertical surfaces (sidebars, tickers)
+       surface-dock       cluster tile inside a hero/strip
+       surface-inset      embedded sub-tile inside a panel
+       surface-hover      hover-state companion (combine with another surface)
+  */
   .card {
-    @apply rounded-2xl border border-zinc-200/80 bg-white shadow-soft dark:border-zinc-800 dark:bg-zinc-900;
+    @apply rounded-2xl border border-zinc-200/60 bg-white shadow-soft
+           dark:border-zinc-800/70 dark:bg-zinc-900;
   }
   .card-elevated {
-    @apply rounded-2xl border border-zinc-200/80 bg-white shadow-card dark:border-zinc-800 dark:bg-zinc-900;
+    @apply rounded-2xl border border-zinc-200/60 bg-white shadow-card
+           dark:border-zinc-800/70 dark:bg-zinc-900;
   }
-
-  /* ── Translucent operational surfaces ───────────────────
-     For embedded panels that should feel layered on top of
-     the ambient grid + mesh background instead of being
-     opaque cards. */
   .surface-translucent {
-    @apply rounded-2xl border border-zinc-200/70 bg-white/70 backdrop-blur-xl shadow-soft
-           dark:border-zinc-800/70 dark:bg-zinc-900/55;
+    @apply rounded-2xl border border-zinc-200/55 bg-white/65 backdrop-blur-xl shadow-glass
+           dark:border-zinc-800/55 dark:bg-zinc-900/50 dark:shadow-glass-dark;
   }
   .surface-floating {
-    @apply rounded-2xl border border-zinc-200/60 bg-white/55 backdrop-blur-2xl shadow-elevated
-           dark:border-zinc-800/60 dark:bg-zinc-900/45;
+    @apply rounded-2xl border border-zinc-200/50 bg-white/55 backdrop-blur-2xl shadow-elevated
+           dark:border-zinc-800/55 dark:bg-zinc-900/45;
   }
   .surface-rail {
-    @apply rounded-2xl border border-zinc-200/70 bg-gradient-to-b from-white/85 to-white/55
+    @apply rounded-2xl border border-zinc-200/55 bg-gradient-to-b from-white/80 to-white/50
            backdrop-blur-xl shadow-rail
-           dark:border-zinc-800/70 dark:from-zinc-900/70 dark:to-zinc-900/40;
+           dark:border-zinc-800/55 dark:from-zinc-900/65 dark:to-zinc-900/35;
   }
   .surface-dock {
-    @apply rounded-xl border border-zinc-200/70 bg-white/80 backdrop-blur-xl shadow-dock
-           dark:border-zinc-800/70 dark:bg-zinc-900/65;
+    @apply rounded-xl border border-zinc-200/55 bg-white/75 backdrop-blur-xl shadow-dock
+           dark:border-zinc-800/55 dark:bg-zinc-900/60;
   }
   .surface-inset {
-    @apply rounded-xl border border-zinc-200/70 bg-zinc-50/60
-           dark:border-zinc-800/60 dark:bg-zinc-950/40;
+    @apply rounded-xl border border-zinc-200/55 bg-zinc-50/50
+           dark:border-zinc-800/50 dark:bg-zinc-950/35;
+  }
+
+  /* Hover-state companion: combine with any surface-* utility to lift
+     the panel slightly and brighten its border on hover. Use this
+     instead of ad-hoc `hover:bg-white/40 hover:border-...` chains. */
+  .surface-hover {
+    @apply transition-[transform,box-shadow,border-color,background-color] duration-200 ease-snap
+           hover:-translate-y-[1px] hover:border-zinc-300/60 hover:shadow-card
+           dark:hover:border-zinc-700/60;
+  }
+  .surface-hover-brand {
+    @apply transition-[transform,box-shadow,border-color,background-color] duration-200 ease-snap
+           hover:-translate-y-[1px] hover:border-brand-300/60 hover:shadow-card
+           dark:hover:border-brand-700/60;
   }
 
   /* ── Operational hairline divider for dense layouts ─── */
-  .hairline      { @apply border-zinc-200/70 dark:border-zinc-800/70; }
-  .hairline-soft { @apply border-zinc-200/50 dark:border-zinc-800/50; }
+  .hairline      { @apply border-zinc-200/55 dark:border-zinc-800/55; }
+  .hairline-soft { @apply border-zinc-200/40 dark:border-zinc-800/40; }
 
   /* ── Section eyebrow link arrow on hover ──────────────── */
   .row-arrow {
@@ -232,28 +285,54 @@
            group-hover:text-brand-600 dark:group-hover:text-brand-400;
   }
 
-  /* ── Buttons ───────────────────────────────────────── */
+  /* ── Buttons ─────────────────────────────────────────
+     Three tiers — primary / secondary / ghost. All share a single
+     interactive language: subtle press (97% scale), motion-safe
+     transition, focus ring inherited from `:focus-visible`. */
   .btn-primary {
-    @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white shadow-soft transition-all hover:bg-brand-700 hover:shadow-glow active:scale-[0.98] dark:bg-brand-500 dark:hover:bg-brand-600;
+    @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg
+           bg-brand-600 px-5 text-sm font-semibold text-white
+           shadow-soft transition-all duration-150 ease-snap
+           hover:bg-brand-700 hover:shadow-glow active:scale-[0.97]
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none
+           dark:bg-brand-500 dark:hover:bg-brand-600;
   }
   .btn-secondary {
-    @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-5 text-sm font-semibold text-zinc-800 shadow-soft transition-all hover:bg-zinc-50 active:scale-[0.98] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800;
+    @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg
+           border border-zinc-200/60 bg-white/80 px-5 text-sm font-semibold text-zinc-800
+           shadow-soft backdrop-blur-sm transition-all duration-150 ease-snap
+           hover:border-zinc-300/70 hover:bg-white hover:shadow-card
+           active:scale-[0.97]
+           disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none
+           dark:border-zinc-700/60 dark:bg-zinc-900/70 dark:text-zinc-200
+           dark:hover:border-zinc-600/70 dark:hover:bg-zinc-900;
   }
   .btn-ghost {
-    @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800;
+    @apply inline-flex h-10 items-center justify-center gap-1.5 rounded-lg
+           px-4 text-sm font-medium text-zinc-700
+           transition-colors duration-150 ease-snap
+           hover:bg-zinc-100/80
+           disabled:cursor-not-allowed disabled:opacity-50
+           dark:text-zinc-300 dark:hover:bg-zinc-800/70;
   }
 
   /* ── Badge / pill ──────────────────────────────────── */
   .pill {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-zinc-200/80 bg-white/70 px-3 py-1 text-xs font-medium text-zinc-700 backdrop-blur-sm dark:border-zinc-800/80 dark:bg-zinc-900/70 dark:text-zinc-300;
+    @apply inline-flex items-center gap-1.5 rounded-full
+           border border-zinc-200/60 bg-white/60 px-3 py-1
+           text-xs font-medium text-zinc-700 backdrop-blur-sm
+           dark:border-zinc-800/60 dark:bg-zinc-900/60 dark:text-zinc-300;
   }
   .pill-brand {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-brand-200/80 bg-brand-50/80 px-3 py-1 text-xs font-medium text-brand-700 backdrop-blur-sm dark:border-brand-800/80 dark:bg-brand-900/30 dark:text-brand-300;
+    @apply inline-flex items-center gap-1.5 rounded-full
+           border border-brand-200/70 bg-brand-50/70 px-3 py-1
+           text-xs font-medium text-brand-700 backdrop-blur-sm
+           dark:border-brand-800/60 dark:bg-brand-900/25 dark:text-brand-300;
   }
 
   /* ── Section eyebrow ───────────────────────────────── */
   .section-eyebrow {
-    @apply text-xs font-semibold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400;
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-600 dark:text-brand-400;
   }
 
   /* ── Decorative gradient border (for highlighted cards) ── */
@@ -370,9 +449,77 @@
            hover:-translate-y-[1px] hover:shadow-card;
   }
 
-  /* ── Page transition — wraps every workspace page ─────── */
+  /* ── Universal transition aliases ──────────────────────
+     Use these instead of hand-rolling `transition-* duration-* ease-*`
+     so the motion language stays consistent across the app.
+
+       transition-base : everything, 200ms, snap easing
+       transition-soft : colors-only, 150ms, snap easing
+       transition-spring: everything, 280ms, gentle overshoot
+  */
+  .transition-base   { @apply transition-all duration-200 ease-snap; }
+  .transition-soft   { @apply transition-colors duration-150 ease-snap; }
+  .transition-spring { @apply transition-all duration-[280ms] ease-spring; }
+
+  /* ── Staggered children ────────────────────────────────
+     Drop this on a parent whose children animate in. Each
+     child receives a small `animation-delay` based on its
+     index. Maxes out at the 10th child so long lists don't
+     accumulate noticeable delay. */
+  .stagger-children > *               { animation-delay: 0ms;   }
+  .stagger-children > *:nth-child(2)  { animation-delay: 30ms;  }
+  .stagger-children > *:nth-child(3)  { animation-delay: 60ms;  }
+  .stagger-children > *:nth-child(4)  { animation-delay: 90ms;  }
+  .stagger-children > *:nth-child(5)  { animation-delay: 120ms; }
+  .stagger-children > *:nth-child(6)  { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(7)  { animation-delay: 180ms; }
+  .stagger-children > *:nth-child(8)  { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(9)  { animation-delay: 220ms; }
+  .stagger-children > *:nth-child(n+10) { animation-delay: 240ms; }
+
+  /* ── Page transition — wraps every workspace page ──────
+     Smooth opacity + small translate; child elements that
+     want richer enter motion opt into `.animate-slide-up`
+     or `.animate-panel-in` themselves. */
   .page-enter {
-    animation: panelIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: panelIn 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ── Sidebar item label motion ────────────────────────
+     When the sidebar collapses (data-collapsed=true on the
+     aside), labels fade and translate out so the icons end
+     up centered. When expanded again, labels slide in from
+     the left. Width transitions live on the aside itself. */
+  [data-collapsed="true"] .sidebar-label {
+    opacity: 0;
+    transform: translateX(-6px);
+    pointer-events: none;
+    transition:
+      opacity 120ms cubic-bezier(0.4, 0, 0.2, 1),
+      transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-collapsed="false"] .sidebar-label {
+    opacity: 1;
+    transform: translateX(0);
+    transition:
+      opacity 220ms cubic-bezier(0.22, 1, 0.36, 1) 60ms,
+      transform 240ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
+  }
+
+  /* ── Spinner ring ──────────────────────────────────────
+     Two-color spinner: the visible arc rotates around a
+     faint ring. Sized via the `--spinner-size` custom
+     property (defaults to 14 px). */
+  .spinner-ring {
+    --spinner-size: 14px;
+    display: inline-block;
+    width: var(--spinner-size);
+    height: var(--spinner-size);
+    border-radius: 9999px;
+    border: 2px solid currentColor;
+    border-color: currentColor transparent currentColor transparent;
+    opacity: 0.85;
+    animation: spinnerRotate 0.85s linear infinite;
   }
 
   /* ── Kbd token for shortcut hints ────────────────────── */
@@ -401,9 +548,11 @@
     @apply mx-auto max-w-7xl px-6;
   }
 
-  /* Subtle hover lift */
+  /* Subtle hover lift — kept for backward compat. New code should
+     prefer `surface-hover` from the components layer, which animates
+     border/shadow together with the lift. */
   .hover-lift {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card;
+    @apply transition-all duration-200 ease-snap hover:-translate-y-0.5 hover:shadow-card;
   }
 
   /* Wider asymmetric workspace container.
@@ -413,6 +562,14 @@
     @apply mx-auto w-full max-w-[1500px];
   }
 
+  /* ── Spacing rhythm utilities ──────────────────────────
+     Use these on the outermost element of a page or block to
+     enforce a consistent vertical scale. */
+  .stack-page    > * + * { margin-top: 2.5rem; } /* 40px between major sections */
+  .stack-section > * + * { margin-top: 1.5rem; } /* 24px between sub-sections   */
+  .stack-cluster > * + * { margin-top: 0.75rem; } /* 12px between cluster items */
+  .stack-tight   > * + * { margin-top: 0.375rem; } /* 6px between tight items   */
+
   /* Data-driven horizontal progress.
      Pass the percent via the `--w` custom property on the element's
      style; the actual `width:` declaration lives in CSS so component
@@ -420,4 +577,18 @@
   .bar-progress {
     width: var(--w, 0%);
   }
+
+  /* Icon sizing convention — Lucide takes `size={N}` prop directly;
+     these classes exist as a documented scale operators can use when
+     they need a guideline:
+
+       chrome  : 11–13 px  (nav, breadcrumbs, kbd hints, status pills)
+       content : 14–16 px  (cards, tables, dialogs, form fields)
+       hero    : 18–22 px  (page-header icon tiles, featured modules)
+
+     They are no-op classes today; future icon wrappers can hook into
+     them without breaking existing call sites. */
+  .icon-chrome  { /* 12px guidance — pass size={12} or size={13} */ }
+  .icon-content { /* 15px guidance — pass size={14} or size={15} */ }
+  .icon-hero    { /* 20px guidance — pass size={18}..size={22}    */ }
 }

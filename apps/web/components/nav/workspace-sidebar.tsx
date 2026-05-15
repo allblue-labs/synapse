@@ -153,11 +153,10 @@ export function WorkspaceSidebar() {
           type="button"
           onClick={toggle}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-expanded={collapsed ? 'false' : 'true'}
           className="flex w-full items-center justify-center gap-2 rounded-lg px-2 py-2 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100/80 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900/80 dark:hover:text-zinc-200"
         >
           {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
-          {!collapsed && <span>Collapse</span>}
+          <span className="sidebar-label whitespace-nowrap">Collapse</span>
         </button>
       </div>
     </aside>
@@ -256,11 +255,10 @@ export function PlatformSidebar() {
           type="button"
           onClick={toggle}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-expanded={collapsed ? 'false' : 'true'}
           className="flex w-full items-center justify-center gap-2 rounded-lg px-2 py-2 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100/80 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900/80 dark:hover:text-zinc-200"
         >
           {collapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
-          {!collapsed && <span>Collapse</span>}
+          <span className="sidebar-label whitespace-nowrap">Collapse</span>
         </button>
       </div>
     </aside>
@@ -272,8 +270,13 @@ export function PlatformSidebar() {
 function Section({label, collapsed, spaced, children}: {label: string; collapsed: boolean; spaced?: boolean; children: ReactNode}) {
   return (
     <div className={cn('px-1', spaced && 'mt-5')}>
-      {!collapsed && label && (
-        <p className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500">
+      {label && (
+        <p
+          className={cn(
+            'sidebar-label overflow-hidden whitespace-nowrap px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500',
+            collapsed && 'pointer-events-none h-0 pb-0 pt-0',
+          )}
+        >
           {label}
         </p>
       )}
@@ -320,7 +323,7 @@ function SidebarLink({
         title={collapsed ? label : undefined}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'group flex items-center gap-3 rounded-lg px-2 py-2 text-[13px] font-medium',
+          'group flex items-center gap-3 overflow-hidden rounded-lg px-2 py-2 text-[13px] font-medium transition-soft',
           active
             ? `${activeBg} ${activeText}`
             : 'text-zinc-600 hover:bg-zinc-100/80 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-900/80 dark:hover:text-zinc-100',
@@ -329,7 +332,7 @@ function SidebarLink({
       >
         <span
           className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-soft',
             active
               ? (accent === 'indigo'
                   ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300'
@@ -339,7 +342,7 @@ function SidebarLink({
         >
           <Icon size={14} />
         </span>
-        {!collapsed && <span className="truncate">{label}</span>}
+        <span className="sidebar-label truncate whitespace-nowrap">{label}</span>
       </Link>
     </li>
   );

@@ -2,7 +2,6 @@
 
 import {useTheme} from 'next-themes';
 import Link from 'next/link';
-import {usePathname} from 'next/navigation';
 import {Sun, Moon, Monitor, LogOut, Settings, ChevronDown, Search, Command} from 'lucide-react';
 import Image from 'next/image';
 import {useState, useEffect} from 'react';
@@ -12,14 +11,6 @@ import type {CurrentUser} from '@/lib/api';
 import {useTranslator} from '@/components/providers/locale-provider';
 import {LanguageToggle} from '@/components/i18n/language-toggle';
 import {CommandPalette, useCommandPalette} from '@/components/nav/command-palette';
-import type {MessageKey} from '@/lib/i18n/messages';
-
-const PRIMARY_NAV: ReadonlyArray<{label: MessageKey; href: string}> = [
-  {label: 'appNav.overview', href: '/workspace/overview'},
-  {label: 'appNav.modules',  href: '/workspace/modules'},
-  {label: 'appNav.agents',   href: '/workspace/agents'},
-  {label: 'appNav.activity', href: '/workspace/activity'},
-] as const;
 
 function ThemeToggle() {
   const {theme, setTheme} = useTheme();
@@ -156,26 +147,24 @@ function CommandTrigger({onOpen}: {onOpen: () => void}) {
 }
 
 export function TopNav({user}: {user: CurrentUser | null}) {
-  const t = useTranslator();
-  const pathname = usePathname();
   const palette = useCommandPalette();
 
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/75 backdrop-blur-2xl dark:border-zinc-800/70 dark:bg-zinc-950/75">
-        {/* Hairline gradient strip on top — adds a thin "platform" cue. */}
+        {/* Hairline gradient strip on top — thin "platform" cue. */}
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/40 to-transparent" />
 
-        <div className="container-shell flex h-14 items-center px-6 lg:px-10">
+        <div className="flex h-14 items-center px-4 lg:px-6">
 
           {/* Logo */}
-          <Link href="/workspace/overview" className="group mr-6 flex shrink-0 items-center gap-2">
+          <Link href="/workspace/overview" className="group mr-3 flex shrink-0 items-center gap-2">
             <Image
               src="/logo.png"
               alt="Synapse"
               width={26}
               height={26}
-              className="rounded-md ring-1 ring-black/5 transition-transform duration-300 ease-snap group-hover:scale-105 dark:ring-white/10"
+              className="rounded-md ring-1 ring-black/5 dark:ring-white/10"
               priority
             />
             <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
@@ -183,33 +172,8 @@ export function TopNav({user}: {user: CurrentUser | null}) {
             </span>
           </Link>
 
-          {/* Divider */}
-          <div className="mr-5 h-5 w-px bg-zinc-200 dark:bg-zinc-800" />
-
-          {/* Primary nav — animated underline */}
-          <nav className="flex flex-1 items-stretch gap-0.5 self-stretch">
-            {PRIMARY_NAV.map(({label, href}) => {
-              const isActive =
-                href === '/workspace/overview'
-                  ? pathname === '/workspace/overview'
-                  : pathname.startsWith(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  data-active={isActive}
-                  className={cn(
-                    'nav-underline flex items-center px-3 text-sm font-medium transition-colors duration-200 ease-snap',
-                    isActive
-                      ? 'text-zinc-900 dark:text-zinc-100'
-                      : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200',
-                  )}
-                >
-                  {t(label)}
-                </Link>
-              );
-            })}
-          </nav>
+          {/* Spacer — primary nav moved to the sidebar. */}
+          <div className="flex-1" />
 
           {/* Right controls */}
           <div className="flex items-center gap-1.5">

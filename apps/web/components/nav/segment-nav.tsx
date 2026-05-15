@@ -77,7 +77,7 @@ export function SegmentNav() {
       {/* subtle grid texture on the bar — Linear-style */}
       <div className="pointer-events-none absolute inset-0 bg-grid-micro opacity-50 mask-fade-x" />
 
-      <div className="container-shell relative flex h-11 items-center px-6 lg:px-10">
+      <div className="relative flex h-11 items-center px-6 lg:px-10">
         <nav aria-label="Breadcrumb" className="flex items-center gap-1 overflow-x-auto">
           <ol className="flex items-center gap-1 whitespace-nowrap">
             {trail.map(({label, href, isLast}, idx) => (

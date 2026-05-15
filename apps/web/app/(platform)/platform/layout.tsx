@@ -4,11 +4,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {ShieldAlert} from 'lucide-react';
 import {SegmentNav} from '@/components/nav/segment-nav';
+import {PlatformSidebar} from '@/components/nav/workspace-sidebar';
 import {CurrentUserProvider} from '@/components/auth/can';
 import {api, ApiError, type CurrentUser} from '@/lib/api';
 import {LanguageToggle} from '@/components/i18n/language-toggle';
 import {CommandLauncher} from '@/components/nav/command-launcher';
-import {PlatformNav} from './_components/platform-nav';
 import type {ReactNode} from 'react';
 
 /**
@@ -51,16 +51,18 @@ export default async function PlatformLayout({children}: {children: ReactNode}) 
         </div>
 
         <div className="relative z-10 flex min-h-screen flex-col">
-          {/* Admin top bar — visually distinct from the workspace's TopNav. */}
+          {/* Admin top bar — slim, visually distinct via the Platform pill. */}
           <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/80 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/80">
-            <div className="container-shell flex h-14 items-center px-6 lg:px-10">
-              <Link href="/platform/overview" className="group mr-6 flex shrink-0 items-center gap-2">
+            <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
+
+            <div className="flex h-14 items-center px-4 lg:px-6">
+              <Link href="/platform/overview" className="group mr-3 flex shrink-0 items-center gap-2">
                 <Image
                   src="/logo.png"
                   alt="Synapse"
                   width={26}
                   height={26}
-                  className="rounded-md ring-1 ring-black/5 transition-transform duration-300 ease-snap group-hover:scale-105 dark:ring-white/10"
+                  className="rounded-md ring-1 ring-black/5 dark:ring-white/10"
                   priority
                 />
                 <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
@@ -72,17 +74,15 @@ export default async function PlatformLayout({children}: {children: ReactNode}) 
                 </span>
               </Link>
 
-              <div className="mr-5 h-5 w-px bg-zinc-200 dark:bg-zinc-800" />
+              <div className="flex-1" />
 
-              <PlatformNav />
-
-              <div className="ml-auto flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <CommandLauncher />
                 <LanguageToggle />
                 {user && (
                   <Link
                     href="/workspace/overview"
-                    className="rounded-lg border border-zinc-200 bg-white/60 px-3 py-1.5 text-xs font-medium text-zinc-700 transition-colors duration-200 ease-snap hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="rounded-lg border border-zinc-200 bg-white/60 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
                   >
                     ← Workspace
                   </Link>
@@ -91,11 +91,17 @@ export default async function PlatformLayout({children}: {children: ReactNode}) 
             </div>
           </header>
 
-          <SegmentNav />
-
-          <main className="container-shell flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
-            {children}
-          </main>
+          {/* Sidebar + main grid — same shape as the workspace shell so
+              operators don't relearn navigation when crossing surfaces. */}
+          <div className="relative flex flex-1">
+            <PlatformSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <SegmentNav />
+              <main className="flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
+                {children}
+              </main>
+            </div>
+          </div>
         </div>
       </div>
     </CurrentUserProvider>

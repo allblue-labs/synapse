@@ -1,6 +1,7 @@
 import {redirect} from 'next/navigation';
 import {TopNav} from '@/components/nav/top-nav';
 import {SegmentNav} from '@/components/nav/segment-nav';
+import {WorkspaceSidebar} from '@/components/nav/workspace-sidebar';
 import {CurrentUserProvider} from '@/components/auth/can';
 import {TenantInvalidator} from '@/components/auth/tenant-invalidator';
 import {api, ApiError, type CurrentUser} from '@/lib/api';
@@ -46,14 +47,20 @@ export default async function DashboardLayout({children}: {children: ReactNode})
 
         <div className="relative z-10 flex min-h-screen flex-col">
           <TopNav user={user} />
-          <SegmentNav />
 
-          {/* Asymmetric content shell — wider than max-w-7xl, with
-              left-biased gutter that lets dense pages breathe and
-              tighter pages still self-center via inner max-widths. */}
-          <main className="container-shell flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
-            {children}
-          </main>
+          {/* Sidebar + main grid. Sidebar is sticky (handled inside the
+              component); main column owns its own horizontal padding so
+              dashboards can use the full width of the screen instead of
+              re-centering inside a max-w container. */}
+          <div className="relative flex flex-1">
+            <WorkspaceSidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <SegmentNav />
+              <main className="flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
+                {children}
+              </main>
+            </div>
+          </div>
         </div>
       </div>
     </CurrentUserProvider>

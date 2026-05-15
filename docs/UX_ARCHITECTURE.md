@@ -684,3 +684,16 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: sanitized action status DTOs if needed for support tooling.
 - Risks: UI should still rely on read APIs rather than assuming immediate queue completion.
 - Next recommended step: keep action execution details behind backend-safe status summaries.
+
+## 2026-05-10 Frontend Evolution — Stage 1 (Layout Foundation)
+
+- Changed (frontend, Claude Opus): adopted the staged evolution strategy (one focus per stage). Stage 1 introduces a persistent operational sidebar and slims the top bar; subsequent stages will refine surfaces, motion, navigation architecture, and content.
+- The workspace shell is now a `sidebar + main` grid. `components/nav/workspace-sidebar.tsx` exports two primitives: `WorkspaceSidebar` (tenant) and `PlatformSidebar` (admin). Each is a sticky 240/64-px collapsible rail with `localStorage`-persisted state under `synapse.sidebar.collapsed`. Permission gates run client-side via `hasAnyPermission`, so items the operator can't reach disappear instead of mocking presence.
+- The top-nav surface is now a thin chrome: logo + ⌘K + Language + Theme + UserMenu. Primary navigation links were removed from the top bar and consolidated into the sidebar. The wider `container-shell` (1500-px max-w centered) was removed from `TopNav`, `SegmentNav`, and the platform header so the new shell uses the full horizontal width with comfortable padding (`px-4 lg:px-6` for chrome, `px-6 lg:px-10` for main content).
+- `SegmentNav` now flows inside the main column instead of rendering as a full-width strip; its container was simplified to follow the parent flex layout.
+- Visual identity is preserved: workspace sidebar uses brand accents for the active-section bar; platform sidebar uses indigo/violet. Active state is a static left-edge accent bar — animated active states are reserved for Stage 4. No motion language was changed in Stage 1.
+- Responsive baseline: sidebar is `hidden md:flex` for now. A proper mobile drawer (and tooltips for collapsed labels, sub-section collapse, animated active states) are deferred to **Stage 4 — Navigation Architecture**.
+- Out of scope this stage (per strategy): dashboard content, Pulse internals, module store internals, knowledge/scheduling/metrics work, motion tokens, design-system surface refinements.
+- Pending: Stage 2 (Design System Evolution), Stage 3 (Motion / Interaction Layer), Stage 4 (Navigation Architecture) and the rest of the 11-stage plan in `docs/STATUS.md`.
+- Risks: existing in-page `container-shell` callers (none today after the chrome refactor) would re-center inside the wider main column; nothing in the codebase relies on this currently. The unused `app/(platform)/platform/_components/platform-nav.tsx` is left on disk for Stage 4 to retire explicitly.
+- Next recommended step: **Stage 2 — Design System Evolution** (transparent surfaces, thin borders, hover states, typography, shadows, glass effects, icon sizing, spacing rhythm). One focus per stage.

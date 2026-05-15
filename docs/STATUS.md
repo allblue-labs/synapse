@@ -473,6 +473,23 @@ Last updated: 2026-05-07
 - Risks: Prisma/Postgres full schema separation (`platform.*`, `pulse.*`) is not enabled now to avoid migration/build risk; RLS is deferred until a safe session-variable strategy is implemented and tested.
 - Next recommended step: implement Pulse Context Pack contracts and module-local assembly service inside `src/product-modules/pulse`, with Synapse validating only governance and submitted context structure.
 
+## 2026-05-10 Frontend Evolution — Stage 1 (Layout Foundation)
+
+- Changed (frontend, owned by Claude Opus): adopted the staged evolution strategy (one stage, one focus). Replaced the top-nav-only shell with a persistent operational sidebar; primary navigation moved off the top bar.
+- Completed: `components/nav/workspace-sidebar.tsx` exports `WorkspaceSidebar` and `PlatformSidebar`. Each is sticky (top-14, full remaining viewport), collapsible (60→16 width), and persists collapse state in `localStorage` under `synapse.sidebar.collapsed` so a refresh keeps the operator's preference. Permission-aware: items gated by `any: Permission[]` use `hasAnyPermission` and disappear when denied.
+- Completed: workspace sidebar groups items into `Workspace` (Overview / Modules / Agents / Activity) and `Pulse` (Inbox / Tickets / Timeline / Playbooks / Knowledge / Integrations / Settings). Platform sidebar lists Overview / Tenants / Modules / Billing / Flags / Integrations / Runtime / Audit, with a back-to-workspace link pinned at the bottom of the rail.
+- Completed: `components/nav/top-nav.tsx` slimmed to logo + ⌘K trigger + Language + Theme + UserMenu. The old `PRIMARY_NAV` array and animated underline link strip were removed from the top bar. Header is now full-width (`px-4 lg:px-6`) instead of the centered `container-shell`.
+- Completed: workspace + platform layouts switched to `sidebar + main` grid. `SegmentNav` now lives inside the main column (no longer renders as a full-width strip) so the breadcrumb flows with the content area.
+- Completed: responsive baseline — sidebar is `hidden md:flex` (hides below `md`). A proper mobile drawer is reserved for **Stage 4 — Navigation Architecture**.
+- Completed: dead-code policy — old `app/(platform)/platform/_components/platform-nav.tsx` left on disk but unimported. Removing it is out of scope; Stage 4 will retire it explicitly.
+- Pending (deferred to later stages, per strategy):
+  - Stage 2 (Design System): refine sidebar surface tokens, hover states, glass effects.
+  - Stage 3 (Motion / Interaction): smooth route transitions, sidebar collapse motion, hover transitions.
+  - Stage 4 (Navigation Architecture): mobile drawer, collapsible sub-sections, tooltips for collapsed labels, animated active states.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓ (32 routes built clean).
+- Risks: any page that relied on the previous top-nav having `PRIMARY_NAV` links is now redirected through the sidebar — no routes were changed. Existing in-page `container-shell` usage was removed from `TopNav`, `SegmentNav`, and the platform header but is still applied within page-level layouts where it adds value.
+- Next recommended step: **Stage 2 — Design System Evolution** (one focus: transparent surfaces, thin borders, hover states, typography, shadows, glass effects, icon sizing, spacing rhythm). Do not start Stage 3+ until Stage 2 is closed.
+
 ## 2026-05-09 Stage 2 — Pulse Context Pack Foundation
 
 - Changed: added Pulse-owned Context Pack contracts, repository port, tenant-scoped Prisma repository, and assembly use case under `apps/api/src/product-modules/pulse`.

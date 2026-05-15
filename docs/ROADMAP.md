@@ -778,3 +778,12 @@ Last updated: 2026-05-07
 - Pending: DB fixture execution and reusable transaction-aware repository pattern.
 - Risks: manual lifecycle mutations remain non-transactional between event/audit/usage services.
 - Next recommended step: introduce shared transaction-capable repository contracts for future actions.
+
+## 2026-05-10 Frontend Evolution — Stage 1 (Layout Foundation)
+
+- Changed: kicked off the staged frontend evolution plan (11 stages, one focus per stage). Stage 1 is the layout foundation only.
+- Completed: persistent sidebar primitives for both shells (`WorkspaceSidebar`, `PlatformSidebar`), collapsible (240↔64 px) with `localStorage` state. Top-nav slimmed to logo + ⌘K + language + theme + user menu. Workspace + platform layouts switched to `sidebar + main` grid; the wider `container-shell` was retired from chrome so the main column owns horizontal real estate.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓ (32 routes built clean).
+- Pending: Stage 2 (Design System Evolution), Stage 3 (Motion / Interaction Layer), Stage 4 (Navigation Architecture). Mobile sidebar drawer, animated active states, tooltips for collapsed labels, and any sub-section collapse behaviour are reserved for Stage 4.
+- Risks: orphan `app/(platform)/platform/_components/platform-nav.tsx` remains on disk (unimported) until Stage 4 retires it explicitly; out-of-scope deletions were intentionally avoided per the strategy's "modify only its own scope" rule.
+- Next recommended step: **Stage 2 — Design System Evolution**. Do not start Stage 3+ before Stage 2 closes.

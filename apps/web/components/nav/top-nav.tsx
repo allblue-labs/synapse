@@ -11,6 +11,7 @@ import type {CurrentUser} from '@/lib/api';
 import {useTranslator} from '@/components/providers/locale-provider';
 import {LanguageToggle} from '@/components/i18n/language-toggle';
 import {CommandPalette, useCommandPalette} from '@/components/nav/command-palette';
+import {SidebarMobileTrigger} from '@/components/nav/workspace-sidebar';
 
 function ThemeToggle() {
   const {theme, setTheme} = useTheme();
@@ -156,6 +157,9 @@ export function TopNav({user}: {user: CurrentUser | null}) {
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand-500/40 to-transparent" />
 
         <div className="flex h-14 items-center px-4 lg:px-6">
+
+          {/* Mobile hamburger — opens the sidebar drawer. */}
+          <SidebarMobileTrigger className="-ml-1 mr-2" />
 
           {/* Logo */}
           <Link href="/workspace/overview" className="group mr-3 flex shrink-0 items-center gap-2">

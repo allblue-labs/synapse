@@ -1,7 +1,7 @@
 import {redirect} from 'next/navigation';
 import {TopNav} from '@/components/nav/top-nav';
 import {SegmentNav} from '@/components/nav/segment-nav';
-import {WorkspaceSidebar} from '@/components/nav/workspace-sidebar';
+import {WorkspaceSidebar, SidebarMobileProvider} from '@/components/nav/workspace-sidebar';
 import {CurrentUserProvider} from '@/components/auth/can';
 import {TenantInvalidator} from '@/components/auth/tenant-invalidator';
 import {api, ApiError, type CurrentUser} from '@/lib/api';
@@ -45,23 +45,25 @@ export default async function DashboardLayout({children}: {children: ReactNode})
           <div className="absolute inset-x-0 top-0 h-[260px] bg-gradient-to-b from-white/85 to-transparent dark:from-zinc-950/90" />
         </div>
 
-        <div className="relative z-10 flex min-h-screen flex-col">
-          <TopNav user={user} />
+        <SidebarMobileProvider>
+          <div className="relative z-10 flex min-h-screen flex-col">
+            <TopNav user={user} />
 
-          {/* Sidebar + main grid. Sidebar is sticky (handled inside the
-              component); main column owns its own horizontal padding so
-              dashboards can use the full width of the screen instead of
-              re-centering inside a max-w container. */}
-          <div className="relative flex flex-1">
-            <WorkspaceSidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <SegmentNav />
-              <main className="flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
-                {children}
-              </main>
+            {/* Sidebar + main grid. Sidebar is sticky (handled inside the
+                component); main column owns its own horizontal padding so
+                dashboards can use the full width of the screen instead of
+                re-centering inside a max-w container. */}
+            <div className="relative flex flex-1">
+              <WorkspaceSidebar />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <SegmentNav />
+                <main className="flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
+                  {children}
+                </main>
+              </div>
             </div>
           </div>
-        </div>
+        </SidebarMobileProvider>
       </div>
     </CurrentUserProvider>
   );

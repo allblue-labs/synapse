@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {ShieldAlert} from 'lucide-react';
 import {SegmentNav} from '@/components/nav/segment-nav';
-import {PlatformSidebar} from '@/components/nav/workspace-sidebar';
+import {PlatformSidebar, SidebarMobileProvider, SidebarMobileTrigger} from '@/components/nav/workspace-sidebar';
 import {CurrentUserProvider} from '@/components/auth/can';
 import {api, ApiError, type CurrentUser} from '@/lib/api';
 import {LanguageToggle} from '@/components/i18n/language-toggle';
@@ -50,59 +50,64 @@ export default async function PlatformLayout({children}: {children: ReactNode}) 
           <div className="absolute right-[-10rem] top-[26rem] h-[420px] w-[420px] rounded-full bg-violet-500/10 blur-[120px] dark:bg-violet-500/15" />
         </div>
 
-        <div className="relative z-10 flex min-h-screen flex-col">
-          {/* Admin top bar — slim, visually distinct via the Platform pill. */}
-          <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/80 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/80">
-            <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
+        <SidebarMobileProvider>
+          <div className="relative z-10 flex min-h-screen flex-col">
+            {/* Admin top bar — slim, visually distinct via the Platform pill. */}
+            <header className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/80 backdrop-blur-xl dark:border-zinc-800/70 dark:bg-zinc-950/80">
+              <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent" />
 
-            <div className="flex h-14 items-center px-4 lg:px-6">
-              <Link href="/platform/overview" className="group mr-3 flex shrink-0 items-center gap-2">
-                <Image
-                  src="/logo.png"
-                  alt="Synapse"
-                  width={26}
-                  height={26}
-                  className="rounded-md ring-1 ring-black/5 dark:ring-white/10"
-                  priority
-                />
-                <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                  Synapse
-                </span>
-                <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-                  <ShieldAlert size={10} />
-                  Platform
-                </span>
-              </Link>
+              <div className="flex h-14 items-center px-4 lg:px-6">
+                {/* Mobile hamburger — opens the platform sidebar drawer. */}
+                <SidebarMobileTrigger className="-ml-1 mr-2" />
 
-              <div className="flex-1" />
+                <Link href="/platform/overview" className="group mr-3 flex shrink-0 items-center gap-2">
+                  <Image
+                    src="/logo.png"
+                    alt="Synapse"
+                    width={26}
+                    height={26}
+                    className="rounded-md ring-1 ring-black/5 dark:ring-white/10"
+                    priority
+                  />
+                  <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                    Synapse
+                  </span>
+                  <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    <ShieldAlert size={10} />
+                    Platform
+                  </span>
+                </Link>
 
-              <div className="flex items-center gap-1.5">
-                <CommandLauncher />
-                <LanguageToggle />
-                {user && (
-                  <Link
-                    href="/workspace/overview"
-                    className="rounded-lg border border-zinc-200 bg-white/60 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    ← Workspace
-                  </Link>
-                )}
+                <div className="flex-1" />
+
+                <div className="flex items-center gap-1.5">
+                  <CommandLauncher />
+                  <LanguageToggle />
+                  {user && (
+                    <Link
+                      href="/workspace/overview"
+                      className="rounded-lg border border-zinc-200 bg-white/60 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/60 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      ← Workspace
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </header>
+
+            {/* Sidebar + main grid — same shape as the workspace shell so
+                operators don't relearn navigation when crossing surfaces. */}
+            <div className="relative flex flex-1">
+              <PlatformSidebar />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <SegmentNav />
+                <main className="flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
+                  {children}
+                </main>
               </div>
             </div>
-          </header>
-
-          {/* Sidebar + main grid — same shape as the workspace shell so
-              operators don't relearn navigation when crossing surfaces. */}
-          <div className="relative flex flex-1">
-            <PlatformSidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <SegmentNav />
-              <main className="flex-1 px-6 pb-16 pt-8 lg:px-10 page-enter">
-                {children}
-              </main>
-            </div>
           </div>
-        </div>
+        </SidebarMobileProvider>
       </div>
     </CurrentUserProvider>
   );

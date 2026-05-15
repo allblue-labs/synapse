@@ -506,6 +506,69 @@
       transform 240ms cubic-bezier(0.22, 1, 0.36, 1) 60ms;
   }
 
+  /* ── Collapsed sidebar tooltips ────────────────────────
+     When the sidebar is collapsed, hovering any
+     `.sidebar-link[data-tooltip]` reveals the label as a
+     pure-CSS popover anchored to the link's right edge.
+     The drawer-state of the parent (data-collapsed=true)
+     gates the tooltip so the expanded state stays clean. */
+  [data-collapsed="true"] .sidebar-link[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: calc(100% + 0.5rem);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px);
+    z-index: 50;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.375rem;
+    background: rgb(24 24 27 / 0.95);
+    color: rgb(244 244 245);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow: 0 8px 24px -10px rgb(15 23 42 / 0.30);
+    transition:
+      opacity 140ms cubic-bezier(0.22, 1, 0.36, 1) 80ms,
+      transform 140ms cubic-bezier(0.22, 1, 0.36, 1) 80ms;
+  }
+  .dark [data-collapsed="true"] .sidebar-link[data-tooltip]::after {
+    background: rgb(244 244 245 / 0.96);
+    color: rgb(24 24 27);
+  }
+  [data-collapsed="true"] .sidebar-link[data-tooltip]:hover::after,
+  [data-collapsed="true"] .sidebar-link[data-tooltip]:focus-visible::after {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+  /* Small arrow */
+  [data-collapsed="true"] .sidebar-link[data-tooltip]::before {
+    content: '';
+    position: absolute;
+    left: calc(100% + 0.25rem);
+    top: 50%;
+    transform: translateY(-50%) translateX(-4px) rotate(45deg);
+    width: 6px;
+    height: 6px;
+    background: rgb(24 24 27 / 0.95);
+    z-index: 50;
+    pointer-events: none;
+    opacity: 0;
+    transition:
+      opacity 140ms cubic-bezier(0.22, 1, 0.36, 1) 80ms,
+      transform 140ms cubic-bezier(0.22, 1, 0.36, 1) 80ms;
+  }
+  .dark [data-collapsed="true"] .sidebar-link[data-tooltip]::before {
+    background: rgb(244 244 245 / 0.96);
+  }
+  [data-collapsed="true"] .sidebar-link[data-tooltip]:hover::before,
+  [data-collapsed="true"] .sidebar-link[data-tooltip]:focus-visible::before {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0) rotate(45deg);
+  }
+
   /* ── Spinner ring ──────────────────────────────────────
      Two-color spinner: the visible arc rotates around a
      faint ring. Sized via the `--spinner-size` custom

@@ -309,3 +309,43 @@ Conversation messages can arrive rapidly. Future workers should use per-conversa
 - Pending: queue metrics for transaction conflicts and duplicate skips.
 - Risks: worker concurrency should be scaled after conflict observability exists.
 - Next recommended step: add counters/logging for action transaction outcomes.
+
+## 2026-05-15 Stage 4M — Action Queue Telemetry
+
+- Changed: `pulse.actions` emits structured telemetry for skipped, prepared, completed, and failed outcomes.
+- Completed: lifecycle ledger emits claimed, already-succeeded, in-progress, and succeeded outcomes.
+- Pending: metrics backend counters and dashboards.
+- Risks: logs must remain low-cardinality and payload-free.
+- Next recommended step: add alerting once metrics infrastructure exists.
+
+## 2026-05-15 Stage 5A — Queue Database Hotpaths
+
+- Changed: added indexes for Pulse queue entries, action executions, runtime execution requests, and operational timelines.
+- Completed: action execution lookup by tenant/status/action/ticket/conversation is indexed for worker diagnostics and retries.
+- Pending: EXPLAIN checks with realistic queue volume.
+- Risks: worker throughput still depends on Redis/BullMQ configuration in addition to Postgres indexes.
+- Next recommended step: add queue-volume fixtures once dev DB is available.
+
+## 2026-05-15 Stage 5B — Queue Persistence Schema Boundary
+
+- Changed: Pulse queue-adjacent durable state now lives under `pulse.*`.
+- Completed: action ledger, timeline/events, entries, tickets, conversations, and schedules are physically separated from Synapse governance tables.
+- Completed: worker-facing Pulse repositories now use `PrismaService.withTenantContext()`.
+- Risks: Redis queues remain logical boundaries; durable tenant safety still depends on Postgres tenant filters/RLS.
+- Next recommended step: run queue worker fixtures after applying the schema split migration.
+
+## 2026-05-15 Stage 5C — Queue Tenant Context
+
+- Changed: Pulse queue-backed repositories and action lifecycle transaction now run through tenant DB context.
+- Completed: action ledger/timeline writes run under tenant context for RLS.
+- Pending: worker fixture against live DB with two tenants.
+- Risks: BullMQ payload tenant id must continue to be validated before repository calls.
+- Next recommended step: add queue payload validation fixture with RLS active.
+
+## 2026-05-15 Stage 5D — Queue RLS Readiness
+
+- Changed: Pulse durable queue side effects are now protected by RLS at the table layer.
+- Completed: action ledger and operational events require tenant DB context.
+- Pending: run worker DB fixture with RLS active.
+- Risks: invalid tenant ids in jobs will fail hard at the DB layer; processors must keep safe error handling.
+- Next recommended step: add failed-job assertions for RLS/policy rejection.

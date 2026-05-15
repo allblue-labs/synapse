@@ -5,73 +5,76 @@ import {
   BeginPulseActionExecutionInput,
   IPulseActionExecutionRepository,
 } from '../../domain/ports/pulse-action-execution-repository.port';
+import { withPulseTenantContext } from './pulse-tenant-context';
 
 @Injectable()
 export class PulseActionExecutionRepository implements IPulseActionExecutionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async begin(input: BeginPulseActionExecutionInput) {
-    try {
-      const record = await this.prisma.pulseActionExecution.create({
-        data: {
-          tenantId: input.tenantId,
-          action: input.action,
-          idempotencyKey: input.idempotencyKey,
-          ticketId: input.ticketId ?? null,
-          conversationId: input.conversationId ?? null,
-          metadata: input.metadata ?? {},
-        },
-        select: this.select(),
-      });
+    return withPulseTenantContext(this.prisma, input.tenantId, async (tx) => {
+      try {
+        const record = await tx.pulseActionExecution.create({
+          data: {
+            tenantId: input.tenantId,
+            action: input.action,
+            idempotencyKey: input.idempotencyKey,
+            ticketId: input.ticketId ?? null,
+            conversationId: input.conversationId ?? null,
+            metadata: input.metadata ?? {},
+          },
+          select: this.select(),
+        });
 
-      return { state: 'claimed' as const, record };
-    } catch (error) {
-      if (!this.isUniqueConstraintError(error)) {
-        throw error;
+        return { state: 'claimed' as const, record };
+      } catch (error) {
+        if (!this.isUniqueConstraintError(error)) {
+          throw error;
+        }
       }
-    }
 
-    const existing = await this.prisma.pulseActionExecution.findUniqueOrThrow({
-      where: {
-        tenantId_idempotencyKey: {
-          tenantId: input.tenantId,
-          idempotencyKey: input.idempotencyKey,
-        },
-      },
-      select: this.select(),
-    });
-
-    if (existing.status === PulseActionExecutionStatus.SUCCEEDED) {
-      return { state: 'already_succeeded' as const, record: existing };
-    }
-
-    if (existing.status === PulseActionExecutionStatus.FAILED) {
-      const restarted = await this.prisma.pulseActionExecution.update({
+      const existing = await tx.pulseActionExecution.findUniqueOrThrow({
         where: {
           tenantId_idempotencyKey: {
             tenantId: input.tenantId,
             idempotencyKey: input.idempotencyKey,
           },
         },
-        data: {
-          status: PulseActionExecutionStatus.STARTED,
-          attempts: { increment: 1 },
-          errorMessage: null,
-          failedAt: null,
-          startedAt: new Date(),
-          metadata: this.mergeMetadata(existing.metadata, input.metadata),
-        },
         select: this.select(),
       });
 
-      return { state: 'claimed' as const, record: restarted };
-    }
+      if (existing.status === PulseActionExecutionStatus.SUCCEEDED) {
+        return { state: 'already_succeeded' as const, record: existing };
+      }
 
-    return { state: 'in_progress' as const, record: existing };
+      if (existing.status === PulseActionExecutionStatus.FAILED) {
+        const restarted = await tx.pulseActionExecution.update({
+          where: {
+            tenantId_idempotencyKey: {
+              tenantId: input.tenantId,
+              idempotencyKey: input.idempotencyKey,
+            },
+          },
+          data: {
+            status: PulseActionExecutionStatus.STARTED,
+            attempts: { increment: 1 },
+            errorMessage: null,
+            failedAt: null,
+            startedAt: new Date(),
+            metadata: this.mergeMetadata(existing.metadata, input.metadata),
+          },
+          select: this.select(),
+        });
+
+        return { state: 'claimed' as const, record: restarted };
+      }
+
+      return { state: 'in_progress' as const, record: existing };
+    });
   }
 
   async markSucceeded(tenantId: string, idempotencyKey: string, metadata: Prisma.InputJsonValue = {}) {
-    await this.prisma.pulseActionExecution.update({
+    await withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseActionExecution.update({
       where: {
         tenantId_idempotencyKey: {
           tenantId,
@@ -84,7 +87,7 @@ export class PulseActionExecutionRepository implements IPulseActionExecutionRepo
         errorMessage: null,
         metadata,
       },
-    });
+    }));
   }
 
   async markFailed(
@@ -93,7 +96,7 @@ export class PulseActionExecutionRepository implements IPulseActionExecutionRepo
     errorMessage: string,
     metadata: Prisma.InputJsonValue = {},
   ) {
-    await this.prisma.pulseActionExecution.update({
+    await withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseActionExecution.update({
       where: {
         tenantId_idempotencyKey: {
           tenantId,
@@ -106,7 +109,7 @@ export class PulseActionExecutionRepository implements IPulseActionExecutionRepo
         errorMessage,
         metadata,
       },
-    });
+    }));
   }
 
   private select() {

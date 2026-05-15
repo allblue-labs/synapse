@@ -779,6 +779,14 @@ Last updated: 2026-05-07
 - Risks: manual lifecycle mutations remain non-transactional between event/audit/usage services.
 - Next recommended step: introduce shared transaction-capable repository contracts for future actions.
 
+## 2026-05-15 Stage 4M — Action Observability
+
+- Changed: Pulse action execution now emits safe structured telemetry.
+- Completed: queue and ledger outcomes are observable without exposing payloads or raw idempotency keys.
+- Pending: real metrics backend integration.
+- Risks: high-cardinality labels must stay out of future metrics systems.
+- Next recommended step: decide whether action status should remain logs-only or gain sanitized internal read APIs.
+
 ## 2026-05-10 Frontend Evolution — Stage 1 (Layout Foundation)
 
 - Changed: kicked off the staged frontend evolution plan (11 stages, one focus per stage). Stage 1 is the layout foundation only.
@@ -787,3 +795,54 @@ Last updated: 2026-05-07
 - Pending: Stage 2 (Design System Evolution), Stage 3 (Motion / Interaction Layer), Stage 4 (Navigation Architecture). Mobile sidebar drawer, animated active states, tooltips for collapsed labels, and any sub-section collapse behaviour are reserved for Stage 4.
 - Risks: orphan `app/(platform)/platform/_components/platform-nav.tsx` remains on disk (unimported) until Stage 4 retires it explicitly; out-of-scope deletions were intentionally avoided per the strategy's "modify only its own scope" rule.
 - Next recommended step: **Stage 2 — Design System Evolution**. Do not start Stage 3+ before Stage 2 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 2 (Design System Evolution)
+
+- Changed: refined the design-system layer in `tailwind.config.ts` + `globals.css`. Zero page rewrites; every existing page that already references the design tokens picks up the new look automatically.
+- Completed: tiered shadow scale (`hairline → soft → card → dock → rail → elevated` plus `glass` / `glow`), thinner surface borders (`/55` replaces `/70`–`/80`), more translucent backgrounds so the ambient mesh shows through, two new hover companions (`surface-hover`, `surface-hover-brand`), full typography utility scale (`t-h1`–`t-h3`, `t-body`, `t-small`, `t-meta`), refined buttons + pills (thinner, glassier, unified press feedback), focus ring tuned for glass surfaces, and stack-rhythm utilities (`stack-page`, `stack-section`, `stack-cluster`, `stack-tight`).
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Pending: Stage 3 (Motion / Interaction Layer) — smooth route transitions, sidebar collapse motion, hover transitions, loading states, animated counters. Stages 4–11 follow per the staged strategy.
+- Risks: pages that hand-rolled border/background literals will not migrate automatically; they keep working but should adopt `surface-*` utilities on next touch.
+- Next recommended step: **Stage 3 — Motion / Interaction Layer**. Do not start Stage 4+ before Stage 3 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 3 (Motion / Interaction Layer)
+
+- Changed: refined the motion/interaction layer in `tailwind.config.ts` + `globals.css` + small components — **CSS-first, no framer-motion install**. Audit showed every Stage-3 focus area was achievable without a new dependency.
+- Completed: new keyframes (`slideInLeft`, `fadeOut`, `press`, `countUp`, `spinnerRotate`), three universal transition aliases (`.transition-base/soft/spring`), `.stagger-children` rule, refined `.page-enter`, sidebar label fade + translate on collapse, `<AnimatedNumber/>` (RAF-driven, reduced-motion-aware), `<Spinner/>` (CSS-only), refined `<Skeleton/>` with shimmer, Dialog panel uses `animate-panel-in`, Toast uses `animate-slide-in-right`.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Pending: Stage 4 (Navigation Architecture) — mobile sidebar drawer, animated active states, collapsed-label tooltips, sub-section collapse, floating landing nav. Stages 5–11 follow per the staged strategy.
+- Risks: framer-motion deferred — Stage 9 (Pulse Operational UX) or Stage 10 (Onboarding) may revisit if orchestrated enter/exit choreography is needed (e.g. AnimatePresence on a mobile drawer).
+- Next recommended step: **Stage 4 — Navigation Architecture**. Do not start Stage 5+ before Stage 4 closes.
+
+## 2026-05-15 Stage 5A — Database Performance + RLS Foundation
+
+- Changed: shifted backend focus to production database performance, efficiency, and multitenant security.
+- Completed: added compound indexes for existing tenant-scoped access patterns and prepared RLS policies.
+- Completed: added tenant transaction context runner in `PrismaService`.
+- Pending: RLS-active fixtures and query-plan validation against a live database.
+- Risks: RLS must be activated gradually after all query paths set session tenant context.
+- Next recommended step: migrate Pulse repositories to the transaction helper first.
+
+## 2026-05-15 Stage 5B — Pulse Schema Separation
+
+- Changed: introduced physical DB schema separation for Pulse while keeping Synapse governance central.
+- Completed: Prisma schema now uses `public` for platform/governance and `pulse` for Pulse operational persistence.
+- Pending: migration rehearsal, RLS fixtures, and repository tenant-context adoption.
+- Risks: cross-schema FKs must stay intentional and limited to governance boundaries such as `public.Tenant`.
+- Next recommended step: validate migrations against a clean disposable Postgres and then convert Pulse repositories.
+
+## 2026-05-15 Stage 5C — Pulse Repository Tenant Context
+
+- Changed: migrated Pulse repository access to tenant-scoped Prisma transactions.
+- Completed: high-risk Pulse operational repositories no longer issue direct `pulse.*` Prisma calls outside tenant context.
+- Pending: disposable DB migration/RLS rehearsal and query-plan validation.
+- Risks: activation must remain table-by-table because app-level tenant filters are still the active runtime boundary.
+- Next recommended step: create RLS fixture for `pulse_tickets` and `pulse_operational_events`.
+
+## 2026-05-15 Stage 5D — Pulse RLS Enforcement
+
+- Changed: prepared production RLS enforcement for Pulse schema.
+- Completed: migration enables/forces RLS for Pulse operational tables and adds a skipped-by-default DB fixture.
+- Pending: execute the fixture against disposable Postgres and expand coverage after first pass.
+- Risks: FORCE RLS will expose any future direct Prisma paths without tenant context.
+- Next recommended step: run database fixtures before applying this migration to shared dev/staging.

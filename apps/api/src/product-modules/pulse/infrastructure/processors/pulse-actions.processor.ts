@@ -1,9 +1,10 @@
-import { BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Logger, Optional } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { UsageMetricType } from '@prisma/client';
 import { Job, UnrecoverableError } from 'bullmq';
 import { BillingService } from '../../../../modules/billing/billing.service';
 import { PulseActionHandlerRegistry } from '../../application/actions/pulse-action-handler.registry';
+import { PulseActionTelemetryService } from '../../application/services/pulse-action-telemetry.service';
 import {
   PulseActionPayloadValidationException,
 } from '../../application/actions/pulse-ticket-advance-flow-action.handler';
@@ -35,6 +36,8 @@ export class PulseActionsProcessor extends WorkerHost {
     private readonly queues: PulseQueueService,
     private readonly handlers: PulseActionHandlerRegistry,
     private readonly billing: BillingService,
+    @Optional()
+    private readonly actionTelemetry?: PulseActionTelemetryService,
   ) {
     super();
   }
@@ -59,6 +62,9 @@ export class PulseActionsProcessor extends WorkerHost {
             source: PULSE_QUEUES.ACTIONS,
             idempotencyKey: job.data.idempotencyKey,
           },
+        });
+        this.recordTelemetry(job.data, 'skipped', {
+          reason: 'action_not_allowed',
         });
         return;
       }
@@ -105,6 +111,9 @@ export class PulseActionsProcessor extends WorkerHost {
             sideEffectsApplied: result.sideEffectsApplied,
           },
         });
+        this.recordTelemetry(job.data, 'completed', {
+          sideEffectsApplied: result.sideEffectsApplied,
+        });
         return;
       }
 
@@ -127,11 +136,19 @@ export class PulseActionsProcessor extends WorkerHost {
           sideEffectsApplied: false,
         },
       });
+      this.recordTelemetry(job.data, 'prepared', {
+        sideEffectsApplied: false,
+        reason: 'action_handler_not_implemented',
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown Pulse action dispatch error';
       const failureClass = this.failureClass(error);
       const retryable = failureClass === 'retryable';
       this.logger.error(`Pulse action job failed: ${message}`);
+      this.recordTelemetry(job.data, 'failed', {
+        failureClass,
+        reason: this.safeFailureReason(message),
+      });
       await this.recordFailure(job, message, failureClass);
       if (!retryable) {
         throw new UnrecoverableError(message);
@@ -253,5 +270,41 @@ export class PulseActionsProcessor extends WorkerHost {
         idempotencyKey: job.data.idempotencyKey,
       },
     });
+  }
+
+  private recordTelemetry(
+    job: PulseActionJob,
+    outcome: 'skipped' | 'completed' | 'prepared' | 'failed',
+    details: {
+      failureClass?: string;
+      reason?: string;
+      sideEffectsApplied?: boolean;
+    } = {},
+  ) {
+    this.actionTelemetry?.record({
+      tenantId: job.tenantId,
+      action: job.action,
+      idempotencyKey: job.idempotencyKey,
+      ticketId: job.ticketId,
+      conversationId: job.conversationId,
+      outcome,
+      failureClass: details.failureClass,
+      reason: details.reason,
+      sideEffectsApplied: details.sideEffectsApplied,
+      queue: PULSE_QUEUES.ACTIONS,
+    });
+  }
+
+  private safeFailureReason(message: string) {
+    if (/permission/i.test(message)) {
+      return 'permission_denied';
+    }
+    if (/validation|requires|unsupported|invalid/i.test(message)) {
+      return 'validation_failed';
+    }
+    if (/progress/i.test(message)) {
+      return 'action_in_progress';
+    }
+    return 'action_failed';
   }
 }

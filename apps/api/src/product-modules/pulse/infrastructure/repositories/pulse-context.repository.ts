@@ -15,6 +15,7 @@ import {
   PulseContextIntegrationRecord,
   PulseContextSourceData,
 } from '../../domain/ports/pulse-context-repository.port';
+import { PulseTenantTransaction, withPulseTenantContext } from './pulse-tenant-context';
 
 const SCHEDULING_PROVIDERS = [
   IntegrationProvider.GOOGLE_CALENDAR,
@@ -30,78 +31,71 @@ export class PulseContextRepository implements IPulseContextRepository {
     const skillType = input.skill as PulseSkillType;
     const knowledgeLimit = input.knowledgeLimit ?? 12;
 
-    const [
-      conversation,
-      ticket,
-      playbook,
-      skill,
-      knowledge,
-      integrations,
-      timeline,
-    ] = await this.prisma.$transaction([
-      this.loadConversation(input),
-      this.loadTicket(input),
-      this.loadPlaybook(input, skillType),
-      this.prisma.pulseSkill.findFirst({
-        where: { tenantId: input.tenantId, type: skillType },
-        select: {
-          id: true,
-          type: true,
-          status: true,
-          config: true,
-          metadata: true,
-        },
-      }),
-      this.prisma.pulseKnowledgeContext.findMany({
-        where: {
-          tenantId: input.tenantId,
-          status: PulseKnowledgeContextStatus.ACTIVE,
-          type: {
-            in: [
-              PulseKnowledgeContextType.FAQ,
-              PulseKnowledgeContextType.BUSINESS_DESCRIPTION,
-              PulseKnowledgeContextType.OPERATIONAL_INSTRUCTION,
-              PulseKnowledgeContextType.PRODUCT_SERVICE,
-              PulseKnowledgeContextType.CAMPAIGN_PROMOTION,
-            ],
+    const [conversation, ticket, playbook, skill, knowledge, integrations, timeline] =
+      await withPulseTenantContext(this.prisma, input.tenantId, (tx) => Promise.all([
+        this.loadConversation(tx, input),
+        this.loadTicket(tx, input),
+        this.loadPlaybook(tx, input, skillType),
+        tx.pulseSkill.findFirst({
+          where: { tenantId: input.tenantId, type: skillType },
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            config: true,
+            metadata: true,
           },
-        },
-        select: {
-          id: true,
-          type: true,
-          title: true,
-          content: true,
-          metadata: true,
-          updatedAt: true,
-        },
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-        take: knowledgeLimit,
-      }),
-      this.prisma.integrationSetting.findMany({
-        where: {
-          tenantId: input.tenantId,
-          provider: { in: [...SCHEDULING_PROVIDERS] },
-          status: {
-            in: [
-              IntegrationStatus.ACTIVE,
-              IntegrationStatus.NEEDS_ATTENTION,
-              IntegrationStatus.DISCONNECTED,
-            ],
+        }),
+        tx.pulseKnowledgeContext.findMany({
+          where: {
+            tenantId: input.tenantId,
+            status: PulseKnowledgeContextStatus.ACTIVE,
+            type: {
+              in: [
+                PulseKnowledgeContextType.FAQ,
+                PulseKnowledgeContextType.BUSINESS_DESCRIPTION,
+                PulseKnowledgeContextType.OPERATIONAL_INSTRUCTION,
+                PulseKnowledgeContextType.PRODUCT_SERVICE,
+                PulseKnowledgeContextType.CAMPAIGN_PROMOTION,
+              ],
+            },
           },
-        },
-        select: {
-          id: true,
-          provider: true,
-          status: true,
-          displayName: true,
-          settings: true,
-          metadata: true,
-          credentialsRef: true,
-        },
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-      }),
-      this.loadTimeline(input),
-    ]);
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            content: true,
+            metadata: true,
+            updatedAt: true,
+          },
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+          take: knowledgeLimit,
+        }),
+        tx.integrationSetting.findMany({
+          where: {
+            tenantId: input.tenantId,
+            provider: { in: [...SCHEDULING_PROVIDERS] },
+            status: {
+              in: [
+                IntegrationStatus.ACTIVE,
+                IntegrationStatus.NEEDS_ATTENTION,
+                IntegrationStatus.DISCONNECTED,
+              ],
+            },
+          },
+          select: {
+            id: true,
+            provider: true,
+            status: true,
+            displayName: true,
+            settings: true,
+            metadata: true,
+            credentialsRef: true,
+          },
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        }),
+        this.loadTimeline(tx, input),
+      ]));
 
     return {
       conversation,
@@ -114,9 +108,9 @@ export class PulseContextRepository implements IPulseContextRepository {
     };
   }
 
-  private loadConversation(input: PulseContextAssemblyInput) {
+  private loadConversation(tx: PulseTenantTransaction, input: PulseContextAssemblyInput) {
     if (!input.conversationId) {
-      return this.prisma.pulseConversation.findFirst({
+      return tx.pulseConversation.findFirst({
         where: {
           tenantId: input.tenantId,
           tickets: input.ticketId ? { some: { id: input.ticketId, tenantId: input.tenantId } } : undefined,
@@ -126,15 +120,15 @@ export class PulseContextRepository implements IPulseContextRepository {
       });
     }
 
-    return this.prisma.pulseConversation.findFirst({
+    return tx.pulseConversation.findFirst({
       where: { tenantId: input.tenantId, id: input.conversationId },
       select: this.conversationSelect(),
     });
   }
 
-  private loadTicket(input: PulseContextAssemblyInput) {
+  private loadTicket(tx: PulseTenantTransaction, input: PulseContextAssemblyInput) {
     if (!input.ticketId) {
-      return this.prisma.pulseTicket.findFirst({
+      return tx.pulseTicket.findFirst({
         where: {
           tenantId: input.tenantId,
           ...(input.conversationId && { conversationId: input.conversationId }),
@@ -144,14 +138,14 @@ export class PulseContextRepository implements IPulseContextRepository {
       });
     }
 
-    return this.prisma.pulseTicket.findFirst({
+    return tx.pulseTicket.findFirst({
       where: { tenantId: input.tenantId, id: input.ticketId },
       select: this.ticketSelect(),
     });
   }
 
-  private loadPlaybook(input: PulseContextAssemblyInput, skillType: PulseSkillType) {
-    return this.prisma.pulsePlaybook.findFirst({
+  private loadPlaybook(tx: PulseTenantTransaction, input: PulseContextAssemblyInput, skillType: PulseSkillType) {
+    return tx.pulsePlaybook.findFirst({
       where: {
         tenantId: input.tenantId,
         status: PulsePlaybookStatus.ACTIVE,
@@ -171,9 +165,9 @@ export class PulseContextRepository implements IPulseContextRepository {
     });
   }
 
-  private loadTimeline(input: PulseContextAssemblyInput) {
+  private loadTimeline(tx: PulseTenantTransaction, input: PulseContextAssemblyInput) {
     if (!input.conversationId && !input.ticketId) {
-      return this.prisma.pulseOperationalEvent.findMany({
+      return tx.pulseOperationalEvent.findMany({
         where: { tenantId: input.tenantId },
         select: this.timelineSelect(),
         orderBy: { occurredAt: 'desc' },
@@ -181,7 +175,7 @@ export class PulseContextRepository implements IPulseContextRepository {
       });
     }
 
-    return this.prisma.pulseOperationalEvent.findMany({
+    return tx.pulseOperationalEvent.findMany({
       where: {
         tenantId: input.tenantId,
         OR: [

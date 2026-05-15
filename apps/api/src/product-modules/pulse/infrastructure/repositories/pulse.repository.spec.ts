@@ -57,9 +57,8 @@ describe('PulseRepository tenant isolation', () => {
   it('scopes list queries and counts by tenantId', async () => {
     const prisma = createPrismaMock();
     const record = createRecord();
-    prisma.pulseEntry.findMany.mockReturnValue('findManyPromise');
-    prisma.pulseEntry.count.mockReturnValue('countPromise');
-    prisma.$transaction.mockResolvedValue([[record], 1]);
+    prisma.pulseEntry.findMany.mockResolvedValue([record]);
+    prisma.pulseEntry.count.mockResolvedValue(1);
     const repository = new PulseRepository(prisma as unknown as PrismaService);
 
     const result = await repository.list('tenant_a', {
@@ -77,7 +76,7 @@ describe('PulseRepository tenant isolation', () => {
     expect(prisma.pulseEntry.count).toHaveBeenCalledWith({
       where: { tenantId: 'tenant_a', status: PulseStatus.PENDING_VALIDATION },
     });
-    expect(prisma.$transaction).toHaveBeenCalledWith(['findManyPromise', 'countPromise']);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(result).toMatchObject({ total: 1, page: 2, pageSize: 10 });
   });
 

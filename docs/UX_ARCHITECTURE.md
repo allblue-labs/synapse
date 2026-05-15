@@ -685,6 +685,46 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Risks: UI should still rely on read APIs rather than assuming immediate queue completion.
 - Next recommended step: keep action execution details behind backend-safe status summaries.
 
+## 2026-05-15 Stage 4M — Action Telemetry UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: action telemetry is internal backend observability, not a UI contract.
+- Pending: optional support-only action status API if needed.
+- Risks: frontend should not consume raw logs or infer state from telemetry.
+- Next recommended step: expose sanitized timeline/status DTOs only if product needs them.
+
+## 2026-05-15 Stage 5A — Database Hardening UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: backend performance/security hardening is transparent to frontend integration.
+- Pending: frontend should continue treating backend 403/404 as source of truth for tenant boundaries.
+- Risks: RLS activation later may surface stricter 404/403 behavior if any endpoint bypasses tenant filters.
+- Next recommended step: run frontend/manual QA after RLS is enabled on the first table group.
+
+## 2026-05-15 Stage 5B — Schema Split UX Note
+
+- Changed: no frontend contract changed; Pulse schema separation is backend-only.
+- Completed: API shapes and route responsibilities remain stable.
+- Pending: manual QA after migrations are applied to a live/disposable DB.
+- Risks: migration mistakes may appear as backend 500s, not frontend contract changes.
+- Next recommended step: keep frontend integration paused until backend migration rehearsal passes.
+
+## 2026-05-15 Stage 5C — Tenant Context UX Note
+
+- Changed: no frontend API contract changed.
+- Completed: stricter backend tenant boundaries should preserve existing 403/404 semantics.
+- Pending: manual QA after RLS is activated.
+- Risks: endpoints missing tenant context later may fail harder once RLS is enabled.
+- Next recommended step: Ninja should retest Pulse list/detail/action flows after DB rehearsal.
+
+## 2026-05-15 Stage 5D — RLS UX Note
+
+- Changed: no API contract changed; RLS is backend-only.
+- Completed: cross-tenant data should continue surfacing as not found/forbidden through existing backend behavior.
+- Pending: manual QA against migrated environment.
+- Risks: accidental missing tenant context may appear as empty lists instead of data until logs are inspected.
+- Next recommended step: QA Pulse inbox, ticket detail, action bar, knowledge, and schedules after migration rehearsal.
+
 ## 2026-05-10 Frontend Evolution — Stage 1 (Layout Foundation)
 
 - Changed (frontend, Claude Opus): adopted the staged evolution strategy (one focus per stage). Stage 1 introduces a persistent operational sidebar and slims the top bar; subsequent stages will refine surfaces, motion, navigation architecture, and content.
@@ -697,3 +737,38 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: Stage 2 (Design System Evolution), Stage 3 (Motion / Interaction Layer), Stage 4 (Navigation Architecture) and the rest of the 11-stage plan in `docs/STATUS.md`.
 - Risks: existing in-page `container-shell` callers (none today after the chrome refactor) would re-center inside the wider main column; nothing in the codebase relies on this currently. The unused `app/(platform)/platform/_components/platform-nav.tsx` is left on disk for Stage 4 to retire explicitly.
 - Next recommended step: **Stage 2 — Design System Evolution** (transparent surfaces, thin borders, hover states, typography, shadows, glass effects, icon sizing, spacing rhythm). One focus per stage.
+
+## 2026-05-15 Frontend Evolution — Stage 2 (Design System Evolution)
+
+- Changed (frontend, Claude Opus): refined the design-system layer in `apps/web/tailwind.config.ts` + `apps/web/app/globals.css` only. No page rewrites, no route changes, no backend touches.
+- Shadow scale rebuilt as a tiered hierarchy: `hairline → soft → card → dock → rail → elevated`, with new `glass` / `glass-dark` for translucent panels and refined `glow` / `glow-lg` for hero CTAs. Heavy values were softened across the board (e.g. `rail` from `0 30px 80px` to `0 18px 48px`).
+- Surface tokens (`card`, `card-elevated`, `surface-translucent`, `surface-floating`, `surface-rail`, `surface-dock`, `surface-inset`) now share a documented role in a single inline comment block. Borders thinned from `/70`–`/80` to `/55`; backgrounds shifted lighter (`bg-white/65`) so the ambient mesh shows through. Names are stable — every existing page picks up the new look without edits.
+- Two new hover companions: `.surface-hover` (zinc-tinted lift + border brighten + card shadow) and `.surface-hover-brand` (same shape, brand accent). Replaces ad-hoc `hover:bg-white/40 hover:border-...` chains.
+- Typography utility scale added: `.t-h1`, `.t-h2`, `.t-h3`, `.t-body`, `.t-body-strong`, `.t-small`, `.t-meta`, `.t-meta-xs`. Refined `.h-eyebrow` to `text-[11px] tracking-[0.16em]`. Existing inline classes still compile — these are additive guidance for future pages.
+- Buttons (`.btn-primary` / `.btn-secondary` / `.btn-ghost`) refined: thinner borders, glass backdrop on secondary, unified `active:scale-[0.97]`, explicit `disabled:` states, `ease-snap` motion. Pills shifted to `/60` borders + `/60` backgrounds.
+- Focus ring tuned for glass surfaces: `ring-brand-500/70 ring-offset-[1.5px]` (was solid brand + 2-px offset).
+- Spacing-rhythm utilities: `.stack-page` (40px), `.stack-section` (24px), `.stack-cluster` (12px), `.stack-tight` (6px). Icon-size guidance documented as no-op marker classes (`.icon-chrome`, `.icon-content`, `.icon-hero`).
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Out of scope (per strategy): page rewrites, navigation architecture, motion language beyond easing tokens, content changes, backend.
+- Pending: Stage 3 (Motion / Interaction Layer), Stage 4 (Navigation Architecture), Stage 5+ per `docs/STATUS.md`.
+- Risks: any page that hand-rolled `border-zinc-200/80` / `bg-white/70` literals will not pick up the refined token set until those pages migrate to the `surface-*` utility on next touch. They continue to render correctly today.
+- Next recommended step: **Stage 3 — Motion / Interaction Layer**. Do not start Stage 4+ before Stage 3 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 3 (Motion / Interaction Layer)
+
+- Changed (frontend, Claude Opus): refined the motion/interaction layer in `tailwind.config.ts` + `globals.css` + a handful of motion primitives. **Decision: stay CSS-first** — the strategy listed `framer-motion` as a focus area, but the audit showed every Stage-3 goal (route transitions, sidebar collapse, hover, loading states, animated counters, enter/exit) is achievable with the existing CSS/Tailwind animation stack plus two small RAF-driven components. Avoided a ~50 kB JS dependency for primitives we already had. Logged so Stage 9 (Pulse Operational UX) or Stage 10 (Onboarding) can revisit if AnimatePresence-style choreography becomes necessary.
+- New keyframes/aliases: `slideInLeft`, `fadeOut`, `press` (button micro-feedback), `countUp` (entering numbers), `spinnerRotate`. All enter animations now use `both` fill-mode so the final state survives transition end.
+- New CSS utilities: `.transition-base` (200 ms snap), `.transition-soft` (150 ms colors-only), `.transition-spring` (280 ms with overshoot), `.stagger-children` (incremental `animation-delay` for up-to-10 children), refined `.page-enter` (panelIn 0.38 s), and the `.spinner-ring` primitive.
+- Sidebar collapse motion: labels live inside a `<span class="sidebar-label">`; the parent `[data-collapsed]` attribute drives fade + translate (120 ms collapse, 220 ms expand with 60 ms delay). The link container uses `overflow-hidden` so chrome glides rather than snapping. The `aria-expanded` attribute was removed because the sidebar is always visible — only its width changes — `aria-label` already conveys the state.
+- New components:
+  - `components/ui/animated-number.tsx` — RAF-driven counter, tweens previous → current with `easeOutQuart`, honours `prefers-reduced-motion`, uses `Intl.NumberFormat` for locale-aware output.
+  - `components/ui/spinner.tsx` — CSS-only inline spinner, sized via `--spinner-size`, inherits `currentColor`.
+- Refined primitives:
+  - `Skeleton` — pairs `animate-skeleton` opacity pulse with the `.shimmer-overlay` sheen.
+  - Dialog panel — switched from `animate-fade-in` to `animate-panel-in` (scale + blur reveal). Border softened to `/70`.
+  - Toast — switched from `animate-fade-in` to `animate-slide-in-right` so notifications enter from the corner.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Out of scope (per strategy): page rewrites, navigation architecture, backend, content.
+- Pending: Stage 4 (Navigation Architecture) and the rest of the 11-stage plan.
+- Risks: prior `animate-fade-in` usage on toasts/dialogs continues to work, but pages that hand-rolled enter animations won't pick up the new `count-up` / `press` keyframes until they migrate.
+- Next recommended step: **Stage 4 — Navigation Architecture**. Do not start Stage 5+ before Stage 4 closes.

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { AuditStatus, Prisma, PulseActionExecutionStatus, PulseActorType, PulseTicketStatus } from '@prisma/client';
 import { AuditService } from '../../../../common/audit/audit.service';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
@@ -21,6 +21,7 @@ import {
   PulseFlowState,
 } from '../../domain/pulse-flow-state-machine';
 import { evaluatePulseConfidence } from '../../domain/pulse-confidence-policy';
+import { PulseActionTelemetryService } from '../services/pulse-action-telemetry.service';
 import { pulseEventPayload } from '../services/pulse-event-payload';
 
 type TicketMetadata = Record<string, unknown>;
@@ -35,6 +36,8 @@ export class TicketLifecycleUseCase {
     private readonly audit: AuditService,
     private readonly usage: UsageMeteringService,
     private readonly prisma: PrismaService,
+    @Optional()
+    private readonly actionTelemetry?: PulseActionTelemetryService,
   ) {}
 
   assignTicket(
@@ -367,7 +370,7 @@ export class TicketLifecycleUseCase {
       eventData?: Record<string, unknown>;
     }>,
   ) {
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.withTenantContext(tenantId, async (tx) => {
       const ticket = await tx.pulseTicket.findFirst({
         where: { tenantId, id: ticketId },
         select: this.ticketSelect(),
@@ -404,11 +407,39 @@ export class TicketLifecycleUseCase {
       });
 
       if (claim.status === PulseActionExecutionStatus.SUCCEEDED) {
+        this.actionTelemetry?.record({
+          tenantId,
+          action,
+          idempotencyKey: actionIdempotencyKey,
+          ticketId,
+          conversationId: ticket.conversationId,
+          outcome: 'already_succeeded',
+          attempts: claim.attempts,
+        });
         return ticket;
       }
       if (claim.status === PulseActionExecutionStatus.STARTED && claim.attempts > 1) {
+        this.actionTelemetry?.record({
+          tenantId,
+          action,
+          idempotencyKey: actionIdempotencyKey,
+          ticketId,
+          conversationId: ticket.conversationId,
+          outcome: 'in_progress',
+          attempts: claim.attempts,
+        });
         throw new ConflictException('Pulse action execution is already in progress.');
       }
+
+      this.actionTelemetry?.record({
+        tenantId,
+        action,
+        idempotencyKey: actionIdempotencyKey,
+        ticketId,
+        conversationId: ticket.conversationId,
+        outcome: 'claimed',
+        attempts: claim.attempts,
+      });
 
       if (claim.status === PulseActionExecutionStatus.FAILED) {
         await tx.pulseActionExecution.update({
@@ -533,6 +564,16 @@ export class TicketLifecycleUseCase {
             nextStatus: updated.status,
           },
         },
+      });
+
+      this.actionTelemetry?.record({
+        tenantId,
+        action,
+        idempotencyKey: actionIdempotencyKey,
+        ticketId: updated.id,
+        conversationId: updated.conversationId,
+        outcome: 'succeeded',
+        attempts: claim.attempts,
       });
 
       return updated;

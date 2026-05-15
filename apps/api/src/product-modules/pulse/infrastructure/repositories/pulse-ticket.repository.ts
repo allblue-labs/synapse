@@ -6,13 +6,14 @@ import {
   IPulseTicketRepository,
   UpdatePulseTicketInput,
 } from '../../domain/ports/pulse-ticket-repository.port';
+import { withPulseTenantContext } from './pulse-tenant-context';
 
 @Injectable()
 export class PulseTicketRepository implements IPulseTicketRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(tenantId: string, id: string) {
-    return this.prisma.pulseTicket.findFirst({
+    return withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseTicket.findFirst({
       where: { tenantId, id },
       select: {
         id: true,
@@ -26,7 +27,7 @@ export class PulseTicketRepository implements IPulseTicketRepository {
         priority: true,
         resolvedAt: true,
       },
-    });
+    }));
   }
 
   async list(tenantId: string, filter: {
@@ -42,8 +43,8 @@ export class PulseTicketRepository implements IPulseTicketRepository {
       ...(filter.type && { type: filter.type }),
       ...(filter.status && { status: filter.status }),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.pulseTicket.findMany({
+    const [data, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.pulseTicket.findMany({
         where,
         select: {
           id: true,
@@ -56,14 +57,14 @@ export class PulseTicketRepository implements IPulseTicketRepository {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.pulseTicket.count({ where }),
-    ]);
+      tx.pulseTicket.count({ where }),
+    ]));
 
     return { data, total, page, pageSize };
   }
 
   async create(input: CreatePulseTicketInput) {
-    return this.prisma.pulseTicket.create({
+    return withPulseTenantContext(this.prisma, input.tenantId, (tx) => tx.pulseTicket.create({
       data: {
         tenantId: input.tenantId,
         conversationId: input.conversationId ?? null,
@@ -86,37 +87,42 @@ export class PulseTicketRepository implements IPulseTicketRepository {
         priority: true,
         resolvedAt: true,
       },
-    });
+    }));
   }
 
   async update(tenantId: string, id: string, input: UpdatePulseTicketInput) {
-    const current = await this.findById(tenantId, id);
-    if (!current) {
-      return null;
-    }
+    return withPulseTenantContext(this.prisma, tenantId, async (tx) => {
+      const current = await tx.pulseTicket.findFirst({
+        where: { tenantId, id },
+        select: { id: true },
+      });
+      if (!current) {
+        return null;
+      }
 
-    return this.prisma.pulseTicket.update({
-      where: { id },
-      data: {
-        status: input.status,
-        assignedUserId: input.assignedUserId,
-        confidence: input.confidence,
-        priority: input.priority,
-        metadata: input.metadata,
-        resolvedAt: input.resolvedAt,
-      },
-      select: {
-        id: true,
-        tenantId: true,
-        conversationId: true,
-        type: true,
-        status: true,
-        assignedUserId: true,
-        confidence: true,
-        metadata: true,
-        priority: true,
-        resolvedAt: true,
-      },
+      return tx.pulseTicket.update({
+        where: { id },
+        data: {
+          status: input.status,
+          assignedUserId: input.assignedUserId,
+          confidence: input.confidence,
+          priority: input.priority,
+          metadata: input.metadata,
+          resolvedAt: input.resolvedAt,
+        },
+        select: {
+          id: true,
+          tenantId: true,
+          conversationId: true,
+          type: true,
+          status: true,
+          assignedUserId: true,
+          confidence: true,
+          metadata: true,
+          priority: true,
+          resolvedAt: true,
+        },
+      });
     });
   }
 }

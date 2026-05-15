@@ -2,9 +2,10 @@ import 'reflect-metadata';
 import { CanActivate, ExecutionContext, INestApplication, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
-import { UserRole } from '@synapse/contracts';
+import { permissionsForRole, UserRole } from '@synapse/contracts';
 import { AuditService } from '../../common/audit/audit.service';
 import { PermissionsGuard } from '../../common/authorization';
+import { PermissionResolverService } from '../../common/authorization/permission-resolver.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { CreateEntryUseCase } from './application/use-cases/create-entry.use-case';
@@ -82,6 +83,13 @@ describe('Pulse HTTP read routes', () => {
     prepareBooking: jest.fn(),
   };
   const audit = { record: jest.fn() };
+  const permissionResolver = {
+    resolve: jest.fn(async (user: AuthenticatedUser) => ({
+      role: user.role,
+      permissions: permissionsForRole(user.role),
+      source: 'membership' as const,
+    })),
+  };
 
   const okPage = { data: [], total: 0, page: 1, pageSize: 20 };
 
@@ -105,6 +113,7 @@ describe('Pulse HTTP read routes', () => {
         { provide: APP_GUARD, useClass: TenantGuard },
         { provide: APP_GUARD, useClass: PermissionsGuard },
         { provide: AuditService, useValue: audit },
+        { provide: PermissionResolverService, useValue: permissionResolver },
         { provide: ListQueueUseCase, useValue: { execute: jest.fn().mockResolvedValue(okPage) } },
         { provide: GetEntryUseCase, useValue: { execute: jest.fn() } },
         { provide: ListChannelsUseCase, useValue: listChannels },
@@ -162,7 +171,7 @@ describe('Pulse HTTP read routes', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('validates and transforms channel filters over HTTP', async () => {
@@ -288,7 +297,9 @@ describe('Pulse HTTP read routes', () => {
         resourceType: 'RoutePermission',
         metadata: expect.objectContaining({
           required: ['tickets:read'],
-          role: 'invalid-role',
+          jwtRole: 'invalid-role',
+          resolvedRole: 'invalid-role',
+          source: 'membership',
         }),
       }),
     );

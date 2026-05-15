@@ -1,17 +1,21 @@
 generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["public", "pulse"]
 }
 
 enum TenantStatus {
   ACTIVE
   SUSPENDED
   PENDING_SETUP
+
+  @@schema("public")
 }
 
 enum UserRole {
@@ -19,6 +23,8 @@ enum UserRole {
   ADMIN
   OPERATOR
   VIEWER
+
+  @@schema("public")
 }
 
 enum PlatformRole {
@@ -26,6 +32,8 @@ enum PlatformRole {
   SUPER_ADMIN
   ADMIN
   TESTER
+
+  @@schema("public")
 }
 
 enum AgentStatus {
@@ -33,6 +41,8 @@ enum AgentStatus {
   ACTIVE
   PAUSED
   ARCHIVED
+
+  @@schema("public")
 }
 
 enum AgentGoal {
@@ -41,30 +51,40 @@ enum AgentGoal {
   SUPPORT
   BOOKING
   AUTOMATION
+
+  @@schema("public")
 }
 
 enum ConversationStatus {
   ACTIVE
   CLOSED
   ESCALATED
+
+  @@schema("public")
 }
 
 enum ChannelType {
   WHATSAPP
   TELEGRAM
   DISCORD
+
+  @@schema("public")
 }
 
 enum ChannelStatus {
   ACTIVE
   DISCONNECTED
   NEEDS_ATTENTION
+
+  @@schema("public")
 }
 
 enum MessageDirection {
   INBOUND
   OUTBOUND
   SYSTEM
+
+  @@schema("public")
 }
 
 enum MessageAuthorType {
@@ -72,6 +92,8 @@ enum MessageAuthorType {
   AGENT
   HUMAN
   SYSTEM
+
+  @@schema("public")
 }
 
 enum BillingStatus {
@@ -81,18 +103,24 @@ enum BillingStatus {
   CANCELED
   UNPAID
   INCOMPLETE
+
+  @@schema("public")
 }
 
 enum BillingPlanStatus {
   DRAFT
   ACTIVE
   DISABLED
+
+  @@schema("public")
 }
 
 enum ModulePurchaseStatus {
   ACTIVE
   CANCELED
   EXPIRED
+
+  @@schema("public")
 }
 
 enum UsageMetricType {
@@ -102,18 +130,24 @@ enum UsageMetricType {
   STORAGE
   MESSAGE
   AUTOMATION_EXECUTION
+
+  @@schema("public")
 }
 
 enum UsageStripeReportStatus {
   SENT
   FAILED
   SKIPPED
+
+  @@schema("public")
 }
 
 enum StripeWebhookEventStatus {
   PROCESSED
   IGNORED
   FAILED
+
+  @@schema("public")
 }
 
 enum ModuleCatalogStatus {
@@ -121,11 +155,15 @@ enum ModuleCatalogStatus {
   PUBLIC
   PRIVATE
   DISABLED
+
+  @@schema("public")
 }
 
 enum TenantModuleStatus {
   ENABLED
   DISABLED
+
+  @@schema("public")
 }
 
 enum ModuleTier {
@@ -133,12 +171,16 @@ enum ModuleTier {
   LIGHT
   PRO
   PREMIUM
+
+  @@schema("public")
 }
 
 enum ModuleVisibility {
   PUBLIC
   PRIVATE
   HIDDEN
+
+  @@schema("public")
 }
 
 enum ModuleRolloutState {
@@ -146,11 +188,15 @@ enum ModuleRolloutState {
   PILOT
   GA
   DEPRECATED
+
+  @@schema("public")
 }
 
 enum PulseChannelProvider {
   WHATSAPP
   TELEGRAM
+
+  @@schema("pulse")
 }
 
 enum PulseChannelStatus {
@@ -158,6 +204,8 @@ enum PulseChannelStatus {
   DISCONNECTED
   NEEDS_ATTENTION
   DISABLED
+
+  @@schema("pulse")
 }
 
 enum PulseConversationState {
@@ -167,6 +215,8 @@ enum PulseConversationState {
   WAITING_OPERATOR
   RESOLVED
   CANCELLED
+
+  @@schema("pulse")
 }
 
 enum PulseOperationalStatus {
@@ -174,6 +224,8 @@ enum PulseOperationalStatus {
   NEEDS_REVIEW
   ESCALATED
   CLOSED
+
+  @@schema("pulse")
 }
 
 enum PulseTicketType {
@@ -183,6 +235,8 @@ enum PulseTicketType {
   MARKETING
   OPERATOR_REVIEW
   KNOWLEDGE_REQUEST
+
+  @@schema("pulse")
 }
 
 enum PulseTicketStatus {
@@ -191,6 +245,8 @@ enum PulseTicketStatus {
   WAITING_CUSTOMER
   RESOLVED
   CANCELLED
+
+  @@schema("pulse")
 }
 
 enum PulseActorType {
@@ -199,12 +255,16 @@ enum PulseActorType {
   CUSTOMER
   AI
   INTEGRATION
+
+  @@schema("pulse")
 }
 
 enum PulsePlaybookStatus {
   DRAFT
   ACTIVE
   ARCHIVED
+
+  @@schema("pulse")
 }
 
 enum PulseKnowledgeContextType {
@@ -213,11 +273,15 @@ enum PulseKnowledgeContextType {
   OPERATIONAL_INSTRUCTION
   PRODUCT_SERVICE
   CAMPAIGN_PROMOTION
+
+  @@schema("pulse")
 }
 
 enum PulseKnowledgeContextStatus {
   ACTIVE
   ARCHIVED
+
+  @@schema("pulse")
 }
 
 enum PulseSkillType {
@@ -227,23 +291,31 @@ enum PulseSkillType {
   KNOWLEDGE
   MARKETING
   OPERATOR
+
+  @@schema("pulse")
 }
 
 enum PulseSkillStatus {
   ACTIVE
   DISABLED
+
+  @@schema("pulse")
 }
 
 enum PulseActionExecutionStatus {
   STARTED
   SUCCEEDED
   FAILED
+
+  @@schema("pulse")
 }
 
 enum IntegrationProvider {
   GOOGLE_CALENDAR
   OUTLOOK_CALENDAR
   CALENDLY
+
+  @@schema("pulse")
 }
 
 enum IntegrationStatus {
@@ -251,6 +323,8 @@ enum IntegrationStatus {
   DISCONNECTED
   NEEDS_ATTENTION
   DISABLED
+
+  @@schema("pulse")
 }
 
 enum ExecutionStatus {
@@ -261,47 +335,52 @@ enum ExecutionStatus {
   FAILED
   CANCELLED
   TIMED_OUT
+
+  @@schema("public")
 }
 
 model Tenant {
-  id             String          @id @default(cuid())
-  name           String
-  slug           String          @unique
-  status         TenantStatus    @default(PENDING_SETUP)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  users          UserMembership[]
-  agents         Agent[]
-  conversations  Conversation[]
-  messages       Message[]
-  channels       ChannelAccount[]
-  knowledgeItems   KnowledgeItem[]
-  billingAccount   BillingAccount?
-  pulseEntries      PulseEntry[]
-  pulseChannels     PulseChannel[]
-  pulseConversations PulseConversation[]
-  pulseTickets      PulseTicket[]
-  pulseOperationalEvents PulseOperationalEvent[]
-  pulseActionExecutions PulseActionExecution[]
-  pulsePlaybooks    PulsePlaybook[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  slug                      String                     @unique
+  status                    TenantStatus               @default(PENDING_SETUP)
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  users                     UserMembership[]
+  agents                    Agent[]
+  conversations             Conversation[]
+  messages                  Message[]
+  channels                  ChannelAccount[]
+  knowledgeItems            KnowledgeItem[]
+  billingAccount            BillingAccount?
+  pulseEntries              PulseEntry[]
+  pulseChannels             PulseChannel[]
+  pulseConversations        PulseConversation[]
+  pulseTickets              PulseTicket[]
+  pulseOperationalEvents    PulseOperationalEvent[]
+  pulseActionExecutions     PulseActionExecution[]
+  pulsePlaybooks            PulsePlaybook[]
   pulseOperationalSchedules PulseOperationalSchedule[]
-  pulseKnowledgeContexts PulseKnowledgeContext[]
-  pulseSkills       PulseSkill[]
-  integrationSettings IntegrationSetting[]
-  executionRequests ExecutionRequest[]
-  auditEvents       AuditEvent[]
-  moduleInstallations TenantModuleInstallation[]
-  modulePurchases      ModulePurchase[]
-  usageEvents          UsageEvent[]
-  usageAggregates      UsagePeriodAggregate[]
-  usageStripeReports   UsageStripeReport[]
+  pulseKnowledgeContexts    PulseKnowledgeContext[]
+  pulseSkills               PulseSkill[]
+  integrationSettings       IntegrationSetting[]
+  executionRequests         ExecutionRequest[]
+  auditEvents               AuditEvent[]
+  moduleInstallations       TenantModuleInstallation[]
+  modulePurchases           ModulePurchase[]
+  usageEvents               UsageEvent[]
+  usageAggregates           UsagePeriodAggregate[]
+  usageStripeReports        UsageStripeReport[]
 
   @@index([status])
+  @@schema("public")
 }
 
 enum AuditStatus {
   SUCCESS
   FAILURE
+
+  @@schema("public")
 }
 
 /// Append-only ledger for security-relevant events. Never updated after
@@ -309,39 +388,42 @@ enum AuditStatus {
 /// happen before a session is established (e.g. failed login from an
 /// unknown email).
 model AuditEvent {
-  id             String       @id @default(cuid())
-  tenantId       String?
-  actorUserId    String?
-  action         String
-  resourceType   String?
-  resourceId     String?
-  status         AuditStatus  @default(SUCCESS)
-  ipAddress      String?
-  userAgent      String?
-  requestId      String?
-  metadata       Json?
-  createdAt      DateTime     @default(now())
+  id           String      @id @default(cuid())
+  tenantId     String?
+  actorUserId  String?
+  action       String
+  resourceType String?
+  resourceId   String?
+  status       AuditStatus @default(SUCCESS)
+  ipAddress    String?
+  userAgent    String?
+  requestId    String?
+  metadata     Json?
+  createdAt    DateTime    @default(now())
 
-  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, action, createdAt])
   @@index([actorUserId, createdAt])
   @@index([action, createdAt])
+  @@schema("public")
 }
 
 model User {
-  id            String           @id @default(cuid())
-  email         String           @unique
-  name          String
-  passwordHash  String
-  platformRole  PlatformRole?
+  id             String           @id @default(cuid())
+  email          String           @unique
+  name           String
+  passwordHash   String
+  platformRole   PlatformRole?
   platformScopes Json             @default("{}")
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  memberships   UserMembership[]
-  ownedMessages Message[]        @relation("HumanMessageAuthor")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  memberships    UserMembership[]
+  ownedMessages  Message[]        @relation("HumanMessageAuthor")
 
   @@index([platformRole])
+  @@schema("public")
 }
 
 model UserMembership {
@@ -357,51 +439,55 @@ model UserMembership {
   @@unique([tenantId, userId])
   @@index([userId])
   @@index([tenantId, role])
+  @@index([tenantId, userId, role])
+  @@schema("public")
 }
 
 model Agent {
-  id              String          @id @default(cuid())
+  id              String           @id @default(cuid())
   tenantId        String
   name            String
-  status          AgentStatus     @default(DRAFT)
+  status          AgentStatus      @default(DRAFT)
   goal            AgentGoal
   personality     String
   instructions    String
   rules           String[]
-  modelProvider   String          @default("openai")
-  modelName       String          @default("gpt-4.1-mini")
-  temperature     Float           @default(0.3)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  modelProvider   String           @default("openai")
+  modelName       String           @default("gpt-4.1-mini")
+  temperature     Float            @default(0.3)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conversations   Conversation[]
   knowledgeItems  KnowledgeItem[]
   channelAccounts ChannelAccount[]
 
   @@index([tenantId, status])
   @@index([tenantId, goal])
+  @@schema("public")
 }
 
 model Conversation {
-  id                  String             @id @default(cuid())
-  tenantId            String
-  agentId             String?
-  channelAccountId    String
-  status              ConversationStatus @default(ACTIVE)
-  externalContactId   String
-  contactDisplayName  String?
-  extractedData       Json               @default("{}")
-  lastMessageAt       DateTime?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  tenant              Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agent               Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  channelAccount      ChannelAccount     @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
-  messages            Message[]
+  id                 String             @id @default(cuid())
+  tenantId           String
+  agentId            String?
+  channelAccountId   String
+  status             ConversationStatus @default(ACTIVE)
+  externalContactId  String
+  contactDisplayName String?
+  extractedData      Json               @default("{}")
+  lastMessageAt      DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent              Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  channelAccount     ChannelAccount     @relation(fields: [channelAccountId], references: [id], onDelete: Cascade)
+  messages           Message[]
 
   @@unique([tenantId, channelAccountId, externalContactId])
   @@index([tenantId, status, lastMessageAt])
   @@index([tenantId, agentId])
+  @@schema("public")
 }
 
 model Message {
@@ -424,44 +510,47 @@ model Message {
   @@unique([tenantId, conversationId, externalMessageId])
   @@index([tenantId, conversationId, createdAt])
   @@index([tenantId, direction])
+  @@schema("public")
 }
 
 model ChannelAccount {
-  id             String             @id @default(cuid())
+  id             String         @id @default(cuid())
   tenantId       String
   agentId        String?
   type           ChannelType
-  status         ChannelStatus      @default(DISCONNECTED)
+  status         ChannelStatus  @default(DISCONNECTED)
   displayName    String
   externalId     String?
   credentialsRef String?
-  settings       Json               @default("{}")
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agent          Agent?             @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  settings       Json           @default("{}")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent          Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
   conversations  Conversation[]
 
   @@unique([tenantId, type, externalId])
   @@index([tenantId, type, status])
   @@index([tenantId, agentId])
+  @@schema("public")
 }
 
 model KnowledgeItem {
-  id          String   @id @default(cuid())
-  tenantId    String
-  agentId     String?
-  title       String
-  content     String
-  sourceUrl   String?
-  metadata    Json     @default("{}")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agent       Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  tenantId  String
+  agentId   String?
+  title     String
+  content   String
+  sourceUrl String?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, agentId])
   @@index([tenantId, updatedAt])
+  @@schema("public")
 }
 
 model BillingAccount {
@@ -480,25 +569,27 @@ model BillingAccount {
   plan BillingPlan @relation(fields: [planKey], references: [key], onDelete: Restrict)
 
   @@index([planKey, status])
+  @@schema("public")
 }
 
 model BillingPlan {
-  id                     String            @id @default(cuid())
-  key                    String            @unique
-  displayName            String
-  status                 BillingPlanStatus @default(DRAFT)
-  commercialFeatureFlag  String?
-  requiredPublicModules  Int               @default(0)
-  entitlements           Json              @default("{}")
-  metadata               Json              @default("{}")
-  createdAt              DateTime          @default(now())
-  updatedAt              DateTime          @updatedAt
+  id                    String            @id @default(cuid())
+  key                   String            @unique
+  displayName           String
+  status                BillingPlanStatus @default(DRAFT)
+  commercialFeatureFlag String?
+  requiredPublicModules Int               @default(0)
+  entitlements          Json              @default("{}")
+  metadata              Json              @default("{}")
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   billingAccounts    BillingAccount[]
   moduleEntitlements BillingPlanModuleEntitlement[]
 
   @@index([status, displayName])
   @@map("billing_plans")
+  @@schema("public")
 }
 
 model BillingPlanModuleEntitlement {
@@ -515,6 +606,7 @@ model BillingPlanModuleEntitlement {
   @@unique([planId, moduleId])
   @@index([moduleId, included])
   @@map("billing_plan_module_entitlements")
+  @@schema("public")
 }
 
 model BillingFeatureFlag {
@@ -527,23 +619,25 @@ model BillingFeatureFlag {
 
   @@index([enabled, key])
   @@map("billing_feature_flags")
+  @@schema("public")
 }
 
 model StripeWebhookEvent {
-  id             String                   @id @default(cuid())
-  stripeEventId  String                   @unique
-  eventType      String
-  status         StripeWebhookEventStatus
-  errorMessage   String?
-  payload        Json
-  receivedAt     DateTime                 @default(now())
-  processedAt    DateTime?
-  createdAt      DateTime                 @default(now())
-  updatedAt      DateTime                 @updatedAt
+  id            String                   @id @default(cuid())
+  stripeEventId String                   @unique
+  eventType     String
+  status        StripeWebhookEventStatus
+  errorMessage  String?
+  payload       Json
+  receivedAt    DateTime                 @default(now())
+  processedAt   DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
 
   @@index([eventType, receivedAt])
   @@index([status, receivedAt])
   @@map("stripe_webhook_events")
+  @@schema("public")
 }
 
 model ModulePurchase {
@@ -564,6 +658,7 @@ model ModulePurchase {
   @@index([tenantId, status])
   @@index([moduleId, status])
   @@map("module_purchases")
+  @@schema("public")
 }
 
 model ModuleCatalogItem {
@@ -587,15 +682,16 @@ model ModuleCatalogItem {
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
-  installations TenantModuleInstallation[]
+  installations    TenantModuleInstallation[]
   planEntitlements BillingPlanModuleEntitlement[]
-  purchases         ModulePurchase[]
+  purchases        ModulePurchase[]
 
   @@index([status, displayName])
   @@index([tier, visibility, rolloutState])
   @@index([active, visibility])
   @@index([storeVisible, active, visibility])
   @@map("module_catalog_items")
+  @@schema("public")
 }
 
 model TenantModuleInstallation {
@@ -616,29 +712,33 @@ model TenantModuleInstallation {
   @@index([tenantId, status])
   @@index([moduleId, status])
   @@map("tenant_module_installations")
+  @@schema("public")
 }
 
 model UsageEvent {
-  id              String          @id @default(cuid())
-  tenantId        String
-  moduleSlug      String?
-  metricType      UsageMetricType
-  quantity        Decimal         @db.Decimal(18, 6)
-  unit            String
-  resourceType    String?
-  resourceId      String?
-  idempotencyKey  String?
-  billingPeriod   String
-  metadata        Json            @default("{}")
-  occurredAt      DateTime        @default(now())
-  createdAt       DateTime        @default(now())
+  id             String          @id @default(cuid())
+  tenantId       String
+  moduleSlug     String?
+  metricType     UsageMetricType
+  quantity       Decimal         @db.Decimal(18, 6)
+  unit           String
+  resourceType   String?
+  resourceId     String?
+  idempotencyKey String?
+  billingPeriod  String
+  metadata       Json            @default("{}")
+  occurredAt     DateTime        @default(now())
+  createdAt      DateTime        @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, billingPeriod, metricType])
+  @@index([tenantId, billingPeriod, moduleSlug, metricType, unit])
   @@index([tenantId, moduleSlug, occurredAt])
+  @@index([tenantId, resourceType, resourceId])
   @@map("usage_events")
+  @@schema("public")
 }
 
 model UsageRate {
@@ -655,6 +755,7 @@ model UsageRate {
   @@unique([metricType, unit, currency])
   @@index([active, metricType])
   @@map("usage_rates")
+  @@schema("public")
 }
 
 model UsageStripeMeter {
@@ -672,45 +773,48 @@ model UsageStripeMeter {
   @@unique([metricType, unit, currency])
   @@index([active, metricType])
   @@map("usage_stripe_meters")
+  @@schema("public")
 }
 
 model UsagePeriodAggregate {
-  id            String          @id @default(cuid())
-  tenantId      String
-  billingPeriod String
-  metricType    UsageMetricType
-  unit          String
-  quantity      Decimal         @db.Decimal(18, 6)
-  events        Int
-  currency      String          @default("usd")
-  unitPriceCents Decimal?       @db.Decimal(18, 6)
-  amountCents   Decimal?        @db.Decimal(18, 6)
-  rated         Boolean         @default(false)
-  calculatedAt  DateTime        @default(now())
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  tenantId       String
+  billingPeriod  String
+  metricType     UsageMetricType
+  unit           String
+  quantity       Decimal         @db.Decimal(18, 6)
+  events         Int
+  currency       String          @default("usd")
+  unitPriceCents Decimal?        @db.Decimal(18, 6)
+  amountCents    Decimal?        @db.Decimal(18, 6)
+  rated          Boolean         @default(false)
+  calculatedAt   DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   stripeReports UsageStripeReport[]
 
   @@unique([tenantId, billingPeriod, metricType, unit, currency])
   @@index([tenantId, billingPeriod])
+  @@index([tenantId, billingPeriod, rated])
   @@map("usage_period_aggregates")
+  @@schema("public")
 }
 
 model UsageStripeReport {
-  id                String                  @id @default(cuid())
-  tenantId          String
-  aggregateId       String
-  status            UsageStripeReportStatus
-  stripeEventName   String?
-  stripeIdentifier  String?
-  stripeCustomerId  String?
-  value             Int?
-  errorMessage      String?
-  reportedAt        DateTime?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  id               String                  @id @default(cuid())
+  tenantId         String
+  aggregateId      String
+  status           UsageStripeReportStatus
+  stripeEventName  String?
+  stripeIdentifier String?
+  stripeCustomerId String?
+  value            Int?
+  errorMessage     String?
+  reportedAt       DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
   tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   aggregate UsagePeriodAggregate @relation(fields: [aggregateId], references: [id], onDelete: Cascade)
@@ -719,6 +823,7 @@ model UsageStripeReport {
   @@unique([stripeIdentifier])
   @@index([tenantId, status, createdAt])
   @@map("usage_stripe_reports")
+  @@schema("public")
 }
 
 enum PulseStatus {
@@ -727,81 +832,90 @@ enum PulseStatus {
   READY_TO_CONFIRM
   SCHEDULED
   FAILED
+
+  @@schema("pulse")
 }
 
 model PulseEntry {
-  id             String           @id @default(cuid())
+  id             String      @id @default(cuid())
   tenantId       String
-  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conversationId String?
   status         PulseStatus @default(PROCESSING)
 
-  originalMessage String   @default("")
+  originalMessage String  @default("")
   transcription   String?
   mediaUrl        String?
   contactPhone    String
   contactName     String?
 
-  extractedData   Json?
-  confidence      Float?
-  aiSummary       String?
+  extractedData Json?
+  confidence    Float?
+  aiSummary     String?
 
-  scheduledAt     DateTime?
-  errorMessage    String?
-  retryCount      Int      @default(0)
-  processingLogs  Json?
+  scheduledAt    DateTime?
+  errorMessage   String?
+  retryCount     Int       @default(0)
+  processingLogs Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
+  @@index([tenantId, status, updatedAt])
+  @@index([tenantId, contactPhone, createdAt])
   @@map("pulse_entries")
+  @@schema("pulse")
 }
 
 model PulseChannel {
-  id         String             @id @default(cuid())
+  id         String               @id @default(cuid())
   tenantId   String
   provider   PulseChannelProvider
   identifier String
-  status     PulseChannelStatus @default(DISCONNECTED)
-  limits     Json               @default("{}")
-  metadata   Json               @default("{}")
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  status     PulseChannelStatus   @default(DISCONNECTED)
+  limits     Json                 @default("{}")
+  metadata   Json                 @default("{}")
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
 
-  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conversations PulseConversation[]
   events        PulseOperationalEvent[]
 
   @@unique([tenantId, provider, identifier])
   @@index([tenantId, provider, status])
   @@map("pulse_channels")
+  @@schema("pulse")
 }
 
 model PulseConversation {
-  id                String                  @id @default(cuid())
+  id                String                 @id @default(cuid())
   tenantId          String
   channelId         String
   participantRef    String
   participantLabel  String?
-  state             PulseConversationState  @default(NEW)
-  operationalStatus PulseOperationalStatus  @default(ACTIVE)
+  state             PulseConversationState @default(NEW)
+  operationalStatus PulseOperationalStatus @default(ACTIVE)
   confidence        Float?
   lastActivityAt    DateTime?
-  metadata          Json                    @default("{}")
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
+  metadata          Json                   @default("{}")
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
-  tenant  Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel PulseChannel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  tenant  Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel PulseChannel            @relation(fields: [channelId], references: [id], onDelete: Cascade)
   tickets PulseTicket[]
   events  PulseOperationalEvent[]
 
   @@unique([tenantId, channelId, participantRef])
   @@index([tenantId, operationalStatus, lastActivityAt])
+  @@index([tenantId, channelId, lastActivityAt])
   @@index([tenantId, state])
+  @@index([tenantId, updatedAt])
   @@map("pulse_conversations")
+  @@schema("pulse")
 }
 
 model PulseTicket {
@@ -820,13 +934,17 @@ model PulseTicket {
   updatedAt      DateTime          @updatedAt
   resolvedAt     DateTime?
 
-  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation PulseConversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation PulseConversation?      @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   events       PulseOperationalEvent[]
 
   @@index([tenantId, status, updatedAt])
   @@index([tenantId, type, status])
+  @@index([tenantId, assignedUserId, status, updatedAt])
+  @@index([tenantId, priority, status, updatedAt])
+  @@index([tenantId, conversationId, updatedAt])
   @@map("pulse_tickets")
+  @@schema("pulse")
 }
 
 model PulseOperationalEvent {
@@ -852,7 +970,9 @@ model PulseOperationalEvent {
   @@index([tenantId, eventType, occurredAt])
   @@index([tenantId, conversationId, occurredAt])
   @@index([tenantId, ticketId, occurredAt])
+  @@index([tenantId, actorUserId, occurredAt])
   @@map("pulse_operational_events")
+  @@schema("pulse")
 }
 
 model PulseActionExecution {
@@ -877,50 +997,55 @@ model PulseActionExecution {
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, status, updatedAt])
   @@index([tenantId, ticketId, updatedAt])
+  @@index([tenantId, conversationId, updatedAt])
   @@index([tenantId, action, status])
+  @@index([tenantId, status, action, updatedAt])
   @@map("pulse_action_executions")
+  @@schema("pulse")
 }
 
 model PulsePlaybook {
-  id          String              @id @default(cuid())
-  tenantId    String
-  key         String
-  name        String
-  status      PulsePlaybookStatus @default(DRAFT)
-  skill       PulseSkillType?
-  flow        Json                @default("{}")
-  metadata    Json                @default("{}")
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id        String              @id @default(cuid())
+  tenantId  String
+  key       String
+  name      String
+  status    PulsePlaybookStatus @default(DRAFT)
+  skill     PulseSkillType?
+  flow      Json                @default("{}")
+  metadata  Json                @default("{}")
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, key])
   @@index([tenantId, status, skill])
   @@map("pulse_playbooks")
+  @@schema("pulse")
 }
 
 model PulseOperationalSchedule {
-  id                  String   @id @default(cuid())
-  tenantId            String
-  timezone            String   @default("UTC")
-  businessHours       Json     @default("{}")
-  temporaryClosures   Json     @default("[]")
-  holidayOverrides    Json     @default("[]")
-  vacationPeriods     Json     @default("[]")
-  operationalPause    Boolean  @default(false)
-  pauseReason         String?
-  closedMessage       String?
-  nextOpeningAt       DateTime?
-  metadata            Json     @default("{}")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                String    @id @default(cuid())
+  tenantId          String
+  timezone          String    @default("UTC")
+  businessHours     Json      @default("{}")
+  temporaryClosures Json      @default("[]")
+  holidayOverrides  Json      @default("[]")
+  vacationPeriods   Json      @default("[]")
+  operationalPause  Boolean   @default(false)
+  pauseReason       String?
+  closedMessage     String?
+  nextOpeningAt     DateTime?
+  metadata          Json      @default("{}")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId])
   @@index([tenantId, operationalPause, nextOpeningAt])
   @@map("pulse_operational_schedules")
+  @@schema("pulse")
 }
 
 model PulseKnowledgeContext {
@@ -939,6 +1064,7 @@ model PulseKnowledgeContext {
   @@index([tenantId, type, status])
   @@index([tenantId, updatedAt])
   @@map("pulse_knowledge_contexts")
+  @@schema("pulse")
 }
 
 model PulseSkill {
@@ -956,6 +1082,7 @@ model PulseSkill {
   @@unique([tenantId, type])
   @@index([tenantId, status])
   @@map("pulse_skills")
+  @@schema("pulse")
 }
 
 model IntegrationSetting {
@@ -975,7 +1102,9 @@ model IntegrationSetting {
 
   @@unique([tenantId, provider, externalRef])
   @@index([tenantId, provider, status])
+  @@index([tenantId, status, updatedAt])
   @@map("integration_settings")
+  @@schema("pulse")
 }
 
 model ExecutionRequest {
@@ -999,6 +1128,8 @@ model ExecutionRequest {
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, moduleSlug, status])
+  @@index([tenantId, status, updatedAt])
   @@index([tenantId, requestType, requestedAt])
   @@map("execution_requests")
+  @@schema("public")
 }

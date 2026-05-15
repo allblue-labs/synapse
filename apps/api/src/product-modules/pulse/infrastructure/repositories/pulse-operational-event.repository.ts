@@ -6,13 +6,14 @@ import {
   IPulseOperationalEventRepository,
   PulseOperationalTimelineFilter,
 } from '../../domain/ports/pulse-operational-event-repository.port';
+import { withPulseTenantContext } from './pulse-tenant-context';
 
 @Injectable()
 export class PulseOperationalEventRepository implements IPulseOperationalEventRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async record(input: CreatePulseOperationalEventInput) {
-    return this.prisma.pulseOperationalEvent.create({
+    return withPulseTenantContext(this.prisma, input.tenantId, (tx) => tx.pulseOperationalEvent.create({
       data: {
         tenantId: input.tenantId,
         eventType: input.eventType,
@@ -31,7 +32,7 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
         eventType: true,
         occurredAt: true,
       },
-    });
+    }));
   }
 
   async listForConversation(
@@ -54,8 +55,8 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
       ...this.eventTypeFilter(filter),
       ...this.occurredAtFilter(filter),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.pulseOperationalEvent.findMany({
+    const [data, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.pulseOperationalEvent.findMany({
         where,
         select: {
           ...this.timelineSelect(),
@@ -64,8 +65,8 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.pulseOperationalEvent.count({ where }),
-    ]);
+      tx.pulseOperationalEvent.count({ where }),
+    ]));
 
     return { data, total, page, pageSize };
   }
@@ -90,8 +91,8 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
       ...this.eventTypeFilter(filter),
       ...this.occurredAtFilter(filter),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.pulseOperationalEvent.findMany({
+    const [data, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.pulseOperationalEvent.findMany({
         where,
         select: {
           ...this.timelineSelect(),
@@ -100,8 +101,8 @@ export class PulseOperationalEventRepository implements IPulseOperationalEventRe
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.pulseOperationalEvent.count({ where }),
-    ]);
+      tx.pulseOperationalEvent.count({ where }),
+    ]));
 
     return { data, total, page, pageSize };
   }

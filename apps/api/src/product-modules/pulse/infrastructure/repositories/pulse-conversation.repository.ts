@@ -5,6 +5,7 @@ import {
   IPulseConversationRepository,
   ResolvePulseConversationInput,
 } from '../../domain/ports/pulse-conversation-repository.port';
+import { withPulseTenantContext } from './pulse-tenant-context';
 
 @Injectable()
 export class PulseConversationRepository implements IPulseConversationRepository {
@@ -23,8 +24,8 @@ export class PulseConversationRepository implements IPulseConversationRepository
       ...(filter.state && { state: filter.state }),
       ...(filter.operationalStatus && { operationalStatus: filter.operationalStatus }),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.pulseConversation.findMany({
+    const [data, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.pulseConversation.findMany({
         where,
         select: {
           id: true,
@@ -38,14 +39,14 @@ export class PulseConversationRepository implements IPulseConversationRepository
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.pulseConversation.count({ where }),
-    ]);
+      tx.pulseConversation.count({ where }),
+    ]));
 
     return { data, total, page, pageSize };
   }
 
   async findById(tenantId: string, id: string) {
-    return this.prisma.pulseConversation.findFirst({
+    return withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseConversation.findFirst({
       where: { tenantId, id },
       select: {
         id: true,
@@ -55,12 +56,12 @@ export class PulseConversationRepository implements IPulseConversationRepository
         state: true,
         operationalStatus: true,
       },
-    });
+    }));
   }
 
   async resolve(input: ResolvePulseConversationInput) {
     const now = new Date();
-    return this.prisma.pulseConversation.upsert({
+    return withPulseTenantContext(this.prisma, input.tenantId, (tx) => tx.pulseConversation.upsert({
       where: {
         tenantId_channelId_participantRef: {
           tenantId: input.tenantId,
@@ -95,6 +96,6 @@ export class PulseConversationRepository implements IPulseConversationRepository
         state: true,
         operationalStatus: true,
       },
-    });
+    }));
   }
 }

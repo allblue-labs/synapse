@@ -2,9 +2,10 @@ import 'reflect-metadata';
 import { CanActivate, ExecutionContext, INestApplication, ValidationPipe } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
-import type { AuthRole } from '@synapse/contracts';
+import { permissionsForRole, type AuthRole } from '@synapse/contracts';
 import { AuditAction, AuditService } from '../../common/audit/audit.service';
 import { PermissionsGuard } from '../../common/authorization';
+import { PermissionResolverService } from '../../common/authorization/permission-resolver.service';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import type { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { PlatformGovernanceController } from './platform-governance.controller';
@@ -39,6 +40,13 @@ describe('Platform governance HTTP guards', () => {
     updatePolicy: jest.fn(),
   };
   const audit = { record: jest.fn() };
+  const permissionResolver = {
+    resolve: jest.fn(async (user: AuthenticatedUser) => ({
+      role: user.role,
+      permissions: permissionsForRole(user.role),
+      source: 'platform' as const,
+    })),
+  };
 
   async function request(path: string, init?: RequestInit) {
     return fetch(`${baseUrl}${path}`, {
@@ -60,6 +68,7 @@ describe('Platform governance HTTP guards', () => {
         { provide: APP_GUARD, useClass: TenantGuard },
         { provide: APP_GUARD, useClass: PermissionsGuard },
         { provide: AuditService, useValue: audit },
+        { provide: PermissionResolverService, useValue: permissionResolver },
         { provide: PlatformGovernanceService, useValue: governance },
       ],
     }).compile();
@@ -93,7 +102,7 @@ describe('Platform governance HTTP guards', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   it('allows super admins to mutate scoped module governance routes', async () => {
@@ -138,7 +147,9 @@ describe('Platform governance HTTP guards', () => {
       actorUserId: 'user-1',
       resourceType: 'RoutePermission',
       metadata: expect.objectContaining({
-        role: 'tester',
+        jwtRole: 'tester',
+        resolvedRole: 'tester',
+        source: 'platform',
         required: ['platform:metrics:read'],
       }),
     }));

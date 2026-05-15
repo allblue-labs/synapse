@@ -648,3 +648,44 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: reusable transaction-aware module repository contracts.
 - Risks: future modules must avoid long-running work inside DB transactions.
 - Next recommended step: document a module action transaction pattern before adding more actions.
+
+## 2026-05-15 Stage 4M — Module Action Telemetry Pattern
+
+- Changed: Pulse owns action telemetry semantics for its operational actions.
+- Completed: telemetry is module-specific and does not centralize Pulse cognitive/operational context in Synapse core.
+- Pending: reusable low-cardinality telemetry conventions for future modules.
+- Risks: module telemetry must remain extractable and avoid platform coupling.
+- Next recommended step: document common action outcome names for modules.
+
+## 2026-05-15 Stage 5A — Module Data Isolation Foundation
+
+- Changed: Pulse-owned tables gained targeted indexes and prepared RLS policies.
+- Completed: module operational data remains separated by `pulse_*` tables and tenant-scoped access paths.
+- Completed: shared Prisma tenant context runner is available for module repositories.
+- Completed: Stage 5B superseded the earlier future-path note by adding physical `pulse` schema separation.
+- Risks: prepared policies are inert until RLS is enabled.
+- Next recommended step: run DB fixtures with Pulse RLS active.
+
+## 2026-05-15 Stage 5B — Module Schema Ownership
+
+- Changed: Pulse now has a physical PostgreSQL schema boundary: `pulse`.
+- Completed: Pulse-owned operational entities live in `pulse`; Synapse-owned module registry, enablement, billing, usage governance, and execution requests stay in `public`.
+- Pending: future modules must receive their own schemas instead of being added to the Synapse schema.
+- Risks: only governance-owned cross-schema references should be allowed; avoid module-to-module database coupling.
+- Next recommended step: document a module schema template before adding the second module.
+
+## 2026-05-15 Stage 5C — Module Repository Tenant Context
+
+- Changed: Pulse module repositories use a module-local tenant-context wrapper around platform Prisma.
+- Completed: module data remains extractable while Synapse supplies the tenant session enforcement primitive.
+- Pending: create a reusable pattern for future module schemas.
+- Risks: future modules should not duplicate governance checks inside their repositories.
+- Next recommended step: promote the wrapper pattern into module architecture guidance.
+
+## 2026-05-15 Stage 5D — Module RLS Pattern
+
+- Changed: Pulse is the first module schema with RLS enabled.
+- Completed: pattern is schema-owned operational tables plus Synapse-owned tenant governance and tenant session context.
+- Pending: document a reusable RLS checklist for future module schemas.
+- Risks: module-to-module DB references would complicate RLS ownership and should be avoided.
+- Next recommended step: add module schema/RLS template before building another module.

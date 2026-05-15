@@ -363,6 +363,7 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: add Stage 2 context assembly tests for cross-tenant rejection across channel, conversation, ticket, playbook, knowledge, skill, integration setting, and operational event reads.
 - Risks: RLS is not enabled yet; any new Pulse repository method that reads by raw id without `tenantId` would be a leakage risk.
 - Next recommended step: require every Pulse context repository method to accept `tenantId` and test negative cross-tenant reads.
+- Superseded 2026-05-15: Pulse operational tables now map to PostgreSQL schema `pulse`; tenant filters remain mandatory.
 
 ## 2026-05-09 Stage 2 — Pulse Context Tenant Isolation
 
@@ -630,3 +631,44 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: two-tenant transactional fixture execution.
 - Risks: future transaction helpers must not drop tenant filters when abstracted.
 - Next recommended step: add transaction helper tests with two tenants.
+
+## 2026-05-15 Stage 4M — Tenant-Scoped Action Telemetry
+
+- Changed: telemetry includes tenant id as top-level structured log context.
+- Completed: idempotency keys are hashed before logging and ticket/conversation ids are limited to operational identifiers.
+- Pending: multi-tenant observability dashboards later.
+- Risks: observability pipelines must preserve tenant segregation and retention policies.
+- Next recommended step: document tenant-aware log routing before production observability rollout.
+
+## 2026-05-15 Stage 5A — Tenant Database Boundary
+
+- Changed: tenant-owned database tables now have prepared RLS policies and stronger tenant compound indexes.
+- Completed: policies were generated for memberships, operational core tables, billing tenant data, module installations/purchases, usage, Pulse, integrations, and runtime execution requests.
+- Completed: `PrismaService.withTenantContext()` sets `SET LOCAL app.current_tenant_id` and controlled platform bypass inside a transaction.
+- Completed: Pulse repository migration to tenant transaction runner is in place.
+- Risks: nullable/pre-session audit rows and platform global tables intentionally remain outside tenant RLS.
+- Next recommended step: run the RLS-active disposable DB fixture.
+
+## 2026-05-15 Stage 5B — Pulse Tenant Data Schema
+
+- Changed: Pulse tenant-owned operational data now belongs to schema `pulse`, not the Synapse/platform schema.
+- Completed: cross-schema FKs to `public.Tenant` preserve Synapse tenant ownership while Pulse owns operational context/data.
+- Completed: RLS enablement migration exists for current `pulse.*` tables.
+- Risks: cross-schema boundaries must not tempt modules to enforce subscription, quota, or billing rules locally.
+- Next recommended step: add two-tenant DB fixtures that query both `public.*` governance and `pulse.*` operational records.
+
+## 2026-05-15 Stage 5C — Pulse Tenant Context Enforcement
+
+- Changed: Pulse repositories now wrap tenant-owned database work in `withTenantContext()`.
+- Completed: repository-level tenant filtering and transaction session tenant context are aligned.
+- Pending: run two-tenant DB fixtures with RLS active.
+- Risks: platform/global queries remain outside this helper by design and must stay carefully scoped.
+- Next recommended step: run cross-tenant fixture for Pulse tickets, conversations, and operational events.
+
+## 2026-05-15 Stage 5D — Pulse RLS Tenant Boundary
+
+- Changed: `pulse.*` tables now have database-level tenant isolation enabled in migrations.
+- Completed: no tenant session means no Pulse tenant rows; mismatched tenant writes fail policy checks.
+- Pending: expand fixture coverage beyond tickets to conversations, events, schedules, knowledge, and integrations.
+- Risks: fixture cleanup must use controlled platform bypass because FORCE RLS applies to table owners too.
+- Next recommended step: execute the RLS fixture on disposable DB and then broaden table coverage.

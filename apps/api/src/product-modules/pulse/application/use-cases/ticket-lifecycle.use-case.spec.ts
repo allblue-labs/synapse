@@ -49,6 +49,7 @@ describe('TicketLifecycleUseCase', () => {
   };
   const prisma = {
     $transaction: jest.fn((callback: (client: typeof tx) => unknown) => callback(tx)),
+    withTenantContext: jest.fn((_tenantId: string, callback: (client: typeof tx) => unknown) => callback(tx)),
   };
   const audit = { record: jest.fn() };
   const usage = { record: jest.fn() };
@@ -83,6 +84,9 @@ describe('TicketLifecycleUseCase', () => {
     tx.pulseOperationalEvent.create.mockResolvedValue({});
     tx.auditEvent.create.mockResolvedValue({});
     tx.usageEvent.upsert.mockResolvedValue({});
+    prisma.withTenantContext.mockImplementation((_tenantId: string, callback: (client: typeof tx) => unknown) =>
+      callback(tx)
+    );
   });
 
   it('assigns a ticket and emits operational and audit events', async () => {

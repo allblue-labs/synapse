@@ -29,6 +29,7 @@ import {TicketLifecycleUseCase} from './application/use-cases/ticket-lifecycle.u
 import {PulseKnowledgeContextUseCase} from './application/use-cases/pulse-knowledge-context.use-case';
 import {PulseSchedulingIntegrationUseCase} from './application/use-cases/pulse-scheduling-integration.use-case';
 import {PulseOperationalScheduleService} from './application/services/pulse-operational-schedule.service';
+import {PulseActionTelemetryService} from './application/services/pulse-action-telemetry.service';
 import {AssemblePulseContextUseCase} from './application/use-cases/assemble-pulse-context.use-case';
 import {IngestPulseRuntimeResultUseCase} from './application/use-cases/ingest-pulse-runtime-result.use-case';
 import {PulseTicketAdvanceFlowActionHandler} from './application/actions/pulse-ticket-advance-flow-action.handler';
@@ -85,6 +86,7 @@ const USE_CASES = [
   PulseKnowledgeContextUseCase,
   PulseSchedulingIntegrationUseCase,
   PulseOperationalScheduleService,
+  PulseActionTelemetryService,
   AssemblePulseContextUseCase,
   IngestPulseRuntimeResultUseCase,
 ];

@@ -14,15 +14,21 @@ export function databaseFixtureIds(scope: string) {
 }
 
 export async function resetTenantFixtures(prisma: PrismaService, tenantIds: string[]) {
-  await prisma.auditEvent.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.usageEvent.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.executionRequest.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.pulseActionExecution.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.pulseOperationalEvent.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.pulseTicket.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.pulseConversation.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.pulseChannel.deleteMany({ where: { tenantId: { in: tenantIds } } });
-  await prisma.tenant.deleteMany({ where: { id: { in: tenantIds } } });
+  await prisma.withTenantContext(
+    tenantIds[0] ?? 'fixture-platform-bypass',
+    async (tx) => {
+      await tx.auditEvent.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.usageEvent.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.executionRequest.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseActionExecution.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseOperationalEvent.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseTicket.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseConversation.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseChannel.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.tenant.deleteMany({ where: { id: { in: tenantIds } } });
+    },
+    { platformBypass: true },
+  );
 }
 
 export async function seedTwoTenants(prisma: PrismaService, ids: ReturnType<typeof databaseFixtureIds>) {

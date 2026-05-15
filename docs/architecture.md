@@ -241,3 +241,35 @@ The ledger claims action keys before side effects and records `STARTED`, `SUCCEE
 Pulse `ticket.advance_flow` now commits ledger claim, ticket mutation, operational event, audit event, usage event, and ledger completion in one Prisma transaction.
 
 The transaction contains only database work; external provider/runtime calls remain outside this boundary.
+
+## 2026-05-15 Pulse Action Telemetry
+
+Pulse action execution now emits structured, payload-free telemetry through `PulseActionTelemetryService`.
+
+The service hashes idempotency keys and records queue/ledger outcomes for operators without creating billing records or frontend-facing contracts.
+
+## 2026-05-15 Multitenant Database Hardening
+
+Synapse added a database hardening migration focused on tenant-scoped performance and RLS readiness.
+
+The migration adds targeted compound indexes for real hotpaths and prepares `app_security` RLS helper functions/policies. `PrismaService.withTenantContext()` now sets tenant context per transaction with `SET LOCAL app.current_tenant_id`; RLS enforcement remains intentionally disabled until repositories are migrated and DB fixtures prove behavior table-by-table.
+
+## 2026-05-15 Pulse Schema Separation
+
+Pulse operational persistence now maps to the PostgreSQL schema `pulse` through Prisma `multiSchema`.
+
+Synapse platform/governance data remains in `public`: tenants, users, memberships, RBAC, billing, subscriptions, quotas, module registry, audit, usage, and runtime execution requests.
+
+Pulse owns only operational module data in `pulse`: entries, channels, conversations, tickets, operational events, action executions, playbooks, schedules, knowledge contexts, skills, and Pulse integration settings. Cross-schema foreign keys to `public.Tenant` preserve central Synapse control.
+
+## 2026-05-15 Pulse Tenant Context Repositories
+
+Pulse repositories now use a module-local wrapper around `PrismaService.withTenantContext()`.
+
+This keeps module code extractable-first while ensuring every current Pulse operational repository path sets the tenant database session before touching `pulse.*`. Synapse still owns governance checks before module calls, and RLS remains the next database-level enforcement layer.
+
+## 2026-05-15 Pulse RLS Activation
+
+Pulse RLS is enabled and forced in migration for current `pulse.*` tables.
+
+The database policy uses `app_security.tenant_visible("tenantId")`, which requires the transaction-scoped tenant id set by Synapse or an explicit controlled platform bypass. This makes schema separation an actual tenant isolation layer, not only organization.

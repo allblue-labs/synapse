@@ -5,16 +5,17 @@ import {
   IPulseIntegrationSettingRepository,
   PulseIntegrationSettingFilter,
 } from '../../domain/ports/pulse-integration-setting-repository.port';
+import { withPulseTenantContext } from './pulse-tenant-context';
 
 @Injectable()
 export class PulseIntegrationSettingRepository implements IPulseIntegrationSettingRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(tenantId: string, id: string) {
-    const setting = await this.prisma.integrationSetting.findFirst({
+    const setting = await withPulseTenantContext(this.prisma, tenantId, (tx) => tx.integrationSetting.findFirst({
       where: { tenantId, id },
       select: this.selectIntegrationSetting(),
-    });
+    }));
     return setting ? this.toRecord(setting) : null;
   }
 
@@ -26,16 +27,16 @@ export class PulseIntegrationSettingRepository implements IPulseIntegrationSetti
       ...(filter.provider && { provider: filter.provider }),
       ...(filter.status && { status: filter.status }),
     };
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.integrationSetting.findMany({
+    const [items, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.integrationSetting.findMany({
         where,
         select: this.selectIntegrationSetting(),
         orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.integrationSetting.count({ where }),
-    ]);
+      tx.integrationSetting.count({ where }),
+    ]));
 
     return {
       data: items.map((item) => this.toRecord(item)),

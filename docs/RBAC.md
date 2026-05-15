@@ -613,3 +613,43 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: actor downgrade plus transaction fixture.
 - Risks: transaction idempotency must not replace live permission revalidation.
 - Next recommended step: combine permission revalidation, ledger conflict, and transaction assertions in DB fixtures.
+
+## 2026-05-15 Stage 4M — Action Telemetry RBAC Note
+
+- Changed: no RBAC behavior changed.
+- Completed: telemetry records authorization-related failures as categorized outcomes, not raw permission payloads.
+- Pending: actor downgrade fixture with telemetry expectations if needed.
+- Risks: telemetry must not reveal hidden permissions or admin-only metrics.
+- Next recommended step: keep action telemetry internal and sanitized.
+
+## 2026-05-15 Stage 5A — RBAC Database Hotpaths
+
+- Changed: added membership lookup index `tenantId + userId + role`.
+- Completed: authorization cache fallback and membership CRUD now have a stronger DB access path.
+- Pending: persisted role/permission tables remain future work.
+- Risks: DB indexes do not replace live membership permission resolution.
+- Next recommended step: add query-plan checks for permission resolver fixtures after DB is available.
+
+## 2026-05-15 Stage 5B — RBAC Across Schemas
+
+- Changed: Pulse moved to schema `pulse`, but RBAC remains Synapse-owned in `public`.
+- Completed: modules still consume resolved permissions from platform guards/services instead of owning role checks.
+- Pending: DB fixtures proving tenant users cannot access `pulse.*` records outside their membership.
+- Risks: schema separation does not replace membership-based authorization.
+- Next recommended step: cover Pulse repository reads with membership/RLS rejection fixtures.
+
+## 2026-05-15 Stage 5C — RBAC Before Tenant DB Context
+
+- Changed: Pulse repository context now complements guard-level RBAC instead of replacing it.
+- Completed: controller/use-case permission checks still happen before repository access; DB session tenant context is a second boundary.
+- Pending: forbidden-action audit fixtures once RLS is active.
+- Risks: direct repository use from future jobs must still validate runtime actor permissions before mutation.
+- Next recommended step: add worker actor-permission fixture for Pulse action jobs.
+
+## 2026-05-15 Stage 5D — RBAC Plus RLS
+
+- Changed: Pulse now has DB-level tenant isolation in addition to RBAC guards.
+- Completed: RLS does not grant permissions; it only constrains tenant row visibility after Synapse authorization.
+- Pending: fixtures combining forbidden RBAC and RLS rejection.
+- Risks: successful RLS context does not mean a user is authorized; guards remain mandatory.
+- Next recommended step: add negative worker/action fixture with invalid actor permissions.

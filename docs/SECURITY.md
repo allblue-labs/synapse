@@ -679,3 +679,45 @@ Not yet configured. Required before production:
 - Pending: persisted DB fixture and conflict observability.
 - Risks: long transactions must stay small and must not include network/provider calls.
 - Next recommended step: keep external calls outside DB transactions and use the ledger to coordinate durable state.
+
+## 2026-05-15 Stage 4M — Action Telemetry Security
+
+- Changed: Pulse action telemetry uses structured logs with redaction and hashed idempotency keys.
+- Completed: no raw action payload, provider output, secret, or chain-of-thought is logged.
+- Pending: central metrics backend and alert rules.
+- Risks: future metric labels must avoid raw tenant/customer/provider data.
+- Next recommended step: define low-cardinality action outcome metrics when Prometheus/OpenTelemetry is introduced.
+
+## 2026-05-15 Stage 5A — Database Security/RLS Foundation
+
+- Changed: added `app_security` helper functions and tenant policies for tenant-owned tables.
+- Completed: policies require `tenantId = app.current_tenant_id` unless controlled `app.platform_bypass` is set.
+- Completed: API foundation now has `PrismaService.withTenantContext()` for transaction-scoped tenant variables.
+- Completed: Pulse repository adoption and `ENABLE/FORCE ROW LEVEL SECURITY` migration are in place.
+- Risks: RLS is prepared but not active; current protection remains app-level tenant guards and repository filters.
+- Next recommended step: add RLS DB fixtures and migrate tenant repositories before enabling policies.
+
+## 2026-05-15 Stage 5B — Cross-Schema Security Boundary
+
+- Changed: Pulse operational persistence is physically isolated in PostgreSQL schema `pulse`.
+- Completed: Synapse governance remains in `public` and still owns tenant, RBAC, billing, audit, module access, usage, and runtime execution request governance.
+- Completed: RLS apply migration exists for current `pulse.*` tables.
+- Risks: schema separation is not authorization; tenant filters, RBAC, audit, and RLS remain mandatory.
+- Next recommended step: test `pulse.*` RLS behavior in a disposable DB before production rollout.
+
+## 2026-05-15 Stage 5C — Pulse Tenant Context Security
+
+- Changed: Pulse repository calls now set transaction-scoped tenant context before touching operational data.
+- Completed: tenant-scoped reads, paginated lists, creates, updates, context assembly, and action ledger writes are ready for RLS session-variable enforcement.
+- Completed: prepared RLS policies are turned on for current `pulse.*` tables by migration.
+- Risks: raw Prisma access added later could bypass the context convention unless reviewed.
+- Next recommended step: add lint/review rule forbidding direct `this.prisma.pulse*` usage outside tenant context.
+
+## 2026-05-15 Stage 5D — Pulse RLS Security
+
+- Changed: RLS is enabled and forced for Pulse operational tables through migration.
+- Completed: database policy enforces `tenantId = app.current_tenant_id` unless controlled platform bypass is explicitly set.
+- Completed: opt-in fixture proves tenant A can see its ticket, tenant B cannot, no-context reads see no row, and mismatched writes are rejected.
+- Pending: run fixture against live disposable DB.
+- Risks: platform bypass must remain restricted to migrations/fixtures/system maintenance, never request handlers.
+- Next recommended step: add CI job for DB fixtures once disposable Postgres is available.

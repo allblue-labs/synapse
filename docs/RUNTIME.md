@@ -361,3 +361,43 @@ interface PainClient {
 - Pending: callback replay protection and external runtime authentication.
 - Risks: runtime callback replay control must remain separate from action transaction idempotency.
 - Next recommended step: implement callback replay storage before external runtime callbacks are enabled.
+
+## 2026-05-15 Stage 4M — Runtime Action Telemetry Readiness
+
+- Changed: runtime-derived action outcomes now produce backend telemetry once they reach `pulse.actions`.
+- Completed: telemetry does not expose raw runtime output.
+- Pending: runtime callback replay telemetry remains future work.
+- Risks: runtime/provider telemetry must avoid prompts, completions, secrets, and chain-of-thought.
+- Next recommended step: apply the same payload-free telemetry rules to external runtime callbacks.
+
+## 2026-05-15 Stage 5A — Runtime Execution DB Hotpaths
+
+- Changed: runtime execution requests gained `tenantId + status + updatedAt` index.
+- Completed: existing idempotency and module/status indexes remain intact.
+- Pending: RLS activation for `execution_requests` after repository paths use tenant transaction context.
+- Risks: external runtime callbacks must still validate tenant and signature before touching execution rows.
+- Next recommended step: add callback replay table before external runtime integration resumes.
+
+## 2026-05-15 Stage 5B — Runtime Governance Stays Platform-Owned
+
+- Changed: Pulse operational data moved to `pulse`, but `execution_requests` remains in `public`.
+- Completed: Synapse continues to own execution governance/persistence even when Pulse assembles context and requests execution.
+- Pending: callback replay protection and tenant-context repository adoption.
+- Risks: external runtime integrations must not write directly into `pulse.*` operational tables.
+- Next recommended step: keep runtime callbacks routed through Synapse validation before Pulse ingestion.
+
+## 2026-05-15 Stage 5C — Runtime-To-Pulse Tenant Context
+
+- Changed: Pulse context assembly and runtime-result side-effect repositories now use tenant DB context.
+- Completed: future runtime outputs must still pass through Synapse validation, then Pulse tenant-scoped repositories.
+- Pending: external runtime callback replay protection.
+- Risks: runtime callbacks must never receive direct database credentials or write to `pulse.*`.
+- Next recommended step: add callback replay table in platform schema before runtime integration resumes.
+
+## 2026-05-15 Stage 5D — Runtime Output Under Pulse RLS
+
+- Changed: Pulse operational writes from runtime-derived flows will be RLS-protected.
+- Completed: runtime execution governance remains in `public.execution_requests`; Pulse side effects happen through tenant context.
+- Pending: RLS-active runtime result ingestion fixture.
+- Risks: callback handlers must validate tenant/module/signature before entering Pulse repositories.
+- Next recommended step: extend runtime-result DB fixture after migration rehearsal.

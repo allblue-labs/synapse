@@ -472,6 +472,7 @@ Last updated: 2026-05-07
 - Pending: Stage 2 must add a Pulse-owned Context Pack assembler/contract and keep module-specific cognitive context out of Synapse core. Stage 3 must split the current `pulse-processing` worker into bounded queues/pipelines.
 - Risks: Prisma/Postgres full schema separation (`platform.*`, `pulse.*`) is not enabled now to avoid migration/build risk; RLS is deferred until a safe session-variable strategy is implemented and tested.
 - Next recommended step: implement Pulse Context Pack contracts and module-local assembly service inside `src/product-modules/pulse`, with Synapse validating only governance and submitted context structure.
+- Superseded 2026-05-15: Stage 5B introduced physical `pulse` schema separation; this entry remains historical context for the earlier decision.
 
 ## 2026-05-10 Frontend Evolution — Stage 1 (Layout Foundation)
 
@@ -788,3 +789,85 @@ Last updated: 2026-05-07
 - Pending: DB fixture execution after local Postgres is available.
 - Risks: transactional path currently covers action-driven flow advancement; manual ticket lifecycle APIs still use the existing service/repository path.
 - Next recommended step: expand transaction-aware repositories or a shared transaction runner before adding more side-effect action handlers.
+
+## 2026-05-15 Stage 4M — Pulse Action Telemetry
+
+- Changed: added `PulseActionTelemetryService` for audit-safe structured action/ledger observations.
+- Completed: action telemetry records outcomes such as `claimed`, `already_succeeded`, `in_progress`, `succeeded`, `skipped`, `prepared`, `completed`, and `failed`.
+- Completed: telemetry hashes action idempotency keys and does not log raw payloads.
+- Completed: `TicketLifecycleUseCase` emits ledger outcomes and `PulseActionsProcessor` emits queue action outcomes.
+- Pending: Prometheus/OpenTelemetry counters when observability stack is introduced.
+- Risks: logs are observational and should not become billing or authorization authority.
+- Next recommended step: add action status read DTOs or internal metrics only if operators need troubleshooting visibility.
+
+## 2026-05-15 Frontend Evolution — Stage 2 (Design System Evolution)
+
+- Changed (frontend, owned by Claude Opus): refined the design-system layer only — no page rewrites, no route changes, no backend touches. Every page that already references the design tokens (surfaces, buttons, pills, typography) picks up the new look automatically.
+- Completed: shadow scale rebuilt in `apps/web/tailwind.config.ts`. Tiers now read top-to-bottom — `hairline → soft → card → dock → rail → elevated` — plus a new `glass` / `glass-dark` pair for translucent surfaces and a refined `glow` / `glow-lg` for hero CTAs. Heavy values were softened: `dock` shrunk from `0 12px 36px` to `0 8px 24px`, `rail` from `0 30px 80px` to `0 18px 48px`, `elevated` from `0 20px 60px` to `0 14px 40px`.
+- Completed: surface tokens in `apps/web/app/globals.css` rebuilt with thinner borders (`/55` replaces `/70`–`/80` across the board) and lighter backgrounds (`bg-white/65` vs `bg-white/70`+) so the ambient mesh shows through. Surfaces now share a single inline comment block documenting their role — `card`, `card-elevated`, `surface-translucent`, `surface-floating`, `surface-rail`, `surface-dock`, `surface-inset`.
+- Completed: two new hover-state companions — `.surface-hover` and `.surface-hover-brand` — replace the ad-hoc `hover:bg-white/40 hover:border-...` chains. They animate `transform + box-shadow + border-color` together with `duration-200 ease-snap` so the language is consistent.
+- Completed: typography utility scale — `.t-h1`, `.t-h2`, `.t-h3`, `.t-body`, `.t-body-strong`, `.t-small`, `.t-meta`, `.t-meta-xs`, plus refined `.h-eyebrow` and existing `.h-display` / `.h-display-sm`. Pages can now drop ad-hoc `text-2xl font-bold tracking-tight` chains for `t-h1`. Existing usage is unaffected — these are additive.
+- Completed: buttons (`.btn-primary` / `.btn-secondary` / `.btn-ghost`) refined for thinner borders, glass backdrop on secondary, unified `active:scale-[0.97]` press feedback, explicit `disabled:opacity-50 disabled:shadow-none` states, and `ease-snap` motion. Pills (`.pill`, `.pill-brand`) dropped from `/80` borders to `/60` and from `bg-white/70` to `/60`.
+- Completed: focus ring tuned for glass surfaces — `ring-2 ring-brand-500/70 ring-offset-[1.5px]` (was `ring-offset-2` solid brand), so the keyboard halo no longer blows out translucent panels.
+- Completed: spacing-rhythm utilities — `.stack-page` (40px), `.stack-section` (24px), `.stack-cluster` (12px), `.stack-tight` (6px). Use on the outermost element of a vertical sequence so the rhythm is consistent without `space-y-N` choices at every callsite.
+- Completed: icon-size convention documented as no-op marker classes (`.icon-chrome`, `.icon-content`, `.icon-hero`) — Lucide takes `size={N}` directly; these exist for future icon wrappers to hook into without breaking callers.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓ (32 routes built clean).
+- Out of scope this stage (per the staged strategy): backend logic, full dashboards, page rewrites, navigation architecture, motion language beyond easing curves, content changes.
+- Pending: Stage 3 (Motion / Interaction Layer), Stage 4 (Navigation Architecture), and the rest of the 11-stage plan.
+- Risks: any handwritten `border-zinc-200/80` or `bg-white/70` in pages will not pick up the refined token set automatically — those should migrate to the corresponding `surface-*` utility when each page is touched again. Existing usage continues to compile and render.
+- Next recommended step: **Stage 3 — Motion / Interaction Layer** (smooth route transitions, sidebar collapse motion, hover transitions, loading states, animated counters). Do not start Stage 4+ before Stage 3 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 3 (Motion / Interaction Layer)
+
+- Changed (frontend, owned by Claude Opus): refined the motion/interaction layer with **no new dependency**. Strategy listed `framer-motion` as a focus area; audit showed every Stage-3 goal (route transitions, sidebar collapse, hover, loading, counters, enter/exit) is achievable with CSS + Tailwind animations + small RAF-driven components. Adding ~50 kB of JS for primitives we already had would have been a poor trade. Decision logged here so a later stage can revisit if AnimatePresence-style orchestration becomes necessary.
+- Completed: animation tokens in `apps/web/tailwind.config.ts` extended with new keyframes — `slideInLeft`, `fadeOut`, `press` (button micro-feedback), `countUp` (entering numbers), `spinnerRotate` — and matching `animate-*` aliases. All enter animations gained `both` so the final state survives the transition end.
+- Completed: motion utilities in `apps/web/app/globals.css` — three universal transition aliases (`.transition-base`, `.transition-soft`, `.transition-spring`), a `.stagger-children` rule that adds incremental `animation-delay` to up-to-10 children, a refined `.page-enter` (now `panelIn 0.38s`), and a CSS-driven `.spinner-ring` primitive. Sidebar labels animate via `[data-collapsed="true"] .sidebar-label` rules so the icons drift to center as the width transitions.
+- Completed: sidebar collapse now animates labels — `components/nav/workspace-sidebar.tsx` always renders the label inside a `<span class="sidebar-label">`; the parent `[data-collapsed]` attribute drives fade-out (120 ms) + translate-left, and fade-in (220 ms with 60 ms delay) on expand. Section labels animate the same way. The link container uses `overflow-hidden` + `transition-soft` so the chrome glides instead of snapping.
+- Completed: `aria-expanded` was removed from the collapse toggle — the sidebar is always visible (only its width changes), so the attribute was semantically wrong and was failing the IDE's `jsx-a11y/aria-proptypes` check. `aria-label` already describes the state.
+- Completed: `<AnimatedNumber/>` (`components/ui/animated-number.tsx`) — RAF-driven counter that tweens from previous → current value over `durationMs` (default 600 ms) with an `easeOutQuart` curve. Honours `prefers-reduced-motion: reduce` (snaps to final). Locale formatting via `Intl.NumberFormat`; `formatter` prop for currencies/percentages.
+- Completed: `<Spinner/>` (`components/ui/spinner.tsx`) — CSS-only inline spinner driven by the new `animate-spinner` rule. Sized via `--spinner-size`; inherits `currentColor` so it picks up tone from the wrapping element.
+- Completed: refined `<Skeleton/>` (`components/ui/skeleton.tsx`) — now pairs `animate-skeleton` opacity pulse with `.shimmer-overlay` sheen so loading states feel intentional rather than dormant.
+- Completed: micro-polish on existing primitives — Dialog panel switched from `animate-fade-in` to `animate-panel-in` (subtle scale + blur reveal); Toast switched from `animate-fade-in` to `animate-slide-in-right` so notifications enter from the corner rather than blinking in place; Dialog border softened to `/70` to match Stage-2 surface tokens.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓ (32 routes built clean; bundle unchanged at 102 kB shared First Load JS).
+- Out of scope this stage (per strategy): page rewrites, navigation architecture (mobile drawer, tooltips on collapse, sub-section collapse), backend, content.
+- Pending: Stage 4 (Navigation Architecture), Stage 5+ per the staged plan.
+- Risks: existing pages that already include `animate-fade-in` will not pick up the new `count-up` / `press` keyframes until those callsites adopt the new utilities. All current usage continues to render unchanged.
+- Next recommended step: **Stage 4 — Navigation Architecture** (mobile sidebar drawer, animated active states, collapsed-label tooltips, sub-section collapse, floating landing nav). Do not start Stage 5+ before Stage 4 closes.
+
+## 2026-05-15 Stage 5A — Multitenant Database Hardening
+
+- Changed: added migration `20260515120000_multitenant_db_hardening` with production-oriented indexes for tenant, RBAC, usage, Pulse, integration, and runtime hotpaths.
+- Completed: added RLS helper schema/functions and tenant-isolation policies for tenant-owned tables without enabling enforcement yet.
+- Completed: Prisma schema now documents the new compound indexes used by real query patterns.
+- Completed: `PrismaService.withTenantContext()` now sets transaction-scoped `app.current_tenant_id` and controlled `app.platform_bypass`.
+- Pending: convert high-risk repositories to the tenant transaction runner and enable `ALTER TABLE ... ENABLE/FORCE ROW LEVEL SECURITY` table-by-table.
+- Risks: RLS is still disabled; app-level tenant filters remain mandatory until repository conversion and DB fixtures pass.
+- Next recommended step: migrate Pulse read/write repositories to `withTenantContext()` and activate RLS first on disposable Pulse tables.
+
+## 2026-05-15 Stage 5B — Pulse PostgreSQL Schema Split
+
+- Changed: promoted Pulse from naming-only separation to physical PostgreSQL schema separation via Prisma `multiSchema`.
+- Completed: Pulse operational tables/enums now map to schema `pulse`; Synapse governance tables/enums remain in `public`.
+- Completed: added migration `20260515133000_split_pulse_schema` to create `pulse` and move Pulse-owned tables, enums, action ledger, schedules, knowledge, skills, and integration settings.
+- Pending: live DB migration/RLS rehearsal after repository conversion.
+- Risks: schema split changes table qualification; database reset/migration should be tested before shared environments are updated.
+- Next recommended step: run migrations on a disposable DB, then migrate Pulse repositories to tenant context and enable RLS table-by-table.
+
+## 2026-05-15 Stage 5C — Pulse Tenant Context Repositories
+
+- Changed: Pulse repositories now execute operational reads/writes through tenant-scoped Prisma transaction context.
+- Completed: entries, channels, conversations, tickets, timelines/events, context assembly, knowledge, integration settings, action ledger, and action-driven lifecycle transaction paths use `withTenantContext()`.
+- Completed: unsafe read-then-update paths now keep lookup and mutation inside the same tenant transaction.
+- Pending: live DB fixtures with two tenants and RLS-active query-plan validation on `pulse.*`.
+- Risks: unit tests prove call shape; database-enforced RLS still awaits migration rehearsal and fixtures.
+- Next recommended step: apply migrations to disposable Postgres and enable RLS first on low-risk `pulse` read tables.
+
+## 2026-05-15 Stage 5D — Pulse RLS Activation
+
+- Changed: added migration `20260515143000_enable_pulse_rls` to enable and force RLS on current `pulse.*` operational tables.
+- Completed: policies are recreated with explicit schema qualification before RLS activation.
+- Completed: `PulseOperationalScheduleService` now uses tenant DB context; no runtime Pulse code path directly touches `pulse.*` outside tenant context.
+- Completed: added opt-in `pulse-rls.database-fixtures.spec.ts` for cross-tenant ticket visibility and policy check rejection.
+- Pending: run `RUN_DATABASE_TESTS=1 npm test -- pulse-rls.database-fixtures` against a migrated disposable DB.
+- Risks: existing direct DB fixture setup must use platform bypass/tenant context when RLS is active.
+- Next recommended step: run the disposable DB migration rehearsal and then broaden RLS fixtures to conversations/events/actions.

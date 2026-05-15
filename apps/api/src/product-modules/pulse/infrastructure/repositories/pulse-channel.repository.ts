@@ -5,13 +5,14 @@ import {
   IPulseChannelRepository,
   UpsertPulseChannelInput,
 } from '../../domain/ports/pulse-channel-repository.port';
+import { withPulseTenantContext } from './pulse-tenant-context';
 
 @Injectable()
 export class PulseChannelRepository implements IPulseChannelRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(tenantId: string, id: string) {
-    return this.prisma.pulseChannel.findFirst({
+    return withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseChannel.findFirst({
       where: { tenantId, id },
       select: {
         id: true,
@@ -20,7 +21,7 @@ export class PulseChannelRepository implements IPulseChannelRepository {
         identifier: true,
         status: true,
       },
-    });
+    }));
   }
 
   async list(tenantId: string, filter: {
@@ -36,8 +37,8 @@ export class PulseChannelRepository implements IPulseChannelRepository {
       ...(filter.provider && { provider: filter.provider }),
       ...(filter.status && { status: filter.status }),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.pulseChannel.findMany({
+    const [data, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.pulseChannel.findMany({
         where,
         select: {
           id: true,
@@ -50,14 +51,14 @@ export class PulseChannelRepository implements IPulseChannelRepository {
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.pulseChannel.count({ where }),
-    ]);
+      tx.pulseChannel.count({ where }),
+    ]));
 
     return { data, total, page, pageSize };
   }
 
   async upsert(input: UpsertPulseChannelInput) {
-    return this.prisma.pulseChannel.upsert({
+    return withPulseTenantContext(this.prisma, input.tenantId, (tx) => tx.pulseChannel.upsert({
       where: {
         tenantId_provider_identifier: {
           tenantId: input.tenantId,
@@ -85,6 +86,6 @@ export class PulseChannelRepository implements IPulseChannelRepository {
         identifier: true,
         status: true,
       },
-    });
+    }));
   }
 }

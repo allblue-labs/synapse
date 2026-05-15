@@ -834,6 +834,8 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 
 **Next recommended step:** add repository coverage for tenant filters, then prototype RLS in a disposable dev database.
 
+**Superseded 2026-05-15:** Pulse now uses physical PostgreSQL schema `pulse`; RLS activation remains gradual.
+
 ---
 
 ## 2026-05-09 — Pulse Context Pack is internal, audit-safe, and module-owned
@@ -1393,3 +1395,99 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** This is implemented directly in the action-driven lifecycle path until repositories become transaction-aware.
 
 **Next recommended step:** add transaction-aware repository contracts before more side-effect handlers are added.
+
+---
+
+## 2026-05-15 — Pulse action telemetry is log-based and audit-safe
+
+**Decision:** Add structured logs for Pulse action/ledger outcomes using hashed idempotency keys and no raw payloads.
+
+**Reason:** Operators need visibility into duplicate skips, in-progress conflicts, successes, and failures before a metrics backend exists.
+
+**Consequence:** Action execution has observability today without introducing fake metrics infrastructure or leaking sensitive provider/customer payloads.
+
+**Status:** Implemented.
+
+**Risk:** Logs are not a durable product-facing action status API.
+
+**Next recommended step:** add sanitized internal status DTOs only if operational troubleshooting requires them.
+
+---
+
+## 2026-05-15 — Prepare RLS policies before enabling enforcement
+
+**Decision:** Create RLS helper functions and tenant-isolation policies now, and route tenant-scoped DB work through a transaction helper that sets `app.current_tenant_id`; do not enable table-level RLS until repositories use that helper consistently.
+
+**Reason:** Enabling RLS without session tenant context would either break legitimate application queries or require unsafe permissive policies.
+
+**Consequence:** App-level tenant filtering remains mandatory while repositories are migrated to the transaction helper and the database is ready for progressive RLS activation.
+
+**Status:** Implemented foundation migration and Prisma tenant context runner.
+
+**Risk:** There is no database-enforced tenant isolation until RLS is enabled table-by-table.
+
+**Next recommended step:** migrate Pulse repositories to the tenant transaction runner and add DB fixtures that prove RLS rejection.
+
+---
+
+## 2026-05-15 — Add indexes only for real tenant hotpaths
+
+**Decision:** Add compound indexes for known authorization, usage aggregation, Pulse queue/ticket/timeline, integration, and runtime execution access patterns.
+
+**Reason:** Production performance should improve common tenant-scoped reads/writes without random index sprawl.
+
+**Consequence:** Write overhead increases slightly, but high-frequency multitenant queries gain targeted indexes.
+
+**Status:** Implemented.
+
+**Risk:** Query plans still need validation with production-like cardinality.
+
+**Next recommended step:** run `EXPLAIN ANALYZE` fixtures once dev DB is available with seeded volume.
+
+---
+
+## 2026-05-15 — Split Pulse into its own PostgreSQL schema
+
+**Decision:** Move Pulse operational persistence from naming-only separation to the `pulse` PostgreSQL schema using Prisma `multiSchema`.
+
+**Reason:** Keeping all module tables in the Synapse/platform schema will become operationally hard to govern as modules grow. Pulse needs extractable-first ownership of operational data while Synapse remains the controlling governance layer.
+
+**Consequence:** Synapse-owned data remains in `public`; Pulse-owned tables/enums live in `pulse`; cross-schema relationships to `public.Tenant` preserve central tenant governance.
+
+**Status:** Implemented schema mapping and migration.
+
+**Risk:** Live migration must be rehearsed because moving tables/types changes physical qualification.
+
+**Next recommended step:** run migrations on a disposable database and add DB fixtures proving cross-schema tenant isolation.
+
+---
+
+## 2026-05-15 — Route Pulse repositories through tenant DB context
+
+**Decision:** Use `PrismaService.withTenantContext()` for Pulse operational repository reads/writes before enabling RLS.
+
+**Reason:** `pulse.*` physical isolation is not authorization. RLS needs `app.current_tenant_id` set inside the same transaction that reads or mutates module data.
+
+**Consequence:** Pulse repository methods now run inside tenant-scoped transactions; Synapse still performs governance/RBAC before module operations.
+
+**Status:** Implemented for current Pulse repositories and action-driven lifecycle transaction.
+
+**Risk:** RLS remains inactive until DB fixtures prove behavior against a live PostgreSQL database.
+
+**Next recommended step:** enable RLS on one disposable Pulse table and prove cross-tenant rejection.
+
+---
+
+## 2026-05-15 — Enable RLS for Pulse schema after tenant context migration
+
+**Decision:** Enable and force RLS on current `pulse.*` operational tables.
+
+**Reason:** Pulse now has physical schema ownership and repository paths set tenant session context, so the database can enforce tenant isolation as a defense-in-depth layer.
+
+**Consequence:** Direct table access without `app.current_tenant_id` returns no tenant rows, and mismatched tenant writes are rejected by policy.
+
+**Status:** Migration and opt-in database fixture added.
+
+**Risk:** Disposable DB rehearsal is still required before shared environment rollout.
+
+**Next recommended step:** run `RUN_DATABASE_TESTS=1 npm test -- pulse-rls.database-fixtures` after applying migrations.

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../common/prisma/prisma.service';
+import { withPulseTenantContext } from '../../infrastructure/repositories/pulse-tenant-context';
 
 export type PulseScheduleDecision = {
   open: boolean;
@@ -15,9 +16,9 @@ export class PulseOperationalScheduleService {
   constructor(private readonly prisma: PrismaService) {}
 
   async decide(tenantId: string, now = new Date()): Promise<PulseScheduleDecision> {
-    const schedule = await this.prisma.pulseOperationalSchedule.findUnique({
+    const schedule = await withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseOperationalSchedule.findUnique({
       where: { tenantId },
-    });
+    }));
     if (!schedule) {
       return { open: true };
     }

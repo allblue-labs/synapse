@@ -9,6 +9,7 @@ import {
   UpdateEntryFields,
 } from '../../domain/ports/pulse-repository.port';
 import {PulseExtractedData, PulseLog} from '../../contracts/pulse.contracts';
+import {withPulseTenantContext} from './pulse-tenant-context';
 
 @Injectable()
 export class PulseRepository implements IPulseRepository {
@@ -38,9 +39,9 @@ export class PulseRepository implements IPulseRepository {
   }
 
   async findById(tenantId: string, id: string): Promise<PulseEntry | null> {
-    const record = await this.prisma.pulseEntry.findFirst({
+    const record = await withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseEntry.findFirst({
       where: {id, tenantId},
-    });
+    }));
     return record ? this.toDomain(record) : null;
   }
 
@@ -48,24 +49,24 @@ export class PulseRepository implements IPulseRepository {
     const {status, page = 1, pageSize = 20} = filter;
     const where = {tenantId, ...(status ? {status} : {})};
 
-    const [records, total] = await this.prisma.$transaction([
-      this.prisma.pulseEntry.findMany({
+    const [records, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.pulseEntry.findMany({
         where,
         orderBy: {createdAt: 'desc'},
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.pulseEntry.count({where}),
-    ]);
+      tx.pulseEntry.count({where}),
+    ]));
 
     return {data: records.map((r) => this.toDomain(r)), total, page, pageSize};
   }
 
   async listFailed(tenantId: string): Promise<PulseEntry[]> {
-    const records = await this.prisma.pulseEntry.findMany({
+    const records = await withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseEntry.findMany({
       where: {tenantId, status: PulseStatus.FAILED},
       orderBy: {updatedAt: 'desc'},
-    });
+    }));
     return records.map((r) => this.toDomain(r));
   }
 
@@ -84,29 +85,31 @@ export class PulseRepository implements IPulseRepository {
   }
 
   async update(tenantId: string, id: string, fields: UpdateEntryFields): Promise<PulseEntry> {
-    const result = await this.prisma.pulseEntry.updateMany({
-      where: {id, tenantId},
-      data: {
-        ...(fields.status !== undefined && {status: fields.status}),
-        ...(fields.transcription !== undefined && {transcription: fields.transcription}),
-        ...(fields.extractedData !== undefined && {extractedData: fields.extractedData as Prisma.InputJsonValue}),
-        ...(fields.confidence !== undefined && {confidence: fields.confidence}),
-        ...(fields.aiSummary !== undefined && {aiSummary: fields.aiSummary}),
-        ...(fields.scheduledAt !== undefined && {scheduledAt: fields.scheduledAt}),
-        ...(fields.errorMessage !== undefined && {errorMessage: fields.errorMessage}),
-        ...(fields.retryCount !== undefined && {retryCount: fields.retryCount}),
-        ...(fields.processingLogs !== undefined && {processingLogs: fields.processingLogs as Prisma.InputJsonValue}),
-      },
-    });
+    return withPulseTenantContext(this.prisma, tenantId, async (tx) => {
+      const result = await tx.pulseEntry.updateMany({
+        where: {id, tenantId},
+        data: {
+          ...(fields.status !== undefined && {status: fields.status}),
+          ...(fields.transcription !== undefined && {transcription: fields.transcription}),
+          ...(fields.extractedData !== undefined && {extractedData: fields.extractedData as Prisma.InputJsonValue}),
+          ...(fields.confidence !== undefined && {confidence: fields.confidence}),
+          ...(fields.aiSummary !== undefined && {aiSummary: fields.aiSummary}),
+          ...(fields.scheduledAt !== undefined && {scheduledAt: fields.scheduledAt}),
+          ...(fields.errorMessage !== undefined && {errorMessage: fields.errorMessage}),
+          ...(fields.retryCount !== undefined && {retryCount: fields.retryCount}),
+          ...(fields.processingLogs !== undefined && {processingLogs: fields.processingLogs as Prisma.InputJsonValue}),
+        },
+      });
 
-    if (result.count === 0) {
-      throw new NotFoundException(`Pulse entry ${id} not found`);
-    }
+      if (result.count === 0) {
+        throw new NotFoundException(`Pulse entry ${id} not found`);
+      }
 
-    const record = await this.prisma.pulseEntry.findFirstOrThrow({
-      where: {id, tenantId},
+      const record = await tx.pulseEntry.findFirstOrThrow({
+        where: {id, tenantId},
+      });
+      return this.toDomain(record);
     });
-    return this.toDomain(record);
   }
 
   async create(data: {
@@ -117,7 +120,7 @@ export class PulseRepository implements IPulseRepository {
     mediaUrl?: string;
     conversationId?: string;
   }): Promise<PulseEntry> {
-    const record = await this.prisma.pulseEntry.create({
+    const record = await withPulseTenantContext(this.prisma, data.tenantId, (tx) => tx.pulseEntry.create({
       data: {
         tenantId: data.tenantId,
         contactPhone: data.contactPhone,
@@ -132,7 +135,7 @@ export class PulseRepository implements IPulseRepository {
           message: 'Entry created and queued for processing',
         }],
       },
-    });
+    }));
     return this.toDomain(record);
   }
 }

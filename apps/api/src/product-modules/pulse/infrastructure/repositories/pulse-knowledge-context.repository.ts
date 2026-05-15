@@ -9,16 +9,17 @@ import {
   PublishPulseKnowledgeContextInput,
   PulseKnowledgeContextFilter,
 } from '../../domain/ports/pulse-knowledge-context-repository.port';
+import { withPulseTenantContext } from './pulse-tenant-context';
 
 @Injectable()
 export class PulseKnowledgeContextRepository implements IPulseKnowledgeContextRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   findById(tenantId: string, id: string) {
-    return this.prisma.pulseKnowledgeContext.findFirst({
+    return withPulseTenantContext(this.prisma, tenantId, (tx) => tx.pulseKnowledgeContext.findFirst({
       where: { tenantId, id },
       select: this.selectKnowledgeContext(),
-    });
+    }));
   }
 
   async list(tenantId: string, filter: PulseKnowledgeContextFilter = {}) {
@@ -35,22 +36,22 @@ export class PulseKnowledgeContextRepository implements IPulseKnowledgeContextRe
         ],
       }),
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.pulseKnowledgeContext.findMany({
+    const [data, total] = await withPulseTenantContext(this.prisma, tenantId, (tx) => Promise.all([
+      tx.pulseKnowledgeContext.findMany({
         where,
         select: this.selectKnowledgeContext(),
         orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
-      this.prisma.pulseKnowledgeContext.count({ where }),
-    ]);
+      tx.pulseKnowledgeContext.count({ where }),
+    ]));
 
     return { data, total, page, pageSize };
   }
 
   publish(input: PublishPulseKnowledgeContextInput) {
-    return this.prisma.pulseKnowledgeContext.create({
+    return withPulseTenantContext(this.prisma, input.tenantId, (tx) => tx.pulseKnowledgeContext.create({
       data: {
         tenantId: input.tenantId,
         type: input.type,
@@ -60,19 +61,24 @@ export class PulseKnowledgeContextRepository implements IPulseKnowledgeContextRe
         metadata: input.metadata ?? {},
       },
       select: this.selectKnowledgeContext(),
-    });
+    }));
   }
 
   async archive(tenantId: string, id: string) {
-    const current = await this.findById(tenantId, id);
-    if (!current) {
-      return null;
-    }
+    return withPulseTenantContext(this.prisma, tenantId, async (tx) => {
+      const current = await tx.pulseKnowledgeContext.findFirst({
+        where: { tenantId, id },
+        select: { id: true },
+      });
+      if (!current) {
+        return null;
+      }
 
-    return this.prisma.pulseKnowledgeContext.update({
-      where: { id },
-      data: { status: PulseKnowledgeContextStatus.ARCHIVED },
-      select: this.selectKnowledgeContext(),
+      return tx.pulseKnowledgeContext.update({
+        where: { id },
+        data: { status: PulseKnowledgeContextStatus.ARCHIVED },
+        select: this.selectKnowledgeContext(),
+      });
     });
   }
 

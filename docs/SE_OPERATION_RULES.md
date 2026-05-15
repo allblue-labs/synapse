@@ -61,3 +61,10 @@
 - Real module action handlers must persist and check a stable action idempotency key before reapplying operational side effects.
 - Pulse action side effects must claim `pulse_action_executions` by `tenantId + idempotencyKey` before mutating operational state.
 - Action-driven Pulse lifecycle side effects must keep ledger, ticket, event, audit, and usage writes inside one database transaction.
+- Pulse action telemetry must hash idempotency keys and must never log raw payloads, provider output, secrets, or chain-of-thought.
+- RLS policies may be prepared in migrations, but table-level RLS must not be enabled until every tenant-scoped repository path uses `PrismaService.withTenantContext()` or an equivalent transaction that sets `app.current_tenant_id`.
+- New database indexes must map to documented tenant-scoped query patterns; avoid random indexes.
+- Product modules must use their own PostgreSQL schemas for operational persistence; Pulse uses `pulse.*`.
+- Synapse governance remains centralized in `public.*`; modules must not own subscription, quota, credit, billing, RBAC, module access, audit, or execution governance tables.
+- Pulse repositories must use tenant DB context before touching `pulse.*`; direct `this.prisma.pulse*` access is not allowed outside an explicit tenant transaction.
+- Pulse RLS is enabled with FORCE; fixture/setup code that must clean multiple tenants must use controlled platform bypass, not request-path shortcuts.

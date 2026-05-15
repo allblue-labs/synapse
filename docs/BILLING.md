@@ -617,3 +617,43 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: DB fixture execution and future platform-governed credit pre-reservation.
 - Risks: this covers lifecycle usage, while action-processor-level governed usage remains separately idempotent.
 - Next recommended step: design credit reservation/commit semantics before external paid actions.
+
+## 2026-05-15 Stage 4M — Action Telemetry Billing Note
+
+- Changed: action telemetry is observational only and does not create usage or billing events.
+- Completed: billing remains governed by `UsageEvent`/`BillingService`, not logs.
+- Pending: rated summaries for action usage remain separate.
+- Risks: telemetry volume must not be mistaken for billable usage volume.
+- Next recommended step: keep billing reports sourced from usage tables only.
+
+## 2026-05-15 Stage 5A — Billing/Usage Database Performance
+
+- Changed: added usage indexes for billing period/module/metric/unit aggregation and resource attribution lookups.
+- Completed: usage aggregate lookup gained `tenantId + billingPeriod + rated`.
+- Pending: usage counter Redis hotpath and query-plan validation.
+- Risks: additional indexes increase write cost on high-volume usage events.
+- Next recommended step: validate aggregate/rating query plans with seeded usage volume.
+
+## 2026-05-15 Stage 5B — Billing Remains Platform-Owned
+
+- Changed: Pulse operational tables moved to schema `pulse`; billing, credits, quotas, usage rating, and subscription enforcement remain in `public`.
+- Completed: schema separation does not give Pulse billing authority.
+- Pending: fixture coverage for module usage writes after cross-schema migration.
+- Risks: future module schemas must emit usage candidates only through Synapse billing services.
+- Next recommended step: validate usage aggregation after applying the schema split migration.
+
+## 2026-05-15 Stage 5C — Usage Writes Across Tenant Context
+
+- Changed: action-driven Pulse lifecycle transaction now uses tenant DB context while still writing usage through Synapse-owned `public.usage_events`.
+- Completed: module side effect, operational event, audit, usage candidate, and action ledger remain in one transaction.
+- Pending: DB fixture proving cross-schema transaction behavior after migration.
+- Risks: billing authority still belongs to Synapse; Pulse must not rate or enforce credits locally.
+- Next recommended step: validate action lifecycle transaction after applying migrations.
+
+## 2026-05-15 Stage 5D — RLS Does Not Move Billing
+
+- Changed: Pulse RLS protects operational data only.
+- Completed: billing, credits, quotas, and usage rating remain outside Pulse RLS in Synapse-owned platform tables.
+- Pending: cross-schema lifecycle fixture after migration.
+- Risks: RLS-protected module writes must still emit usage through platform services.
+- Next recommended step: rerun lifecycle DB fixtures with RLS active.

@@ -723,3 +723,34 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Completed: Pulse handler delegates to Pulse result ingestion and does not know HMAC, URL, or Runtime client details.
 - Pending: standard module template for result handlers.
 - Risks: handler adapters must stay thin and must not become generic runtime orchestration surfaces.
+
+## 2026-05-16 — Runtime Callback Replay Boundary
+
+- Changed: replay/idempotency handling is platform-owned and invisible to modules.
+- Completed: module handlers are invoked only after Synapse claims a callback receipt.
+- Completed: replayed callbacks never reach module handlers.
+- Pending: shared module handler template should mention that handlers never implement replay logic.
+- Risks: modules must not implement their own callback receipt tables.
+
+## 2026-05-16 — Runtime Usage Boundary
+
+- Changed: Runtime provider usage is metered by Synapse core, not by product modules.
+- Completed: modules continue to provide Context Packs and receive validated results through handler contracts.
+- Completed: modules do not know provider usage billing rules, pricing units, or Runtime transport details.
+- Pending: module template should document that provider usage belongs to Synapse even when module context caused the execution.
+- Risks: module-level operational usage events and provider-call usage events are separate signals; do not merge them in module code.
+
+## 2026-05-16 — Runtime Async Boundary
+
+- Changed: async Runtime delivery is still hidden behind Synapse contracts.
+- Completed: modules do not send callback URLs, set Runtime callback policy, or expose callback controllers.
+- Completed: Pulse only observes platform execution lifecycle states and registered result handler calls.
+- Pending: reusable module result-handler template.
+- Risks: future modules must not add direct Runtime async transports.
+
+## 2026-05-16 — Callback Output Boundary
+
+- Changed: Synapse unwraps Runtime callback output before invoking module handlers.
+- Completed: provider envelope feeds platform usage metering; module handlers receive structured module output.
+- Pending: shared helper/template for future module result handlers.
+- Risks: modules must not parse provider usage metadata as domain output.

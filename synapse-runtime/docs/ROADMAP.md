@@ -59,6 +59,38 @@ Last updated: 2026-05-08
 - Risks: callback payloads must not select module routing; Synapse must route from persisted execution state.
 - Next recommended step: implement callback receipt storage before enabling async callbacks.
 
+## 2026-05-16 Runtime V1 — Callback Replay Readiness
+
+- Changed: Synapse callback receipt storage is implemented.
+- Completed: future Runtime callbacks have a platform replay/idempotency boundary to target.
+- Pending: Runtime-side async callback sender and explicit callback attempt ids.
+- Risks: callback receipts only cover callbacks received by Synapse; Runtime sender still needs retry discipline.
+- Next recommended step: build Runtime callback sender against `/v1/runtime/results`.
+
+## 2026-05-16 Runtime V1 — Usage Metadata Handoff
+
+- Changed: provider usage metering is now confirmed as a Synapse platform responsibility.
+- Completed: synchronous Runtime responses already expose provider/model/usage/latency fields consumed by Synapse.
+- Pending: async callback sender must include equivalent provider metadata.
+- Risks: do not add billing or quota logic to Runtime while preparing callback payloads.
+- Next recommended step: add callback sender/retry policy and keep usage metadata pass-through only.
+
+## 2026-05-16 Runtime V1 — Async Callback Sender
+
+- Changed: callback sender/retry policy foundation is implemented.
+- Completed: REST async callback mode is available behind request-level `callback.async`.
+- Pending: durable queue consumer, callback attempt ids, cancellation, and callback-side usage metering in Synapse.
+- Risks: async mode is V1 foundation, not production-grade distributed execution yet.
+- Next recommended step: add durable queue/gRPC transport after platform callback metering.
+
+## 2026-05-16 Runtime V1 — Callback Usage Envelope
+
+- Changed: callback payload now carries runtime execution id and provider usage metadata for Synapse metering.
+- Completed: billing remains outside Runtime.
+- Pending: durable async queue and callback attempt ids.
+- Risks: Runtime callback payload must stay audit-safe and avoid prompts/raw messages.
+- Next recommended step: run end-to-end async callback smoke test.
+
 ## Stage 3 — Async Execution
 
 - [ ] Queue consumer transport

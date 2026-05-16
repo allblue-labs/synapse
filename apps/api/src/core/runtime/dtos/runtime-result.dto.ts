@@ -14,6 +14,10 @@ export class RuntimeResultDto {
   @IsString()
   executionRequestId!: string;
 
+  @IsOptional()
+  @IsString()
+  runtimeExecutionId?: string;
+
   @IsIn(TERMINAL_EXECUTION_STATUSES)
   status!: typeof TERMINAL_EXECUTION_STATUSES[number];
 

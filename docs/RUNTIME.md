@@ -431,3 +431,41 @@ interface PainClient {
 - Pending: callback replay ledger and async callback delivery from the Go Runtime.
 - Risks: registry-based handler routing needs a production health check to detect missing module handlers at boot.
 - Next recommended step: implement replay-safe callback receipts in `public`.
+
+## 2026-05-16 Runtime V1 — Callback Replay Ledger
+
+- Changed: added `runtime_callback_receipts` as the durable replay/idempotency ledger for Runtime callbacks.
+- Completed: central ingress claims a receipt before handler invocation and marks it `PROCESSED` or `FAILED`.
+- Completed: exact duplicate callback keys return replay metadata and skip module handler execution.
+- Completed: raw body and raw signature are never stored; only hashes and audit metadata are persisted.
+- Pending: DB fixture and future explicit callback attempt ids from the Go Runtime.
+- Risks: replay ledger complements HMAC and lifecycle idempotency; it does not replace either.
+- Next recommended step: add end-to-end callback smoke test with signed `/v1/runtime/results`.
+
+## 2026-05-16 Runtime V1 — Provider Usage Metering
+
+- Changed: Runtime dispatch now reports provider-call usage to Synapse usage metering after signed REST execution.
+- Completed: usage metering remains a Synapse core responsibility; the Go Runtime returns provider metadata but does not bill, rate, or enforce credits.
+- Completed: metadata is reduced to provider/model/status/latency/usage counters and tied to the persisted execution request.
+- Pending: async callback sender should return the same provider metadata so callback results can reuse the metering path.
+- Risks: failed provider attempts with provider metadata may still be usage-relevant; transport failures without provider metadata are not metered as provider calls.
+- Next recommended step: add async Runtime callback sender and platform callback-side provider usage recording.
+
+## 2026-05-16 Runtime V1 — Async Callback Sender
+
+- Changed: Runtime REST transport now supports async execution through `callback.async=true`.
+- Completed: async requests return `202 accepted` with runtime execution id, then deliver a signed terminal callback to Synapse.
+- Completed: Synapse API can opt in with `SYNAPSE_RUNTIME_ASYNC_CALLBACKS=true` and `SYNAPSE_RUNTIME_CALLBACK_URL`.
+- Completed: callback payload includes tenant id, execution request id, terminal status, trace id, module-safe output wrapper, provider metadata, usage counters, and latency.
+- Pending: callback-side provider usage metering and durable Runtime queue/gRPC transport.
+- Risks: current async implementation uses an in-process goroutine and is not resilient to Runtime restart.
+- Next recommended step: meter provider usage in `RuntimeResultIngressService` after first-seen callback receipts.
+
+## 2026-05-16 Runtime V1 — Callback Usage Metering
+
+- Changed: Synapse now meters provider usage from async callback envelopes.
+- Completed: metering happens after receipt claim and before module handler invocation.
+- Completed: module handlers receive unwrapped `structuredPayload` or parsed JSON output.
+- Pending: DB fixture for replay/no-double-metering and live async callback smoke test.
+- Risks: Runtime callback sender must keep provider metadata in the envelope for metering.
+- Next recommended step: run API + Runtime with async callbacks enabled and inspect usage events.

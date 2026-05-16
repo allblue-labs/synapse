@@ -287,3 +287,11 @@ Synapse remains the control plane for runtime execution: it persists `ExecutionR
 The isolated Go Runtime is now the first execution plane for provider calls. Synapse core derives an invocation from the module-submitted Context Pack, calls `POST /executions` over signed REST, and routes successful output back through module validation/action governance. OpenAI and Claude stay behind runtime provider adapters; provider logic is not embedded in Pulse or other modules.
 
 Runtime results return through Synapse core `/v1/runtime/results`. The central ingress validates HMAC/raw body, loads the persisted execution request, resolves the module handler from saved `moduleSlug`, and then invokes the module adapter. Modules do not expose runtime callback controllers.
+
+Runtime callbacks also create a `runtime_callback_receipts` row before module handler invocation. The row stores hashes and processing state, not raw body/signature data. Exact replays increment `replayCount` and do not re-enter module handlers.
+
+Runtime provider-call usage is metered by Synapse core after dispatch. `RuntimeUsageMeteringService` records one idempotent `AI_CALL` usage event per tenant execution request when Runtime returns provider metadata. The event stores audit-safe provider/model/status/latency/counter metadata only; modules and the Go Runtime do not own billing, credits, pricing, or usage enforcement.
+
+Runtime async callbacks are opt-in. When Synapse sends `callback.async=true`, Runtime returns `202 accepted`, executes provider work outside the HTTP request lifecycle, and posts a signed terminal result back to Synapse core `/v1/runtime/results`. The API maps accepted Runtime work to platform `RUNNING`; product modules only see the normal Synapse lifecycle and result handler contracts.
+
+On callback ingress, Synapse claims a callback receipt first. First-seen callbacks feed the provider envelope into platform usage metering, then pass only module output to the registered handler. Replayed callbacks stop before both usage metering and module handling.

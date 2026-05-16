@@ -354,6 +354,34 @@ Conversation messages can arrive rapidly. Future workers should use per-conversa
 - Completed: Pulse result processing is now a registered handler, not a callback controller.
 - Pending: queue-based callback ingestion and replay ledger.
 - Risks: async callback work should preserve the same central ingress/registry contract.
+
+## 2026-05-16 — Runtime Callback Replay Queue Readiness
+
+- Changed: callback replay/idempotency is now centralized before any future callback queue consumer.
+- Completed: exact callback replays skip module handler execution.
+- Pending: queue consumer should reuse `RuntimeResultIngressService` so replay behavior stays identical across HTTP and queue transport.
+- Risks: do not duplicate replay logic in future queue workers.
+
+## 2026-05-16 — Runtime Provider Usage From Execution Queue
+
+- Changed: `pulse.execution` dispatch indirectly creates Synapse-owned provider-call usage through the central Runtime dispatcher.
+- Completed: queue processors do not meter provider calls themselves and do not know billing units.
+- Pending: async callback queue transport should call the same core metering service after first-seen callback receipts.
+- Risks: worker retries must rely on usage idempotency and must not create module-local provider billing records.
+
+## 2026-05-16 — Runtime Async Callback Queue Readiness
+
+- Changed: `pulse.execution` can now hand off work and leave execution `RUNNING` when Runtime accepts async callback delivery.
+- Completed: the worker does not block waiting for provider completion in async mode and does not ingest pending results.
+- Pending: durable Runtime-side work queue and callback-side usage metering.
+- Risks: Runtime in-process goroutine is not a durable queue; use this mode for V1 integration only until queue/gRPC transport lands.
+
+## 2026-05-16 — Callback Usage Queue Boundary
+
+- Changed: usage metering for async provider work happens on callback ingress, not in the Pulse execution queue.
+- Completed: queue retry of initial dispatch cannot double-meter a terminal callback.
+- Pending: durable Runtime queue should preserve execution request id and runtime execution id.
+- Risks: future queue consumers must reuse central ingress behavior instead of duplicating metering logic.
 - Pending: worker fixture against live DB with two tenants.
 - Risks: BullMQ payload tenant id must continue to be validated before repository calls.
 - Next recommended step: add queue payload validation fixture with RLS active.

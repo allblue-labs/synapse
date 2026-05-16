@@ -36,9 +36,16 @@ func NewEngine(registry *providers.Registry, logger telemetry.Logger, ids IDGene
 	return &Engine{registry: registry, logger: logger, ids: ids}
 }
 
+func (e *Engine) NewExecutionID() string {
+	return e.ids.NewID()
+}
+
 func (e *Engine) Execute(ctx context.Context, request contracts.ExecutionRequest) contracts.ExecutionResponse {
+	return e.ExecuteWithID(ctx, request, e.NewExecutionID())
+}
+
+func (e *Engine) ExecuteWithID(ctx context.Context, request contracts.ExecutionRequest, executionID string) contracts.ExecutionResponse {
 	startedAt := time.Now().UTC()
-	executionID := e.ids.NewID()
 
 	response := contracts.ExecutionResponse{
 		ExecutionID: executionID,

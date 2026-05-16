@@ -860,6 +860,17 @@ Last updated: 2026-05-07
 - Risks: hardcoded plan badge — must hydrate from billing when that client ships, otherwise the marketplace shows a plan the tenant doesn't have.
 - Next recommended step: **Stage 9 — Pulse Operational UX**. Strategy reminder: intelligent operational platform, not a card grid. Do not start Stage 10+ before Stage 9 closes.
 
+## 2026-05-15 Frontend Evolution — Stage 9 (Pulse Operational UX)
+
+- Changed: rebuilt the two highest-leverage Pulse surfaces to read as an intelligent operational platform — no card grids.
+  - `app/(workspace)/workspace/modules/pulse/page.tsx` reframed as a command surface: hero + pipeline + `NextUpPanel` + queue snapshot rail + compact surface rail (links, not cards).
+  - `app/(workspace)/workspace/modules/pulse/tickets/page.tsx` rebuilt as a queryable operational table using the Stage-7 management pattern (toolbar + status/priority filter chips + table with status/priority pulse pills + detail sheet on row click). RSC fetches data; client `<TicketsBoard>` owns interactive state.
+- Completed: new `components/pulse/tickets-board.tsx`; generic `FilterChips` helper. Realtime `<StatusPill pulse>` on `Open`, `Needs review`, `Urgent` — consistent with Stage 6/7/8 heartbeat.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓. `/workspace/modules/pulse` 704 B / 107 kB. `/workspace/modules/pulse/tickets` 8.99 kB / 122 kB.
+- Pending: Pulse timeline reader, playbook visual editor, catalog UX, campaigns UX, integrations management UI, metrics dashboard wiring, logs viewer — separate follow-ups under the same UX rule.
+- Risks: `NextUpPanel` uses a simple heuristic; when backend exposes an operator-next-up hint, the panel must read from it.
+- Next recommended step: **Stage 10 — Onboarding / AI Interview Flow**. Strategy reminder: must NOT look like a generic chatbot. Do not start Stage 11 before Stage 10 closes.
+
 ## 2026-05-15 Stage 5A — Database Performance + RLS Foundation
 
 - Changed: shifted backend focus to production database performance, efficiency, and multitenant security.
@@ -927,3 +938,46 @@ Last updated: 2026-05-07
 - Pending: replay-safe callback persistence, key rotation, and end-to-end callback smoke test.
 - Risks: module handlers must stay business/domain adapters only and must not learn Runtime transport details.
 - Next recommended step: add `RuntimeCallbackReceipt` or equivalent replay ledger in platform schema.
+
+## 2026-05-16 Runtime V1 — Callback Replay Ledger
+
+- Changed: callback replay storage is now implemented in the platform schema.
+- Completed: exact callback replays are idempotently accepted and short-circuited before module handlers run.
+- Pending: DB fixture, callback attempt ids for future async Runtime sender, and production alerting on replay spikes.
+- Risks: ledger does not replace HMAC validation; both must remain active.
+- Next recommended step: implement local end-to-end callback smoke test, then add provider usage metering from runtime responses.
+
+## 2026-05-16 Runtime V1 — Provider Usage Metering
+
+- Changed: provider usage metering moved into the Synapse-owned Runtime dispatch boundary.
+- Completed: synchronous Runtime responses now create idempotent `AI_CALL/provider_call` usage events with audit-safe provider metadata.
+- Pending: async callback sender/result contract should carry enough provider metadata for the same metering path.
+- Risks: provider usage and module action usage remain separate billing signals and must not be collapsed.
+- Next recommended step: add async Runtime callback sender, then reuse the same metering contract for callback results.
+
+## 2026-05-16 Runtime V1 — Async Callback Sender
+
+- Changed: async Runtime callbacks are now available behind an API feature flag.
+- Completed: Runtime callback sender signs results with the same HMAC contract and retries transient delivery failures.
+- Completed: API async mode maps Runtime `accepted` to platform `RUNNING`.
+- Pending: callback-side usage metering, live smoke test, and durable Runtime execution queue.
+- Risks: in-memory async execution is acceptable for V1 foundation only.
+- Next recommended step: add provider usage metering in `RuntimeResultIngressService` after first-seen callback receipts.
+
+## 2026-05-16 Runtime V1 — Callback Usage Metering
+
+- Changed: async callback results now reuse Synapse provider-call usage metering.
+- Completed: first-seen callback receipts meter provider usage; replay receipts do not.
+- Pending: end-to-end smoke test and DB replay fixture.
+- Risks: usage idempotency and callback receipts are separate defenses and both must remain active.
+- Next recommended step: run local async callback smoke test, then design durable Runtime queue transport.
+
+## 2026-05-16 Frontend Stage — Tenant Context Profile Experience
+
+- Changed: built the fullscreen Tenant Context Profile onboarding flow. Wires entirely to the existing backend `tenant-context` controller — no new server work.
+- Completed: 5-step flow (intro → mode → interview / manual → validation) under a new `(onboarding)` route group at `/onboarding/profile/*`. Slim chrome (logo + locale only); asymmetric layouts; left-rail vertical progress timeline; structured question/answer blocks for the interview (NOT chat bubbles); section-based wizard for the manual form with debounced local autosave; review screen with collapsible sections + regenerate / edit / approve / reject; success transition → `/workspace/overview`.
+- Completed: full `lib/onboarding/*` layer (`loaders`, `actions`, `sections`, `storage`); typed `api.tenantContext.*` in `lib/api.ts`; full `onboarding.*` i18n key tree in `en` + `pt-br`; localStorage interruption recovery keyed by tenant id; online/offline awareness on the interview screen.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓. Five new routes, shared First Load JS unchanged at 102 kB.
+- Pending: middleware-level redirect that forces `requiresProfile === true` sessions into the flow automatically; audio transcription endpoint wire-up; richer `nextQuestion` envelope when the runtime-backed executor ships.
+- Risks: validation pre-generates the summary on render — if production executor cost is high, switch to passing through `latestSummary` and regenerating only on operator action.
+- Next recommended step: middleware guard + post-checkout webhook that starts a draft so the flow opens automatically on first landing.

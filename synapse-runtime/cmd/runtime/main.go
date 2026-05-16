@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/allbluelabs/synapse-runtime/internal/callback"
 	"github.com/allbluelabs/synapse-runtime/internal/execution"
 	"github.com/allbluelabs/synapse-runtime/internal/providers"
 	"github.com/allbluelabs/synapse-runtime/internal/providers/claude"
@@ -72,11 +73,23 @@ func runtimeSecretsFromEnv() map[string]string {
 }
 
 func runtimeServer(engine *execution.Engine, logger telemetry.Logger) *httptransport.Server {
+	var callbackSender *callback.Sender
+	if os.Getenv("SYNAPSE_RUNTIME_SHARED_SECRET") != "" {
+		callbackSender = callback.NewSender(
+			os.Getenv("SYNAPSE_RUNTIME_KEY_ID"),
+			os.Getenv("SYNAPSE_RUNTIME_SHARED_SECRET"),
+			logger,
+		)
+	}
 	if os.Getenv("SYNAPSE_RUNTIME_ALLOW_UNSIGNED") == "1" {
 		logger.Error("runtime_unsigned_requests_enabled", map[string]any{
 			"warning": "development only; do not enable in production",
 		})
-		return httptransport.NewServer(engine, logger)
+		return httptransport.NewServer(
+			engine,
+			logger,
+			httptransport.WithCallbackSender(callbackSender),
+		)
 	}
 	if os.Getenv("SYNAPSE_RUNTIME_SHARED_SECRET") == "" {
 		logger.Error("runtime_missing_shared_secret", map[string]any{
@@ -90,5 +103,6 @@ func runtimeServer(engine *execution.Engine, logger telemetry.Logger) *httptrans
 		httptransport.WithSignatureVerifier(
 			security.NewVerifier(runtimeSecretsFromEnv()),
 		),
+		httptransport.WithCallbackSender(callbackSender),
 	)
 }

@@ -5,6 +5,8 @@ import "time"
 type ExecutionStatus string
 
 const (
+	StatusAccepted  ExecutionStatus = "accepted"
+	StatusRunning   ExecutionStatus = "running"
 	StatusSucceeded ExecutionStatus = "succeeded"
 	StatusFailed    ExecutionStatus = "failed"
 	StatusCancelled ExecutionStatus = "cancelled"
@@ -24,7 +26,15 @@ type ExecutionRequest struct {
 	TimeoutMS          int                   `json:"timeoutMs,omitempty"`
 	Input              ExecutionInput        `json:"input"`
 	Context            ExecutionContext      `json:"context,omitempty"`
+	Callback           *ExecutionCallback    `json:"callback,omitempty"`
 	Metadata           map[string]any        `json:"metadata,omitempty"`
+}
+
+type ExecutionCallback struct {
+	URL        string `json:"url,omitempty"`
+	Async      bool   `json:"async,omitempty"`
+	MaxRetries int    `json:"maxRetries,omitempty"`
+	TimeoutMS  int    `json:"timeoutMs,omitempty"`
 }
 
 type ExecutionInput struct {

@@ -685,3 +685,32 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Completed: callback payload cannot provide actor authority; Pulse ingestion still uses saved execution actor snapshots for side-effect planning.
 - Pending: service-actor policy for fully automated executions without a human actor snapshot.
 - Risks: never treat a valid runtime signature as permission to mutate module state; module handlers must re-enter existing governance.
+
+## 2026-05-16 — Runtime Callback Receipt RBAC Boundary
+
+- Changed: callback receipt replay handling does not grant module permissions.
+- Completed: replayed callbacks are short-circuited before module handlers can plan actions.
+- Completed: first-time callbacks still rely on saved actor snapshots and module governance before side effects.
+- Pending: service-actor policy for automated workflows.
+- Risks: receipt status `PROCESSED` means the callback was handled once; it does not imply a user has ongoing permission for future actions.
+
+## 2026-05-16 — Runtime Usage RBAC Boundary
+
+- Changed: recording provider usage is a platform accounting side effect, not a user permission grant.
+- Completed: Runtime provider usage is tied to the already-governed execution request after RBAC/module checks have occurred.
+- Pending: service-actor policy for automated Runtime executions.
+- Risks: a billable provider call does not mean the resulting module action is authorized; action governance remains separate.
+
+## 2026-05-16 — Runtime Async Callback RBAC Boundary
+
+- Changed: async Runtime acceptance leaves the execution `RUNNING` until Synapse receives the signed result.
+- Completed: Pulse does not plan actions from `RUNNING`; action planning starts only after central result ingress.
+- Pending: automated service-actor policy for non-human executions.
+- Risks: callback delivery is not authorization; saved actor snapshots still gate side effects.
+
+## 2026-05-16 — Callback Usage RBAC Boundary
+
+- Changed: provider usage metering from callbacks is accounting, not authorization.
+- Completed: metering happens before module action planning but after receipt claim.
+- Pending: service-actor policy for automated callback-driven action planning.
+- Risks: a metered provider result still cannot mutate module state without module governance.

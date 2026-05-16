@@ -360,6 +360,122 @@ export interface PulseEntry {
 
 export type PulseListResponse = Paginated<PulseEntry>;
 
+// ─── Tenant Context Profile ──────────────────────────────────────────
+
+export type TenantContextStatusValue =
+  | 'missing'
+  | 'PENDING'
+  | 'IN_PROGRESS'
+  | 'AWAITING_VALIDATION'
+  | 'APPROVED'
+  | 'REJECTED';
+
+export type TenantContextMode = 'LLM' | 'MANUAL_FORM';
+
+export interface TenantContextStatus {
+  exists: boolean;
+  status: TenantContextStatusValue;
+  requiresProfile: boolean;
+  activeVersionNumber?: number | null;
+  draft?: TenantContextDraft | null;
+  latestSummary?: TenantContextDraftSummary | null;
+}
+
+export interface TenantContextDraft {
+  id: string;
+  tenantId: string;
+  status: TenantContextStatusValue;
+  mode: TenantContextMode | null;
+  answers: Record<string, unknown>;
+  nextQuestion?: {key: string | null; question: string | null} | null;
+  updatedAt?: string;
+}
+
+export interface TenantContextDraftSummary {
+  id?: string;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  business?: TenantContextBusiness;
+  communication?: TenantContextCommunication;
+  operational?: TenantContextOperational;
+  completeness?: {requiredFields: string[]; missingFields: string[]; readyForApproval: boolean};
+  createdAt?: string;
+}
+
+export interface TenantContextBusiness {
+  businessName: string;
+  businessType: string;
+  businessDescription: string;
+  productsServices: string[];
+  targetAudience: string;
+  website?: string;
+  socialMedia?: string[];
+  notes?: string;
+}
+
+export interface TenantContextCommunication {
+  communicationTone: string;
+  preferredLanguages: string[];
+}
+
+export interface TenantContextOperational {
+  customerSupportStyle: string;
+  salesBehavior: string;
+  generalGoals: string[];
+}
+
+export interface TenantContextContract {
+  tenantId: string;
+  profileVersion: number;
+  schemaVersion: number;
+  business: TenantContextBusiness;
+  communication: TenantContextCommunication;
+  operational: TenantContextOperational;
+  metadata: {
+    source: 'tenant_context_profile';
+    approvedAt?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  } & Record<string, unknown>;
+}
+
+export interface TenantProfileSummary {
+  business: TenantContextBusiness;
+  communication: TenantContextCommunication;
+  operational: TenantContextOperational;
+  completeness: {requiredFields: string[]; missingFields: string[]; readyForApproval: boolean};
+}
+
+export interface TenantContextManualFormBody {
+  businessName: string;
+  businessType: string;
+  businessDescription: string;
+  productsServices: string[];
+  targetAudience: string;
+  communicationTone: string;
+  preferredLanguages: string[];
+  customerSupportStyle: string;
+  salesBehavior: string;
+  generalGoals: string[];
+  website?: string;
+  socialMedia?: string[];
+  notes?: string;
+}
+
+export const TENANT_CONTEXT_REQUIRED_FIELDS = [
+  'businessName',
+  'businessType',
+  'businessDescription',
+  'productsServices',
+  'targetAudience',
+  'communicationTone',
+  'preferredLanguages',
+  'customerSupportStyle',
+  'salesBehavior',
+  'generalGoals',
+] as const;
+
+export type TenantContextRequiredField = typeof TENANT_CONTEXT_REQUIRED_FIELDS[number];
+
 // ─── Internal request primitive ──────────────────────────────────────
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
@@ -512,6 +628,34 @@ export const api = {
 
   users: {
     me: () => request<CurrentUser>('/users/me'),
+  },
+
+  tenantContext: {
+    /** Whether the tenant has an approved profile. Drives route protection. */
+    status: () => request<TenantContextStatus>('/tenant-context/status'),
+    /** Approved contract — used by modules to ground their context. */
+    get: () => request<TenantContextContract>('/tenant-context'),
+    /** Begin (or resume) a profile draft. `mode` selects interview vs manual form. */
+    start: (body: {mode?: TenantContextMode}) =>
+      request<TenantContextDraft>('/tenant-context/start', {method: 'POST', json: body}),
+    /** Persist a single answer. Interview mode steps through `questionKey`s. */
+    saveAnswer: (body: {questionKey: string; answer: unknown; mode?: TenantContextMode}) =>
+      request<TenantContextDraft>('/tenant-context/answers', {method: 'POST', json: body}),
+    /** Manual form mode: submit all required fields at once. */
+    submitManualForm: (body: TenantContextManualFormBody) =>
+      request<TenantContextDraft>('/tenant-context/manual-submit', {method: 'POST', json: body}),
+    /** Generate / regenerate the summary from current answers. */
+    generateSummary: () =>
+      request<TenantProfileSummary>('/tenant-context/summary/generate', {method: 'POST'}),
+    /** Approve the current summary; creates an immutable version and unlocks usage. */
+    approve: () =>
+      request<TenantContextContract>('/tenant-context/approve', {method: 'POST'}),
+    /** Reject the current summary; flow returns to drafting. */
+    reject: (body?: {reason?: string}) =>
+      request<TenantContextDraft>('/tenant-context/reject', {method: 'POST', json: body ?? {}}),
+    /** Edit specific answers (post-rejection or pre-approval). */
+    editAnswers: (body: {answers: Record<string, unknown>}) =>
+      request<TenantContextDraft>('/tenant-context', {method: 'PATCH', json: body}),
   },
 
   pulse: {

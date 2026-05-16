@@ -82,6 +82,12 @@ The NestJS platform now has a matching signer/client foundation. V1 dispatch use
 
 Future asynchronous callbacks should target Synapse core `/v1/runtime/results`. Synapse validates signatures and routes by persisted execution state. Product modules only implement result handler contracts.
 
+Synapse also owns callback replay receipts. Exact callback replays are accepted idempotently by Synapse and do not invoke module handlers again. The Runtime should still sign every callback and, in a later async stage, include explicit callback attempt ids for observability.
+
+Runtime async callback mode is now available when an execution request includes `callback.async=true` and a callback URL. The Runtime returns `202 accepted`, executes provider work in-process, and posts a signed terminal result to Synapse. This validates the platform callback contract but is not a durable distributed execution model.
+
+Callback payloads include `runtimeExecutionId` and an audit-safe provider envelope: provider, model, usage counters, latency, metadata, and normalized output. Synapse owns usage metering and module routing from that envelope.
+
 ## AppSec
 
 - Provider keys are read from environment variables only.
@@ -108,5 +114,5 @@ Allowed tools are present in the execution request contract, but tool execution 
 - No streaming provider responses yet.
 - No local model adapters yet.
 - No Kubernetes scheduling yet.
-- No platform lifecycle callback yet.
-- Pulse V1 uses synchronous REST; async callback/replay storage remains pending.
+- No durable async execution queue yet.
+- Pulse V1 can use synchronous REST by default or async callbacks through Synapse API feature flags.

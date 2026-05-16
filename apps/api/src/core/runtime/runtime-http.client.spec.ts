@@ -68,11 +68,61 @@ describe('RuntimeHttpClient', () => {
       skill: 'pulse.knowledge.query',
       input: { prompt: 'Summarize safely.' },
     }));
+    expect(JSON.parse(init.body).callback).toBeUndefined();
     expect(result).toEqual(expect.objectContaining({
       id: 'runtime-exec-1',
       tenantId: 'tenant-a',
       moduleSlug: 'pulse',
       status: 'SUCCEEDED',
+    }));
+  });
+
+  it('submits async callback config when runtime callbacks are enabled', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        executionId: 'runtime-exec-1',
+        tenantId: 'tenant-a',
+        executionRequestId: 'exec-1',
+        status: 'accepted',
+      }),
+    });
+    global.fetch = fetchMock as never;
+    const client = new RuntimeHttpClient(
+      {
+        get: (key: string) => ({
+          SYNAPSE_RUNTIME_URL: 'https://runtime.test/',
+          SYNAPSE_RUNTIME_ASYNC_CALLBACKS: true,
+          SYNAPSE_RUNTIME_CALLBACK_URL: 'https://api.test/v1/runtime/results',
+        } as Record<string, unknown>)[key],
+      } as never,
+      { sign: jest.fn().mockReturnValue({
+        [RuntimeSignatureHeaders.KEY_ID]: 'platform',
+        [RuntimeSignatureHeaders.TIMESTAMP]: '1778241600',
+        [RuntimeSignatureHeaders.SIGNATURE]: 'sha256=test',
+      }) } as never,
+    );
+
+    const result = await client.submit({
+      id: 'exec-1',
+      context: { tenantId: 'tenant-a', moduleSlug: 'pulse' },
+      requestType: 'pulse.test',
+      input: { input: { prompt: 'hello' } },
+      requestedAt: '2026-05-08T09:59:00.000Z',
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual(expect.objectContaining({
+      callback: {
+        async: true,
+        url: 'https://api.test/v1/runtime/results',
+        maxRetries: 3,
+        timeoutMs: 10000,
+      },
+    }));
+    expect(result).toEqual(expect.objectContaining({
+      id: 'runtime-exec-1',
+      status: 'RUNNING',
     }));
   });
 

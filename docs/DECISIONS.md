@@ -1555,3 +1555,67 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Callback replay/idempotency storage is still pending.
 
 **Next recommended step:** add callback receipt persistence before enabling asynchronous Runtime-to-Synapse callbacks.
+
+---
+
+## 2026-05-16 — Store Runtime callback receipts in platform schema
+
+**Decision:** Persist runtime callback receipts in `public.runtime_callback_receipts`.
+
+**Reason:** HMAC proves authenticity but does not prevent replay. Synapse needs a durable, tenant-scoped receipt before invoking module handlers.
+
+**Consequence:** Exact duplicate callbacks are accepted as replays, increment `replayCount`, and do not invoke module handlers again.
+
+**Status:** Implemented.
+
+**Risk:** The V1 callback key is derived from tenant, execution id, result status, and body hash. Future async Runtime callbacks should include explicit callback attempt ids for richer retry semantics.
+
+**Next recommended step:** add DB-backed replay fixture and end-to-end runtime callback smoke test.
+
+---
+
+## 2026-05-16 — Meter Runtime provider calls in Synapse core
+
+**Decision:** Record provider-call usage from the Synapse `RuntimeExecutionDispatchService`, not from Pulse and not from the Go Runtime.
+
+**Reason:** Synapse owns billing, credits, quotas, usage governance, and persistence. Modules assemble context; Runtime executes providers.
+
+**Consequence:** Runtime responses with provider metadata produce one idempotent `AI_CALL` usage event per execution request with `unit = provider_call`.
+
+**Status:** Implemented for synchronous REST dispatch.
+
+**Risk:** Future async callbacks must reuse the same platform-owned metering rule or provider usage could diverge between sync and async transports.
+
+**Next recommended step:** extend the callback result contract with provider usage metadata and route it through the same metering service.
+
+---
+
+## 2026-05-16 — Enable Runtime async callbacks by platform flag
+
+**Decision:** Add Runtime async callbacks as opt-in behavior controlled by Synapse API configuration.
+
+**Reason:** The system needs to move away from worker-blocking synchronous provider calls without letting modules know Runtime transport details.
+
+**Consequence:** When enabled, Synapse sends callback config, Runtime returns `accepted`, and the final result enters through Synapse core `/v1/runtime/results`.
+
+**Status:** Implemented foundation.
+
+**Risk:** V1 async execution is not durable across Runtime process restarts.
+
+**Next recommended step:** add durable queue/gRPC transport after callback-side metering is stable.
+
+---
+
+## 2026-05-16 — Meter callback provider usage after receipt claim
+
+**Decision:** Runtime callback provider usage is metered only after Synapse claims a first-seen callback receipt.
+
+**Reason:** Replayed callbacks must not create duplicate billing or duplicate module side effects.
+
+**Consequence:** `RuntimeResultIngressService` meters the provider envelope, then passes only module output to the registered module handler.
+
+**Status:** Implemented.
+
+**Risk:** If future Runtime callbacks omit provider metadata, usage metering will intentionally skip provider-call billing.
+
+**Next recommended step:** add a DB fixture for callback replay plus usage idempotency.

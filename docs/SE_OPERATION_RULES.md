@@ -73,3 +73,10 @@
 - Runtime transport, signatures, provider preference, and provider policy belong to Synapse core only.
 - Runtime output must be treated as untrusted until module-owned schema validation and Synapse/Pulse action governance complete.
 - Runtime callbacks must terminate in Synapse core routes; modules may only expose result handler contracts, not callback HTTP controllers.
+- Runtime callback replay/idempotency receipts are Synapse-owned platform records; modules must not own callback replay tables or rerun handlers for duplicate receipts.
+- Runtime provider-call usage is Synapse-owned; modules and the Go Runtime must not rate, bill, enforce credits, or persist provider usage billing records.
+- Runtime usage metadata must remain audit-safe: provider, model, status, latency, and counters only. Do not store prompts, raw provider output, raw messages, secrets, or chain-of-thought in usage records.
+- Runtime async callbacks must target Synapse core `/v1/runtime/results` with HMAC signatures. Product modules must not configure callback URLs or expose Runtime callback endpoints.
+- A Runtime `accepted/RUNNING` response is not a terminal result and must not trigger module action planning or provider-call billing by itself.
+- First-seen Runtime callbacks may meter provider usage through Synapse core; replayed callbacks must not meter usage or invoke module handlers.
+- Module result handlers must receive module output only, not the full provider envelope used for platform usage metering.

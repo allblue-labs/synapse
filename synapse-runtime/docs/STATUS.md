@@ -48,3 +48,36 @@ Last updated: 2026-05-08
 - Pending: async callback sender in Go Runtime and replay/idempotency contract in Synapse.
 - Risks: callback implementation must preserve HMAC signing and never route by untrusted payload module data.
 - Next recommended step: add callback receipt/replay design before Runtime pushes async results.
+
+## 2026-05-16 Runtime V1 — Callback Replay Contract
+
+- Changed: Synapse platform now has callback receipt/replay storage for `/v1/runtime/results`.
+- Completed: exact callback replays are short-circuited before module handlers run.
+- Pending: Go Runtime async callback sender should include explicit callback attempt ids in a later stage.
+- Risks: Runtime must still sign every callback; replay storage is not a substitute for HMAC.
+- Next recommended step: add Runtime-side async callback sender after local synchronous smoke test.
+
+## 2026-05-16 Runtime V1 — Provider Usage Boundary
+
+- Changed: Synapse API now meters provider-call usage from Runtime responses.
+- Completed: Runtime remains execution-only and returns provider/model/usage metadata without billing, rating, quota, or credit enforcement.
+- Pending: async callback payload should preserve the same provider usage metadata for Synapse-side metering.
+- Risks: Runtime must not persist tenant billing state or decide what is billable.
+- Next recommended step: implement async callback sender with signed delivery and provider usage metadata.
+
+## 2026-05-16 Runtime V1 — Async Callback Sender
+
+- Changed: Runtime can now execute requests asynchronously and deliver signed terminal callbacks.
+- Completed: `callback.async=true` returns `202 accepted`; result delivery uses HMAC headers compatible with Synapse core.
+- Completed: callback sender retries delivery and never logs raw payloads or secrets.
+- Pending: durable queue-backed async execution and explicit callback attempt ids.
+- Risks: in-process goroutines are not resilient to Runtime restarts.
+- Next recommended step: run API + Runtime smoke test with `SYNAPSE_RUNTIME_ASYNC_CALLBACKS=true`.
+
+## 2026-05-16 Runtime V1 — Callback Usage Envelope
+
+- Changed: Runtime callbacks now include `runtimeExecutionId` and preserve provider metadata for Synapse usage metering.
+- Completed: Runtime still does not bill, rate, or enforce quotas.
+- Pending: explicit callback attempt ids and durable async execution queue.
+- Risks: removing provider metadata from callbacks would disable Synapse provider-call metering.
+- Next recommended step: smoke test async callback usage records in Synapse.

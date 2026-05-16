@@ -339,6 +339,14 @@ enum ExecutionStatus {
   @@schema("public")
 }
 
+enum RuntimeCallbackReceiptStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+
+  @@schema("public")
+}
+
 enum TenantContextProfileStatus {
   PENDING
   IN_PROGRESS
@@ -401,6 +409,7 @@ model Tenant {
   contextAnswers            TenantContextAnswer[]
   contextSummaries          TenantContextSummary[]
   contextVersions           TenantContextProfileVersion[]
+  runtimeCallbackReceipts   RuntimeCallbackReceipt[]
 
   @@index([status])
   @@schema("public")
@@ -1154,13 +1163,44 @@ model ExecutionRequest {
   completedAt    DateTime?
   updatedAt      DateTime        @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  callbackReceipts RuntimeCallbackReceipt[]
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, moduleSlug, status])
   @@index([tenantId, status, updatedAt])
   @@index([tenantId, requestType, requestedAt])
   @@map("execution_requests")
+  @@schema("public")
+}
+
+model RuntimeCallbackReceipt {
+  id                 String                       @id @default(cuid())
+  tenantId           String
+  executionRequestId String
+  callbackKey        String
+  status             RuntimeCallbackReceiptStatus @default(RECEIVED)
+  signatureKeyId     String
+  signatureTimestamp DateTime
+  signatureHash      String
+  bodyHash           String
+  resultStatus       ExecutionStatus
+  metadata           Json                         @default("{}")
+  receivedAt         DateTime                     @default(now())
+  processedAt        DateTime?
+  failedAt           DateTime?
+  errorMessage       String?
+  replayCount        Int                          @default(0)
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  executionRequest ExecutionRequest @relation(fields: [executionRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([callbackKey])
+  @@index([tenantId, executionRequestId, receivedAt])
+  @@index([tenantId, status, receivedAt])
+  @@map("runtime_callback_receipts")
   @@schema("public")
 }
 

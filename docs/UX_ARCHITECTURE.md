@@ -864,6 +864,19 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Risks: hardcoded plan badge — when billing ships, the loader must hydrate it from `currentUser.tenant.billingPlan` or the billing summary endpoint, otherwise the marketplace shows a plan the tenant doesn't have.
 - Next recommended step: **Stage 9 — Pulse Operational UX**. Strategy reminder: intelligent operational platform, not a card grid. Do not start Stage 10+ before Stage 9 closes.
 
+## 2026-05-15 Frontend Evolution — Stage 9 (Pulse Operational UX)
+
+- Changed (frontend, Claude Opus): two highest-leverage Pulse surfaces rebuilt to read as an intelligent operational platform. No card grids.
+- `app/(workspace)/workspace/modules/pulse/page.tsx` — module landing reframed as a command surface: hero with 4-up stat cluster + live dots; pipeline strip preserved (Inbound → Extract → Route → Review → Act); a `NextUpPanel` that picks the top urgent escalation or pending review (permission-aware empty state); a queue snapshot rail; a compact surface rail (links, not cards). Replaces the previous featured-card + rail-tile + compact-card grids.
+- `app/(workspace)/workspace/modules/pulse/tickets/page.tsx` — directory rebuilt as a queryable operational table. RSC fetches via `loadTicketsPage()`; client island `<TicketsBoard>` owns search / status filter / priority filter / selected-row state. Hero + filter-aware stat strip + toolbar (search + status chips + priority chips + shown/total) + table (status pill, priority pill with URGENT pulse, skill, channel, confidence, age, inline `Inspect` + `Open` actions) + detail Sheet on row click (read-only summary, lifecycle actions stay on the per-ticket page).
+- New component: `components/pulse/tickets-board.tsx`. Generic `FilterChips` helper works for any filter dimension. Reuses Stage-7's `Sheet`/`StatusPill`/`InlineAction` and Stage-3's `<AnimatedNumber/>` + `<ConfidenceMeter>`.
+- Realtime states: `<StatusPill pulse>` on `Open`, `Needs review`, `Urgent` — consistent with Stage 6/7/8 heartbeat.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓. `/workspace/modules/pulse` 704 B / 107 kB. `/workspace/modules/pulse/tickets` 8.99 kB / 122 kB.
+- Out of scope (per strategy): Pulse inbox (already rebuilt), per-ticket detail (`TicketActionBar` already wired), Pulse timeline / playbooks / catalog / campaigns / integrations / metrics / logs (still placeholders).
+- Pending: Pulse timeline reader, playbook visual editor, catalog UX, campaigns UX, integrations management UI, metrics dashboard wiring, logs viewer — each a separate Stage-9 follow-up.
+- Risks: `NextUpPanel` uses a simple heuristic. When the backend exposes an operator-next-up hint, the panel must read from it.
+- Next recommended step: **Stage 10 — Onboarding / AI Interview Flow**. Strategy reminder: must NOT look like a generic chatbot. Do not start Stage 11 before Stage 10 closes.
+
 ## 2026-05-16 — Tenant Context Profile Frontend Contract
 
 - Changed: backend now exposes Tenant Context Profile endpoints for a one-time global workspace interview/manual form.
@@ -885,3 +898,60 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Completed: `/v1/runtime/results` is service-to-service only and must not be used by browser clients.
 - Pending frontend dependency: none until backend exposes safe runtime observability read models.
 - Risks: never surface callback payloads directly in UI; use audit-safe timelines/metrics only.
+
+## 2026-05-16 — Runtime Callback Replay UX Impact
+
+- Changed: no frontend surface is added for callback receipts.
+- Completed: replay ledger is backend-only security/operations state.
+- Pending frontend dependency: future platform observability may expose aggregated replay counts, never raw callback bodies.
+- Risks: callback receipt data should not appear in tenant workspace UX.
+
+## 2026-05-16 — Runtime Usage Metering UX Impact
+
+- Changed: no frontend workflow changes are required for provider usage metering.
+- Completed backend contract: usage summaries can now include `AI_CALL` events with `unit = provider_call`.
+- Pending frontend dependency: future billing/observability screens may display aggregated provider-call counts, provider names, latency, and rated costs.
+- Risks: UI must never expose prompts, raw provider output, callback bodies, or chain-of-thought as usage detail.
+
+## 2026-05-16 — Runtime Async Callback UX Impact
+
+- Changed: no direct frontend integration is required for async Runtime callbacks.
+- Completed backend behavior: execution can remain `RUNNING` until Synapse receives terminal callback.
+- Pending frontend dependency: future timeline/status UI should display pending Runtime execution as backend lifecycle state, not as browser polling of Runtime.
+- Risks: browser clients must never call Runtime or `/v1/runtime/results`.
+
+## 2026-05-16 — Callback Usage UX Impact
+
+- Changed: future usage screens may show provider-call usage from synchronous dispatches and async callbacks uniformly.
+- Completed backend behavior: replayed callbacks do not inflate usage totals.
+- Pending frontend dependency: none until billing/observability read models expose aggregated callback usage.
+- Risks: do not surface Runtime callback envelopes directly.
+
+## 2026-05-16 Frontend Stage — Tenant Context Profile Experience
+
+- Changed (frontend, Claude Opus): built the fullscreen Tenant Context Profile onboarding experience that activates a workspace after subscription / module purchase approval. Fire-once per tenant; once approved the routes never appear automatically again.
+- Layered architecture:
+  - **API client**: `api.tenantContext.*` in `lib/api.ts` wraps the backend's `tenant-context` controller (status / get / start / answers / manual-submit / summary/generate / approve / reject / PATCH). Typed contracts mirror `apps/api/.../tenant-context/contracts`.
+  - **Loaders + actions**: `lib/onboarding/{loaders,actions}.ts` give server pages a `LoadResult<TenantContextStatus>` envelope on read and an `ActionResult<...>` envelope on every mutation.
+  - **Section model**: `lib/onboarding/sections.ts` groups the 10 required fields into operator-facing sections (`business / communication / operational`); `computeSectionProgress()` powers the timeline + manual wizard.
+  - **Storage**: `lib/onboarding/storage.ts` is a tenant-scoped `localStorage` cache for interruption recovery. Backend remains source of truth; local fills gaps when offline or mid-typing. `mergeDrafts()` reconciles on mount.
+  - **i18n**: full `onboarding.*` key tree in both `en` and `pt-br`. Every operator-facing string in the flow goes through `useTranslator()`. No mixed-language UI.
+- Routes (under a new `(onboarding)` route group, fullscreen, no sidebar / top-nav):
+  - `/onboarding/profile`                  · Step 1 introduction (asymmetric, single CTA, resume-aware).
+  - `/onboarding/profile/mode`             · Step 2 interview vs manual (large interactive option panels, not radio buttons).
+  - `/onboarding/profile/session/[id]`     · Step 3 intelligent interview — structured question/answer blocks (NOT chat bubbles), progress timeline on the left, anchored input dock with audio placeholder, online/offline awareness, `Cmd/Ctrl+Enter` shortcut, completion CTA → validation.
+  - `/onboarding/profile/manual`           · Step 4 section-based wizard with debounced local autosave, text/textarea/list field kinds, required vs optional hints, Prev/Next nav.
+  - `/onboarding/profile/validation`       · Step 5 review/approve — collapsible Business / Communication / Operational / Notes sections, regenerate / edit / approve / reject (with optional reason). Approve → success transition → `/workspace/overview`.
+- Components: `components/onboarding/{section-progress,intro-client,mode-selector-client,interview-client,manual-form-client,validation-client}.tsx`. Reuse Stage-2 surface tokens, Stage-3 motion (`AnimatedNumber`, `Spinner`, `animate-slide-up`, `animate-panel-in`), Stage-7 primitives (`StatusPill`).
+- AI interaction rules: the executor exposes one structured question at a time. The UI surfaces `onboarding.interview.offTopicNotice` and only renders the next required field's question — so the screen cannot wander into chat territory.
+- Resilience:
+  - Each page calls `loadStatus()` server-side and redirects forward (`AWAITING_VALIDATION` → validation) or out (`APPROVED` → workspace).
+  - Local-storage draft survives accidental refresh; success on approve calls `clearDraft()`.
+  - Online/offline awareness on the interview surface flips a status pill if the user disconnects mid-answer.
+- Motion: subtle. No typing animations. Page transitions reuse Stage-3 keyframes. Reduced-motion users get the global override.
+- Responsive: 2-column shells stack on mobile; input dock stays anchored to the bottom; timeline sticks at the top. No fixed-width centered containers.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓. Five new routes 2.19–4.82 kB each; shared First Load JS unchanged at 102 kB.
+- Out of scope: module onboarding (Pulse-specific or other-module flows); a workspace-level middleware guard that redirects `requiresProfile === true` sessions automatically — page-level checks cover this today.
+- Pending: middleware guard for post-checkout redirect; audio transcription endpoint wire-up; richer typed `nextQuestion` envelope when the runtime-backed executor lands.
+- Risks: validation page pre-generates the summary on render. If the executor becomes expensive in production, switch to passing through `latestSummary` and regenerating only on operator action.
+- Next recommended step: middleware-level guard + post-checkout webhook that starts a draft so the flow opens automatically when the operator first lands.

@@ -2,12 +2,14 @@ package httptransport
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"runtime/debug"
 	"time"
 
+	"github.com/allbluelabs/synapse-runtime/internal/callback"
 	"github.com/allbluelabs/synapse-runtime/internal/contracts"
 	"github.com/allbluelabs/synapse-runtime/internal/execution"
 	"github.com/allbluelabs/synapse-runtime/internal/security"
@@ -15,10 +17,11 @@ import (
 )
 
 type Server struct {
-	engine   *execution.Engine
-	logger   telemetry.Logger
-	verifier *security.Verifier
-	mux      *http.ServeMux
+	engine         *execution.Engine
+	logger         telemetry.Logger
+	verifier       *security.Verifier
+	callbackSender *callback.Sender
+	mux            *http.ServeMux
 }
 
 type Option func(*Server)
@@ -26,6 +29,12 @@ type Option func(*Server)
 func WithSignatureVerifier(verifier security.Verifier) Option {
 	return func(server *Server) {
 		server.verifier = &verifier
+	}
+}
+
+func WithCallbackSender(sender *callback.Sender) Option {
+	return func(server *Server) {
+		server.callbackSender = sender
 	}
 }
 
@@ -104,6 +113,11 @@ func (s *Server) executions(w http.ResponseWriter, r *http.Request) {
 		request.Context.TraceID = r.Header.Get("x-request-id")
 	}
 
+	if request.Callback != nil && request.Callback.Async {
+		s.acceptAsyncExecution(w, request)
+		return
+	}
+
 	response := s.engine.Execute(r.Context(), request)
 	if response.Status == contracts.StatusSucceeded {
 		writeJSON(w, http.StatusOK, response)
@@ -114,6 +128,48 @@ func (s *Server) executions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusBadGateway, response)
+}
+
+func (s *Server) acceptAsyncExecution(w http.ResponseWriter, request contracts.ExecutionRequest) {
+	if s.callbackSender == nil {
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse("runtime callback sender is not configured"))
+		return
+	}
+	if request.Callback.URL == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse("callback.url is required for async execution"))
+		return
+	}
+	executionRequestID := ""
+	if request.Metadata != nil {
+		executionRequestID, _ = request.Metadata["executionRequestId"].(string)
+	}
+	if executionRequestID == "" {
+		writeJSON(w, http.StatusBadRequest, errorResponse("metadata.executionRequestId is required for async execution"))
+		return
+	}
+
+	executionID := s.engine.NewExecutionID()
+	go func() {
+		response := s.engine.ExecuteWithID(context.Background(), request, executionID)
+		if err := s.callbackSender.Send(context.Background(), request, response); err != nil {
+			s.logger.Error("runtime_callback_delivery_failed", map[string]any{
+				"tenantId":           request.TenantID,
+				"executionRequestId": executionRequestID,
+				"runtimeExecutionId": executionID,
+				"error":              err.Error(),
+			})
+		}
+	}()
+
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"executionId":        executionID,
+		"tenantId":           request.TenantID,
+		"executionRequestId": executionRequestID,
+		"status":             contracts.StatusAccepted,
+		"callback": map[string]any{
+			"queued": true,
+		},
+	})
 }
 
 func (s *Server) requestID(next http.Handler) http.Handler {

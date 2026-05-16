@@ -12,6 +12,9 @@ describe('RuntimeExecutionDispatchService', () => {
     transport: 'http',
     submit: jest.fn(),
   };
+  const usage = {
+    recordProviderCall: jest.fn(),
+  };
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -48,7 +51,11 @@ describe('RuntimeExecutionDispatchService', () => {
       output: { structuredPayload: { decisionSummary: 'ok' } },
     });
 
-    const service = new RuntimeExecutionDispatchService(lifecycle as never, runtime as never);
+    const service = new RuntimeExecutionDispatchService(
+      lifecycle as never,
+      runtime as never,
+      usage as never,
+    );
     const result = await service.dispatchQueued({ tenantId: 'tenant-1', executionId: 'exec-1' });
 
     expect(lifecycle.transition).toHaveBeenCalledWith({
@@ -82,6 +89,11 @@ describe('RuntimeExecutionDispatchService', () => {
         },
       }),
     }));
+    expect(usage.recordProviderCall).toHaveBeenCalledWith({
+      request: expect.objectContaining({ id: 'exec-1' }),
+      response: expect.objectContaining({ id: 'runtime-exec-1' }),
+      transport: 'http',
+    });
     expect(result).toEqual(expect.objectContaining({
       transport: 'http',
       response: expect.objectContaining({ status: ExecutionStatus.SUCCEEDED }),
@@ -90,7 +102,11 @@ describe('RuntimeExecutionDispatchService', () => {
 
   it('rejects dispatch before touching the runtime when execution is not queued', async () => {
     lifecycle.get.mockResolvedValue({ id: 'exec-1', status: ExecutionStatus.SUCCEEDED });
-    const service = new RuntimeExecutionDispatchService(lifecycle as never, runtime as never);
+    const service = new RuntimeExecutionDispatchService(
+      lifecycle as never,
+      runtime as never,
+      usage as never,
+    );
 
     await expect(service.dispatchQueued({ tenantId: 'tenant-1', executionId: 'exec-1' }))
       .rejects.toBeInstanceOf(BadRequestException);
@@ -98,5 +114,6 @@ describe('RuntimeExecutionDispatchService', () => {
     expect(lifecycle.getRequest).not.toHaveBeenCalled();
     expect(lifecycle.transition).not.toHaveBeenCalled();
     expect(runtime.submit).not.toHaveBeenCalled();
+    expect(usage.recordProviderCall).not.toHaveBeenCalled();
   });
 });

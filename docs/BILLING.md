@@ -688,3 +688,34 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Completed: modules still do not rate provider usage; provider billing metadata must be consumed by Synapse usage/billing services.
 - Pending: provider usage event mapping from runtime responses.
 - Risks: callback success must not bypass plan/credit governance for future async executions.
+
+## 2026-05-16 — Runtime Callback Replay Billing Boundary
+
+- Changed: replayed runtime callbacks do not reach module handlers and therefore cannot double-create module usage candidates.
+- Completed: provider usage mapping remains pending, but replay defense is in place first.
+- Pending: usage idempotency keys should include execution id and receipt id when provider usage metering is added.
+- Risks: provider usage billing must still be platform-owned and idempotent independently from callback receipts.
+
+## 2026-05-16 — Runtime Provider Usage Billing
+
+- Changed: Runtime provider calls are now metered by Synapse core as `AI_CALL` events with `unit = provider_call`.
+- Completed: metering uses execution request idempotency, so repeated dispatch handling does not duplicate usage events.
+- Completed: billing metadata includes provider, model, status, latency, and provider usage counters only.
+- Pending: async callback metering and rated pricing defaults for `AI_CALL/provider_call`.
+- Risks: do not bill raw Runtime transport failures with no provider metadata as provider calls.
+- Next recommended step: add pricing/rating fixtures for `AI_CALL/provider_call` after live provider smoke tests.
+
+## 2026-05-16 — Async Runtime Billing Boundary
+
+- Changed: async Runtime acceptance does not itself create billable provider usage.
+- Completed: provider-call billing still requires provider metadata from a Runtime result.
+- Pending: record `AI_CALL/provider_call` from first-seen async callback payloads after replay receipt claim.
+- Risks: avoid billing both the initial `accepted/RUNNING` response and the terminal callback.
+
+## 2026-05-16 — Callback Provider Usage Billing
+
+- Changed: first-seen async callbacks now record `AI_CALL/provider_call` through Synapse usage metering.
+- Completed: replayed callbacks do not create usage events.
+- Completed: module output extraction is separate from provider usage billing metadata.
+- Pending: rated pricing defaults and DB fixture for replay/no-double-metering.
+- Risks: provider usage from callback and synchronous dispatch share the same usage idempotency key; keep that behavior to prevent double billing.

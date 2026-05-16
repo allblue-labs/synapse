@@ -704,3 +704,33 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Completed: module selection uses the saved execution context, preserving tenant/module ownership from the original governed request.
 - Pending: DB fixture for callback cross-tenant rejection and replay prevention.
 - Risks: callback payload tenant id must never be the only tenant boundary; persisted execution lookup remains mandatory.
+
+## 2026-05-16 — Runtime Callback Receipt Tenancy
+
+- Changed: callback receipts are tenant-scoped platform records.
+- Completed: receipt rows carry `tenantId` and `executionRequestId`, with indexes for tenant/execution callback history.
+- Completed: receipt claim only occurs after loading the tenant-scoped execution request through lifecycle service.
+- Pending: database fixture for tenant-scoped receipt visibility and cross-tenant callback rejection.
+- Risks: callback receipts are in `public`; app-level tenant filtering remains mandatory until platform RLS is expanded.
+
+## 2026-05-16 — Runtime Usage Tenancy
+
+- Changed: Runtime provider usage is recorded under the tenant id from the persisted `ExecutionRequest`.
+- Completed: module slug is copied from the governed execution context, not from provider output.
+- Completed: idempotency key includes tenant id and execution request id.
+- Pending: DB fixture proving tenant-scoped usage summaries for Runtime provider calls.
+- Risks: future callback payloads must not be allowed to override tenant/module usage ownership.
+
+## 2026-05-16 — Runtime Async Callback Tenancy
+
+- Changed: async callback payloads carry tenant id and execution request id from the original platform request.
+- Completed: Synapse still loads the persisted execution request by tenant before routing results.
+- Pending: end-to-end cross-tenant callback rejection fixture.
+- Risks: callback tenant id is transport data only; persisted execution ownership remains the boundary.
+
+## 2026-05-16 — Callback Usage Tenancy
+
+- Changed: callback provider usage is recorded under the persisted execution request tenant.
+- Completed: module slug comes from saved execution context, not callback-provided module data.
+- Pending: usage summary fixture for async callback provider calls.
+- Risks: future callback fields must not override tenant/module ownership.

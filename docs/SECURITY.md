@@ -759,3 +759,36 @@ Not yet configured. Required before production:
 - Completed: Pulse no longer owns a runtime callback controller.
 - Pending: callback replay/idempotency table and key rotation.
 - Risks: shared-secret auth is still V1; production should move toward managed rotation/workload identity.
+
+## 2026-05-16 — Runtime Callback Replay Defense
+
+- Changed: runtime callback replay defense now exists in persistent platform storage.
+- Completed: receipt claim happens after HMAC validation and persisted execution lookup, but before module handler invocation.
+- Completed: raw callback bodies and signatures are not stored; `bodyHash` and `signatureHash` are stored instead.
+- Completed: duplicate exact callbacks increment `replayCount` and skip module handlers.
+- Pending: operational alerting on replay spikes and managed key rotation.
+- Risks: callback bodies with different payloads for the same execution are not considered replays by V1; lifecycle transition rules still block invalid terminal transitions.
+
+## 2026-05-16 — Runtime Usage Metering AppSec
+
+- Changed: provider usage metering happens inside Synapse core after a signed Runtime response.
+- Completed: usage metadata is audit-safe and excludes prompts, message content, raw provider output, secrets, and chain-of-thought.
+- Completed: usage idempotency is tenant-scoped and tied to the persisted execution request.
+- Pending: same filtering/idempotency path for future async callback results.
+- Risks: provider `usage` metadata must remain counter-like; do not persist arbitrary provider payloads into billing metadata.
+
+## 2026-05-16 — Runtime Async Callback AppSec
+
+- Changed: Runtime can now deliver async results only through signed callbacks to Synapse core.
+- Completed: callback payloads target `/v1/runtime/results`, where Synapse validates raw-body HMAC before receipt claim or module routing.
+- Completed: callback URL is supplied by Synapse API configuration, not by product modules.
+- Pending: managed key rotation and durable callback attempt ids.
+- Risks: async callback signature proves Runtime identity, not user authorization; module action governance still revalidates saved actor snapshots.
+
+## 2026-05-16 — Callback Usage Metering AppSec
+
+- Changed: provider usage metering runs after HMAC validation and first-seen callback receipt claim.
+- Completed: callback replays do not meter usage or reach module handlers.
+- Completed: module handlers receive unwrapped module output, not the full provider envelope.
+- Pending: DB fixture for replay plus usage idempotency.
+- Risks: provider envelope must remain audit-safe; do not add prompts or raw messages to callback output.

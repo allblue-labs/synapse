@@ -77,6 +77,28 @@ export class PulseExecutionProcessor extends WorkerHost {
         },
       });
 
+      if (runtimeResponse.status === ExecutionStatus.RUNNING) {
+        await this.queues.enqueueTimeline({
+          tenantId: job.data.tenantId,
+          idempotencyKey: `pulse.timeline:${job.data.tenantId}:${job.data.executionRequestId}:dispatch-pending-callback`,
+          traceId: job.data.traceId,
+          eventType: PULSE_EVENT_TYPES.RUNTIME_EXECUTION_DISPATCH_COMPLETED,
+          payload: {
+            executionRequestId: job.data.executionRequestId,
+            status: runtimeResponse.status,
+            providerCalls: true,
+            actionPlanning: 'pending_async_callback',
+          },
+          metadata: {
+            source: PULSE_QUEUES.EXECUTION,
+            idempotencyKey: job.data.idempotencyKey,
+            providerCalls: true,
+            transport,
+          },
+        });
+        return;
+      }
+
       const moduleOutput = this.moduleOutput(runtimeResponse);
       if (this.hasActorSnapshot(request)) {
         await this.ingestRuntimeResult.execute({

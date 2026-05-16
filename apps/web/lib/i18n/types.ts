@@ -17,7 +17,7 @@ export type Locale = 'en' | 'pt-br';
 export type LocalePreference = Locale | 'system';
 
 export const SUPPORTED_LOCALES: ReadonlyArray<Locale> = ['en', 'pt-br'];
-export const DEFAULT_LOCALE: Locale = 'en';
+export const DEFAULT_LOCALE: Locale = 'pt-br';
 
 /** Cookie name shared by server (SSR) and client (toggle). */
 export const LOCALE_COOKIE = 'synapse_locale';

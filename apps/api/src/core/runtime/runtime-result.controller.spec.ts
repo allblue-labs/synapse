@@ -49,7 +49,11 @@ describe('RuntimeResultController', () => {
         originalUrl: '/v1/runtime/results',
         rawBody,
       } as never,
-      { 'x-synapse-runtime-signature': 'sha256=test' },
+      {
+        'x-synapse-runtime-key-id': 'platform',
+        'x-synapse-runtime-timestamp': '1778241600',
+        'x-synapse-runtime-signature': 'sha256=test',
+      },
       dto,
     )).resolves.toEqual({ ok: true });
 
@@ -57,9 +61,19 @@ describe('RuntimeResultController', () => {
       method: 'POST',
       path: '/v1/runtime/results',
       body: rawBody.toString('utf8'),
-      headers: { 'x-synapse-runtime-signature': 'sha256=test' },
+      headers: {
+        'x-synapse-runtime-key-id': 'platform',
+        'x-synapse-runtime-timestamp': '1778241600',
+        'x-synapse-runtime-signature': 'sha256=test',
+      },
     });
-    expect(ingress.ingest).toHaveBeenCalledWith(dto);
+    expect(ingress.ingest).toHaveBeenCalledWith({
+      dto,
+      rawBody: rawBody.toString('utf8'),
+      signatureKeyId: 'platform',
+      signatureTimestamp: '1778241600',
+      signature: 'sha256=test',
+    });
   });
 
   it('fails closed when raw body is unavailable', () => {

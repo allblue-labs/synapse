@@ -3,12 +3,14 @@ import type { ExecutionRequestContract, ExecutionResponseContract } from '@synap
 import { ExecutionStatus } from '@prisma/client';
 import { RuntimeHttpClient } from './runtime-http.client';
 import { RuntimeExecutionLifecycleService } from './runtime-execution-lifecycle.service';
+import { RuntimeUsageMeteringService } from './runtime-usage-metering.service';
 
 @Injectable()
 export class RuntimeExecutionDispatchService {
   constructor(
     private readonly lifecycle: RuntimeExecutionLifecycleService,
     private readonly runtime: RuntimeHttpClient,
+    private readonly usage: RuntimeUsageMeteringService,
   ) {}
 
   async dispatchQueued(input: {
@@ -39,6 +41,11 @@ export class RuntimeExecutionDispatchService {
     });
 
     const response = await this.runtime.submit(this.toRuntimeExecutionRequest(request));
+    await this.usage.recordProviderCall({
+      request,
+      response,
+      transport: this.runtime.transport,
+    });
     return { request, response, transport: this.runtime.transport };
   }
 

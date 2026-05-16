@@ -125,3 +125,67 @@
 **Risk:** Replay protection is still pending.
 
 **Next recommended step:** add callback receipt storage before async callbacks are enabled.
+
+---
+
+## 2026-05-16 — Synapse owns Runtime callback replay receipts
+
+**Decision:** Treat callback receipt/replay storage as a Synapse platform concern.
+
+**Reason:** The Runtime should sign callbacks, but Synapse owns persistence, replay decisions, module routing, and idempotent handler invocation.
+
+**Consequence:** Runtime async sender can retry safely against `/v1/runtime/results`; Synapse decides whether a callback is first-seen or replayed.
+
+**Status:** Synapse-side receipt storage implemented.
+
+**Risk:** Runtime still needs explicit callback attempt ids for better observability.
+
+**Next recommended step:** add Runtime-side callback sender/retry policy after smoke testing signed REST.
+
+---
+
+## 2026-05-16 — Runtime provides usage metadata, Synapse meters usage
+
+**Decision:** Runtime adapters may return provider usage metadata, but only Synapse records billable usage.
+
+**Reason:** Runtime is the execution plane. Synapse is the governance and billing control plane.
+
+**Consequence:** Runtime must not store billing records, enforce quotas, rate usage, or know plan limits.
+
+**Status:** Implemented on the Synapse synchronous dispatch path.
+
+**Risk:** Future async callback implementation must keep this split intact.
+
+**Next recommended step:** include provider usage metadata in signed async callbacks without adding billing behavior to Runtime.
+
+---
+
+## 2026-05-16 — Add opt-in async callbacks before durable runtime queues
+
+**Decision:** Implement async callback delivery as an opt-in REST capability before introducing durable queue/gRPC transport.
+
+**Reason:** Synapse needs the callback contract validated early while preserving the current synchronous path by default.
+
+**Consequence:** Runtime can return `accepted` and later POST signed terminal results to Synapse core.
+
+**Status:** Implemented.
+
+**Risk:** In-process async execution can be lost on Runtime restart.
+
+**Next recommended step:** replace in-process async work with durable queue-backed execution.
+
+---
+
+## 2026-05-16 — Preserve provider metadata in callback envelope
+
+**Decision:** Runtime callbacks include provider/model/usage/latency metadata and `runtimeExecutionId`.
+
+**Reason:** Synapse needs audit-safe execution metadata to meter provider calls while keeping billing outside Runtime.
+
+**Consequence:** Synapse can split the provider envelope from module output at callback ingress.
+
+**Status:** Implemented.
+
+**Risk:** Callback payloads must not include raw prompts, provider secrets, or chain-of-thought.
+
+**Next recommended step:** add callback attempt ids for retry observability.

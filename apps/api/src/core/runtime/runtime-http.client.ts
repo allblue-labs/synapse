@@ -11,13 +11,14 @@ import { RuntimeExecutionProvider } from './contracts/runtime-execution.contract
 type RuntimeRestExecutionResponse = {
   executionId: string;
   tenantId: string;
+  executionRequestId?: string;
   provider?: string;
   model?: string;
   output?: string;
   structuredPayload?: Record<string, unknown>;
   usage?: Record<string, unknown>;
   latencyMs?: number;
-  status: 'succeeded' | 'failed' | 'cancelled' | 'timed_out';
+  status: 'accepted' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'timed_out';
   error?: string;
   startedAt?: string;
   completedAt?: string;
@@ -95,6 +96,21 @@ export class RuntimeHttpClient implements RuntimeExecutionProvider {
         executionRequestId: request.id,
         idempotencyKey: request.idempotencyKey,
       },
+      callback: this.callbackConfig(),
+    };
+  }
+
+  private callbackConfig() {
+    const asyncCallbacks = this.config.get<boolean>('SYNAPSE_RUNTIME_ASYNC_CALLBACKS') ?? false;
+    const url = this.config.get<string>('SYNAPSE_RUNTIME_CALLBACK_URL');
+    if (!asyncCallbacks || !url) {
+      return undefined;
+    }
+    return {
+      async: true,
+      url,
+      maxRetries: 3,
+      timeoutMs: 10_000,
     };
   }
 
@@ -124,6 +140,8 @@ export class RuntimeHttpClient implements RuntimeExecutionProvider {
 
   private toPlatformStatus(status: RuntimeRestExecutionResponse['status']): ExecutionResponseContract['status'] {
     return {
+      accepted: 'RUNNING',
+      running: 'RUNNING',
       succeeded: 'SUCCEEDED',
       failed: 'FAILED',
       cancelled: 'CANCELLED',
@@ -134,6 +152,6 @@ export class RuntimeHttpClient implements RuntimeExecutionProvider {
   private isRuntimeExecutionResponse(value: Partial<RuntimeRestExecutionResponse>): value is RuntimeRestExecutionResponse {
     return typeof value.executionId === 'string' &&
       typeof value.tenantId === 'string' &&
-      ['succeeded', 'failed', 'cancelled', 'timed_out'].includes(String(value.status));
+      ['accepted', 'running', 'succeeded', 'failed', 'cancelled', 'timed_out'].includes(String(value.status));
   }
 }

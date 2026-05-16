@@ -183,6 +183,61 @@ describe('PulseExecutionProcessor', () => {
     }));
   });
 
+  it('leaves execution running when the Runtime accepts async callback delivery', async () => {
+    runtimeLifecycle.get.mockResolvedValue({
+      id: 'exec-1',
+      status: ExecutionStatus.QUEUED,
+    });
+    runtimeDispatcher.dispatchQueued.mockResolvedValue({
+      transport: 'http',
+      request: {
+        id: 'exec-1',
+        context: {
+          tenantId: 'tenant-1',
+          moduleSlug: 'pulse',
+          metadata: {
+            actorSnapshot: {
+              userId: 'user-1',
+              email: 'operator@synapse.test',
+              role: 'tenant_operator',
+              permissions: ['tickets:write'],
+            },
+          },
+        },
+        requestType: 'pulse.advance_flow',
+        input: { contextPack: { version: 'pulse.context-pack.v1' } },
+        requestedAt: '2026-05-09T12:00:00.000Z',
+      },
+      response: {
+        id: 'runtime-exec-1',
+        tenantId: 'tenant-1',
+        moduleSlug: 'pulse',
+        status: ExecutionStatus.RUNNING,
+      },
+    });
+
+    const processor = new PulseExecutionProcessor(
+      runtimeLifecycle as never,
+      runtimeDispatcher as never,
+      ingestRuntimeResult as never,
+      queues as never,
+    );
+
+    await processor.process(createJob() as never);
+
+    expect(ingestRuntimeResult.execute).not.toHaveBeenCalled();
+    expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'tenant-1',
+      eventType: 'pulse.runtime.execution_dispatch_completed',
+      idempotencyKey: 'pulse.timeline:tenant-1:exec-1:dispatch-pending-callback',
+      payload: expect.objectContaining({
+        status: ExecutionStatus.RUNNING,
+        actionPlanning: 'pending_async_callback',
+      }),
+    }));
+    expect(queues.enqueueFailed).not.toHaveBeenCalled();
+  });
+
   it('captures failed execution dispatches and rethrows for BullMQ retry handling', async () => {
     runtimeLifecycle.get.mockRejectedValue(new Error('database unavailable'));
     const processor = new PulseExecutionProcessor(

@@ -24,6 +24,11 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().optional(),
   REQUEST_BODY_LIMIT: z.string().default('1mb'),
   SYNAPSE_RUNTIME_URL: z.string().url().optional(),
+  SYNAPSE_RUNTIME_CALLBACK_URL: z.string().url().optional(),
+  SYNAPSE_RUNTIME_ASYNC_CALLBACKS: z
+    .enum(['true', 'false', '1', '0'])
+    .default('false')
+    .transform((value) => value === 'true' || value === '1'),
   SYNAPSE_RUNTIME_SHARED_SECRET: z.string().min(32).optional(),
   SYNAPSE_RUNTIME_KEY_ID: z.string().default('platform'),
   SYNAPSE_RUNTIME_SIGNATURE_TOLERANCE_SECONDS: z.coerce.number().int().positive().default(300)

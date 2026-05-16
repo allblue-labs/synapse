@@ -43,10 +43,12 @@ func (c *Client) Execute(ctx context.Context, request contracts.ExecutionRequest
 	if model == "" {
 		model = "claude-3-5-haiku-latest"
 	}
+	system, messages := messages(request.Input)
 	payload := messagesRequest{
 		Model:     model,
 		MaxTokens: 1024,
-		Messages:  messages(request.Input),
+		System:    system,
+		Messages:  messages,
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -113,26 +115,38 @@ func (c *Client) Models(context.Context) ([]string, error) {
 	return []string{"claude-3-5-haiku-latest", "claude-3-5-sonnet-latest"}, nil
 }
 
-func messages(input contracts.ExecutionInput) []message {
+func messages(input contracts.ExecutionInput) (string, []message) {
 	if len(input.Messages) > 0 {
-		out := make([]message, len(input.Messages))
-		for i, item := range input.Messages {
+		out := make([]message, 0, len(input.Messages))
+		system := ""
+		for _, item := range input.Messages {
+			if item.Role == "system" {
+				if system != "" {
+					system += "\n\n"
+				}
+				system += item.Content
+				continue
+			}
 			role := item.Role
 			if role == "assistant" {
 				role = "assistant"
 			} else {
 				role = "user"
 			}
-			out[i] = message{Role: role, Content: item.Content}
+			out = append(out, message{Role: role, Content: item.Content})
 		}
-		return out
+		if len(out) == 0 && system != "" {
+			out = append(out, message{Role: "user", Content: "Execute the system instruction."})
+		}
+		return system, out
 	}
-	return []message{{Role: "user", Content: input.Prompt}}
+	return "", []message{{Role: "user", Content: input.Prompt}}
 }
 
 type messagesRequest struct {
 	Model     string    `json:"model"`
 	MaxTokens int       `json:"max_tokens"`
+	System    string    `json:"system,omitempty"`
 	Messages  []message `json:"messages"`
 }
 

@@ -657,3 +657,34 @@ Synapse billing is platform-level. Modules are purchased or enabled through mark
 - Pending: cross-schema lifecycle fixture after migration.
 - Risks: RLS-protected module writes must still emit usage through platform services.
 - Next recommended step: rerun lifecycle DB fixtures with RLS active.
+
+## 2026-05-16 Stage 5E — Billing Neutral RLS Fixtures
+
+- Changed: expanded Pulse RLS fixtures without adding module-owned billing enforcement.
+- Completed: fixture remains focused on tenant visibility, not credits or usage rating.
+- Pending: lifecycle usage fixture with RLS active.
+- Risks: usage/billing validation must remain in platform fixtures.
+- Next recommended step: rerun billing usage fixtures after DB migration rehearsal.
+
+## 2026-05-16 — Tenant Context Profile Billing Boundary
+
+- Changed: Tenant Context Profile sits after tenant/subscription/module purchase checks but before normal module usage.
+- Completed: profile approval does not consume credits, rate usage, enforce plan limits, or alter subscriptions.
+- Pending: module activation/use gates should combine billing governance with approved profile checks.
+- Risks: do not attach plan/credit/quota state to Tenant Context Profile; Synapse billing services remain the source of truth.
+- Next recommended step: expose frontend copy that distinguishes billing approval from profile approval.
+
+## 2026-05-16 — Runtime V1 Usage Billing Boundary
+
+- Changed: runtime provider execution now exists as a real future usage source for AI calls.
+- Completed: billing and credit enforcement still remain platform-owned; the Go Runtime does not rate, bill, or enforce tenant quotas.
+- Pending: meter successful/failed provider calls from runtime execution metadata through Synapse usage services.
+- Risks: provider success should not automatically imply billable module action success; provider usage and operational action usage are separate events.
+- Next recommended step: add platform usage recording for runtime provider calls after end-to-end smoke tests.
+
+## 2026-05-16 — Runtime Result Billing Boundary
+
+- Changed: runtime results enter through Synapse core before module handlers can emit usage candidates.
+- Completed: modules still do not rate provider usage; provider billing metadata must be consumed by Synapse usage/billing services.
+- Pending: provider usage event mapping from runtime responses.
+- Risks: callback success must not bypass plan/credit governance for future async executions.

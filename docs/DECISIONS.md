@@ -1032,13 +1032,13 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 
 ## 2026-05-09 — Runtime callbacks use HMAC raw-body verification
 
-**Decision:** Expose Pulse runtime result ingress as a public JWT-bypass route protected by HMAC signature validation.
+**Decision:** Expose Synapse runtime result ingress as a public JWT-bypass route protected by HMAC signature validation.
 
 **Reason:** External runtime services should not use tenant-user JWTs, but callback payloads must still be authenticated and tamper-evident.
 
-**Consequence:** `/v1/pulse/runtime/results` requires raw body, runtime key id, timestamp, and signature headers before invoking module ingestion.
+**Consequence:** `/v1/runtime/results` requires raw body, runtime key id, timestamp, and signature headers before Synapse routes the result by the persisted execution request module.
 
-**Status:** Implemented for Pulse result ingress.
+**Status:** Implemented as a central Synapse runtime ingress with module handler registry.
 
 **Risk:** Shared secret key rotation, replay persistence, and server-side actor snapshot resolution are still pending.
 
@@ -1491,3 +1491,67 @@ Tenant-facing registry operations only list and activate `PUBLIC` modules.
 **Risk:** Disposable DB rehearsal is still required before shared environment rollout.
 
 **Next recommended step:** run `RUN_DATABASE_TESTS=1 npm test -- pulse-rls.database-fixtures` after applying migrations.
+
+---
+
+## 2026-05-16 — Broaden Pulse RLS fixtures before rollout
+
+**Decision:** Expand the opt-in RLS fixture before live execution instead of validating tickets only.
+
+**Reason:** RLS applies to the whole Pulse schema; validating only tickets would miss schedule, integration, knowledge, conversation, and timeline paths.
+
+**Consequence:** A single fixture now exercises representative reads across the current Pulse operational surface.
+
+**Status:** Implemented; live execution pending database availability.
+
+**Risk:** Compile-time fixture coverage does not replace live PostgreSQL execution.
+
+**Next recommended step:** run the fixture against a migrated disposable database.
+
+---
+
+## 2026-05-16 — Add Synapse-owned Tenant Context Profile
+
+**Decision:** Create Tenant Context Profile as a platform-owned, versioned, one-time tenant operational profile in the `public` schema.
+
+**Reason:** Synapse needs a reusable global business context before modules run, but module-specific cognitive/operational context must remain owned by each module.
+
+**Consequence:** Approved profiles produce a `TenantContextContract`; modules consume that contract through Synapse services and merge it with their own module context.
+
+**Status:** Implemented foundation, API, contract, lifecycle, migration, and unit tests.
+
+**Risk:** If future work adds module fields here, the platform profile will become a hidden module schema. Keep Pulse-specific schedule, escalation, campaigns, and fallback messages in Pulse tables.
+
+**Next recommended step:** enforce approved Tenant Context Profile during module activation/use and add database-backed tenant isolation fixtures.
+
+---
+
+## 2026-05-16 — Integrate Synapse core with isolated Go Runtime over signed REST
+
+**Decision:** Use a Synapse-owned `RuntimeExecutionDispatchService` as the only API-side component that calls the isolated Go Runtime.
+
+**Reason:** Product modules must not know runtime transports, runtime URLs, provider clients, signatures, or provider policy. They submit module-owned context through Synapse contracts; Synapse orchestrates execution.
+
+**Consequence:** Synapse owns governance, persistence, RBAC, audit, runtime dispatch, and provider orchestration policy. Modules remain operational context/intelligence layers and never call Runtime directly.
+
+**Status:** Implemented for the current Pulse execution queue via Synapse dispatch service.
+
+**Risk:** Synchronous provider calls can consume worker capacity; async callbacks remain required before high-volume production use.
+
+**Next recommended step:** add callback replay ledger and then switch long-running provider work to async callback/queue transport.
+
+---
+
+## 2026-05-16 — Runtime callbacks terminate in Synapse core
+
+**Decision:** Runtime result callbacks use `/v1/runtime/results` in Synapse core, not module-specific HTTP controllers.
+
+**Reason:** Modules must not know Runtime transport or authentication. The platform must authenticate callbacks and route results according to persisted execution ownership.
+
+**Consequence:** Modules register `RuntimeResultHandler` implementations with Synapse. Synapse validates HMAC/raw body, loads the execution request, resolves the saved `moduleSlug`, and invokes the handler contract.
+
+**Status:** Implemented for Pulse.
+
+**Risk:** Callback replay/idempotency storage is still pending.
+
+**Next recommended step:** add callback receipt persistence before enabling asynchronous Runtime-to-Synapse callbacks.

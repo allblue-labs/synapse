@@ -689,3 +689,37 @@ When modules are enabled or disabled, Synapse updates a tenant runtime spec. Tod
 - Pending: document a reusable RLS checklist for future module schemas.
 - Risks: module-to-module DB references would complicate RLS ownership and should be avoided.
 - Next recommended step: add module schema/RLS template before building another module.
+
+## 2026-05-16 Stage 5E — Module RLS Fixture Pattern
+
+- Changed: Pulse RLS fixture now acts as the first module schema fixture template.
+- Completed: fixture uses module repositories/services instead of direct table reads for allowed access.
+- Pending: convert this into reusable guidance for the next module.
+- Risks: each future module still needs its own schema-specific fixture.
+- Next recommended step: document a module RLS fixture checklist.
+
+## 2026-05-16 — Tenant Context Contract For Modules
+
+- Changed: modules now have a Synapse-owned global profile contract available through `TenantContextService.getTenantContext()`.
+- Completed: Tenant Context Profile is explicitly not module onboarding and does not store Pulse-specific operational settings.
+- Completed: modules may merge `TenantContextContract` with their own isolated module context.
+- Pending: wire module activation/use gates to require an approved Tenant Context Profile.
+- Risks: modules must not query `tenant_context_*` tables directly; doing so would couple module internals to platform persistence.
+- Next recommended step: add a module-facing context accessor interface where Pulse prepares runtime Context Packs.
+
+## 2026-05-16 — Runtime V1 Module Boundary
+
+- Changed: Pulse remains responsible for assembling its Context Pack; Synapse/runtime do not inspect Pulse tables directly.
+- Completed: Synapse core derives runtime invocation input from the module-submitted Context Pack and sends it to the isolated Go Runtime.
+- Completed: Pulse does not know Runtime transport, URL, provider preference, signatures, or provider adapters.
+- Completed: runtime output returns to Pulse through module-owned validation and action governance.
+- Pending: shared module-to-runtime helper for future modules.
+- Risks: future modules must not embed provider orchestration locally; provider execution belongs in the Runtime service.
+
+## 2026-05-16 — Runtime Result Handler Boundary
+
+- Changed: modules no longer expose runtime callback HTTP endpoints.
+- Completed: modules may register `RuntimeResultHandler` adapters with Synapse core; Synapse owns transport, auth, persisted execution lookup, and routing.
+- Completed: Pulse handler delegates to Pulse result ingestion and does not know HMAC, URL, or Runtime client details.
+- Pending: standard module template for result handlers.
+- Risks: handler adapters must stay thin and must not become generic runtime orchestration surfaces.

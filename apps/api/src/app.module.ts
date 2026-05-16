@@ -23,6 +23,7 @@ import { CoreOrchestrationModule } from './core/orchestration/core-orchestration
 import { ModuleSystemModule } from './core/module-system/module-system.module';
 import { PulseModule } from './product-modules/pulse/pulse.module';
 import { RuntimeModule } from './core/runtime/runtime.module';
+import { TenantContextModule } from './modules/tenant-context/tenant-context.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { RuntimeModule } from './core/runtime/runtime.module';
     CoreIntelligenceModule,
     CoreOrchestrationModule,
     RuntimeModule,
+    TenantContextModule,
     ModuleSystemModule,
     PulseModule,
     BillingModule,

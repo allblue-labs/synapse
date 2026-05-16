@@ -1,8 +1,11 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { ExecutionStatus } from '@prisma/client';
+import type { ExecutionRequestContract, ExecutionResponseContract } from '@synapse/contracts';
 import { Job } from 'bullmq';
+import { RuntimeExecutionDispatchService } from '../../../../core/runtime/runtime-execution-dispatch.service';
 import { RuntimeExecutionLifecycleService } from '../../../../core/runtime/runtime-execution-lifecycle.service';
+import { IngestPulseRuntimeResultUseCase } from '../../application/use-cases/ingest-pulse-runtime-result.use-case';
 import { PULSE_EVENT_TYPES } from '../../domain/pulse-event-types';
 import {
   PULSE_QUEUES,
@@ -16,6 +19,8 @@ export class PulseExecutionProcessor extends WorkerHost {
 
   constructor(
     private readonly runtimeLifecycle: RuntimeExecutionLifecycleService,
+    private readonly runtimeDispatcher: RuntimeExecutionDispatchService,
+    private readonly ingestRuntimeResult: IngestPulseRuntimeResultUseCase,
     private readonly queues: PulseQueueService,
   ) {
     super();
@@ -29,7 +34,6 @@ export class PulseExecutionProcessor extends WorkerHost {
         job.data.tenantId,
         job.data.executionRequestId,
       );
-
       if (current.status !== ExecutionStatus.QUEUED) {
         await this.queues.enqueueTimeline({
           tenantId: job.data.tenantId,
@@ -49,17 +53,11 @@ export class PulseExecutionProcessor extends WorkerHost {
         return;
       }
 
-      await this.runtimeLifecycle.transition({
+      const dispatched = await this.runtimeDispatcher.dispatchQueued({
         tenantId: job.data.tenantId,
         executionId: job.data.executionRequestId,
-        status: ExecutionStatus.RUNNING,
-        output: {
-          dispatch: {
-            providerCalls: false,
-            stage: 'runtime_dispatch_prepared',
-          },
-        },
       });
+      const { request, response: runtimeResponse, transport } = dispatched;
 
       await this.queues.enqueueTimeline({
         tenantId: job.data.tenantId,
@@ -69,29 +67,35 @@ export class PulseExecutionProcessor extends WorkerHost {
         payload: {
           executionRequestId: job.data.executionRequestId,
           status: ExecutionStatus.RUNNING,
-          providerCalls: false,
+          providerCalls: true,
         },
         metadata: {
           source: PULSE_QUEUES.EXECUTION,
           idempotencyKey: job.data.idempotencyKey,
           contextPackVersion: job.data.contextPackVersion,
+          transport,
         },
       });
 
-      await this.runtimeLifecycle.transition({
-        tenantId: job.data.tenantId,
-        executionId: job.data.executionRequestId,
-        status: ExecutionStatus.SUCCEEDED,
-        output: {
-          dispatch: {
-            prepared: true,
-            executable: false,
-            reason: 'runtime_provider_not_implemented',
-            providerCalls: false,
-            contextPackVersion: job.data.contextPackVersion,
-          },
-        },
-      });
+      const moduleOutput = this.moduleOutput(runtimeResponse);
+      if (this.hasActorSnapshot(request)) {
+        await this.ingestRuntimeResult.execute({
+          tenantId: job.data.tenantId,
+          executionRequestId: job.data.executionRequestId,
+          status: runtimeResponse.status,
+          output: moduleOutput,
+          errorMessage: runtimeResponse.errorMessage,
+          traceId: job.data.traceId,
+        });
+      } else {
+        await this.runtimeLifecycle.transition({
+          tenantId: job.data.tenantId,
+          executionId: job.data.executionRequestId,
+          status: runtimeResponse.status,
+          output: moduleOutput ?? runtimeResponse.output,
+          errorMessage: runtimeResponse.errorMessage,
+        });
+      }
 
       await this.queues.enqueueTimeline({
         tenantId: job.data.tenantId,
@@ -100,15 +104,17 @@ export class PulseExecutionProcessor extends WorkerHost {
         eventType: PULSE_EVENT_TYPES.RUNTIME_EXECUTION_DISPATCH_COMPLETED,
         payload: {
           executionRequestId: job.data.executionRequestId,
-          status: ExecutionStatus.SUCCEEDED,
-          prepared: true,
-          executable: false,
-          reason: 'runtime_provider_not_implemented',
+          status: runtimeResponse.status,
+          provider: this.stringValue(runtimeResponse.output?.provider),
+          model: this.stringValue(runtimeResponse.output?.model),
+          providerCalls: true,
+          actionPlanning: this.hasActorSnapshot(request) ? 'ingested' : 'skipped_missing_actor_snapshot',
         },
         metadata: {
           source: PULSE_QUEUES.EXECUTION,
           idempotencyKey: job.data.idempotencyKey,
-          providerCalls: false,
+          providerCalls: true,
+          transport,
         },
       });
     } catch (error) {
@@ -162,5 +168,38 @@ export class PulseExecutionProcessor extends WorkerHost {
         idempotencyKey: job.data.idempotencyKey,
       },
     });
+  }
+
+  private moduleOutput(response: ExecutionResponseContract) {
+    const output = response.output;
+    if (!output || typeof output !== 'object') {
+      return undefined;
+    }
+    const structuredPayload = output.structuredPayload;
+    if (structuredPayload && typeof structuredPayload === 'object' && !Array.isArray(structuredPayload)) {
+      return structuredPayload as Record<string, unknown>;
+    }
+    const raw = output.output;
+    if (typeof raw !== 'string') {
+      return undefined;
+    }
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return undefined;
+    }
+    return undefined;
+  }
+
+  private hasActorSnapshot(request: ExecutionRequestContract) {
+    const actor = request.context.metadata?.actorSnapshot;
+    return Boolean(actor && typeof actor === 'object' && !Array.isArray(actor));
+  }
+
+  private stringValue(value: unknown) {
+    return typeof value === 'string' ? value : undefined;
   }
 }

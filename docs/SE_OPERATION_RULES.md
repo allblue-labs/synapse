@@ -68,3 +68,8 @@
 - Synapse governance remains centralized in `public.*`; modules must not own subscription, quota, credit, billing, RBAC, module access, audit, or execution governance tables.
 - Pulse repositories must use tenant DB context before touching `pulse.*`; direct `this.prisma.pulse*` access is not allowed outside an explicit tenant transaction.
 - Pulse RLS is enabled with FORCE; fixture/setup code that must clean multiple tenants must use controlled platform bypass, not request-path shortcuts.
+- Pulse RLS fixtures must cover every module-owned table class before production rollout; current coverage includes tickets, channels, conversations, events, schedules, knowledge, and integrations.
+- Go Runtime executes provider calls only after Synapse governance persists and queues an `ExecutionRequest`; modules must not call providers or Runtime directly.
+- Runtime transport, signatures, provider preference, and provider policy belong to Synapse core only.
+- Runtime output must be treated as untrusted until module-owned schema validation and Synapse/Pulse action governance complete.
+- Runtime callbacks must terminate in Synapse core routes; modules may only expose result handler contracts, not callback HTTP controllers.

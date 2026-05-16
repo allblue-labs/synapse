@@ -338,6 +338,22 @@ Conversation messages can arrive rapidly. Future workers should use per-conversa
 
 - Changed: Pulse queue-backed repositories and action lifecycle transaction now run through tenant DB context.
 - Completed: action ledger/timeline writes run under tenant context for RLS.
+
+## 2026-05-16 — Pulse Execution Queue Runtime Dispatch
+
+- Changed: `pulse.execution` now delegates provider execution to Synapse core runtime dispatch for V1 provider execution.
+- Completed: dispatch timeline events mark `providerCalls: true` and include runtime transport metadata.
+- Completed: runtime transport/client/signature logic lives in Synapse core, not in the Pulse module.
+- Completed: runtime result ingestion remains downstream of module output validation and action governance.
+- Pending: async callback/queue transport so long provider calls do not hold the worker.
+- Risks: worker concurrency must be sized carefully while V1 dispatch is synchronous HTTP.
+
+## 2026-05-16 — Runtime Result Ingress Routing
+
+- Changed: runtime callbacks are centralized in Synapse core and then routed to module handlers.
+- Completed: Pulse result processing is now a registered handler, not a callback controller.
+- Pending: queue-based callback ingestion and replay ledger.
+- Risks: async callback work should preserve the same central ingress/registry contract.
 - Pending: worker fixture against live DB with two tenants.
 - Risks: BullMQ payload tenant id must continue to be validated before repository calls.
 - Next recommended step: add queue payload validation fixture with RLS active.
@@ -349,3 +365,11 @@ Conversation messages can arrive rapidly. Future workers should use per-conversa
 - Pending: run worker DB fixture with RLS active.
 - Risks: invalid tenant ids in jobs will fail hard at the DB layer; processors must keep safe error handling.
 - Next recommended step: add failed-job assertions for RLS/policy rejection.
+
+## 2026-05-16 Stage 5E — Queue RLS Fixture Base
+
+- Changed: operational event RLS coverage was added to the broader Pulse fixture.
+- Completed: timeline/event visibility is included before dedicated worker fixtures.
+- Pending: action ledger and worker processor live DB fixture.
+- Risks: queue payload validation still needs a worker-specific fixture.
+- Next recommended step: add worker fixture once DB is reachable.

@@ -273,3 +273,17 @@ This keeps module code extractable-first while ensuring every current Pulse oper
 Pulse RLS is enabled and forced in migration for current `pulse.*` tables.
 
 The database policy uses `app_security.tenant_visible("tenantId")`, which requires the transaction-scoped tenant id set by Synapse or an explicit controlled platform bypass. This makes schema separation an actual tenant isolation layer, not only organization.
+
+## 2026-05-16 Pulse RLS Fixture Coverage
+
+The opt-in Pulse RLS fixture now spans the operational surfaces that matter for V1: tickets, channels, conversations, timeline events, schedules, knowledge, and integrations.
+
+The fixture remains skipped by default and must be run with `RUN_DATABASE_TESTS=1` against a migrated PostgreSQL database.
+
+## 2026-05-16 Runtime V1 Handoff
+
+Synapse remains the control plane for runtime execution: it persists `ExecutionRequest`, validates module governance, queues work, signs the request, and ingests the normalized result.
+
+The isolated Go Runtime is now the first execution plane for provider calls. Synapse core derives an invocation from the module-submitted Context Pack, calls `POST /executions` over signed REST, and routes successful output back through module validation/action governance. OpenAI and Claude stay behind runtime provider adapters; provider logic is not embedded in Pulse or other modules.
+
+Runtime results return through Synapse core `/v1/runtime/results`. The central ingress validates HMAC/raw body, loads the persisted execution request, resolves the module handler from saved `moduleSlug`, and then invokes the module adapter. Modules do not expose runtime callback controllers.

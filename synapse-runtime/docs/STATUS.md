@@ -30,3 +30,21 @@ Last updated: 2026-05-08
 - Pending: callback auth, key rotation, and end-to-end signed request tests across both services.
 - Risks: mismatched clocks can reject signed requests because the runtime enforces a five-minute replay window.
 - Next recommended step: add integration tests that run the Go Runtime locally and submit from the NestJS client.
+
+## 2026-05-16 Runtime V1 — Platform Handoff Readiness
+
+- Changed: runtime execution engine now normalizes structured JSON output when `structuredOutput` is requested.
+- Completed: invalid structured provider output becomes a failed provider attempt, allowing retry/fallback behavior to remain centralized in the engine.
+- Completed: Claude adapter now preserves `system` messages through Anthropic's `system` field instead of flattening them into normal user messages.
+- Completed: NestJS Synapse core runtime dispatch service now calls `POST /executions` through the signed runtime client; product modules do not know this client.
+- Pending: live provider smoke tests with `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, callback replay ledger, async result callbacks, and queue/gRPC transport.
+- Risks: V1 is synchronous REST; provider latency holds the API worker until async runtime callbacks are implemented.
+- Next recommended step: run local end-to-end smoke test with runtime and API containers sharing `SYNAPSE_RUNTIME_SHARED_SECRET`.
+
+## 2026-05-16 Runtime V1 — Central Callback Target
+
+- Changed: platform callback target is now Synapse core `/v1/runtime/results`.
+- Completed: product modules no longer own runtime callback HTTP endpoints.
+- Pending: async callback sender in Go Runtime and replay/idempotency contract in Synapse.
+- Risks: callback implementation must preserve HMAC signing and never route by untrusted payload module data.
+- Next recommended step: add callback receipt/replay design before Runtime pushes async results.

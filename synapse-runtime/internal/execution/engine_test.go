@@ -60,3 +60,51 @@ func TestEngineValidation(t *testing.T) {
 		t.Fatalf("unexpected error: %s", response.Error)
 	}
 }
+
+func TestEngineStructuredOutputParsing(t *testing.T) {
+	registry := providers.NewRegistry(
+		fake.Provider{NameValue: "openai", Output: `{"decisionSummary":"ok","confidence":0.9}`},
+	)
+	engine := NewEngine(registry, telemetry.NewLogger(), fixedID{})
+
+	response := engine.Execute(context.Background(), contracts.ExecutionRequest{
+		TenantID: "tenant-a",
+		Module:   "pulse",
+		Input:    contracts.ExecutionInput{Prompt: "return json"},
+		StructuredOutput: &contracts.StructuredOutputSpec{
+			Format: "json_schema",
+			Schema: map[string]any{"type": "object"},
+		},
+	})
+
+	if response.Status != contracts.StatusSucceeded {
+		t.Fatalf("expected success, got %s: %s", response.Status, response.Error)
+	}
+	if response.StructuredPayload["decisionSummary"] != "ok" {
+		t.Fatalf("expected parsed structured payload, got %#v", response.StructuredPayload)
+	}
+}
+
+func TestEngineStructuredOutputParsingFailure(t *testing.T) {
+	registry := providers.NewRegistry(
+		fake.Provider{NameValue: "openai", Output: "not json"},
+	)
+	engine := NewEngine(registry, telemetry.NewLogger(), fixedID{})
+
+	response := engine.Execute(context.Background(), contracts.ExecutionRequest{
+		TenantID: "tenant-a",
+		Module:   "pulse",
+		Input:    contracts.ExecutionInput{Prompt: "return json"},
+		StructuredOutput: &contracts.StructuredOutputSpec{
+			Format: "json_schema",
+			Schema: map[string]any{"type": "object"},
+		},
+	})
+
+	if response.Status != contracts.StatusFailed {
+		t.Fatalf("expected failed structured parsing, got %s", response.Status)
+	}
+	if len(response.Retry.ProviderErrors) == 0 {
+		t.Fatal("expected provider error metadata for invalid structured output")
+	}
+}

@@ -721,3 +721,41 @@ Not yet configured. Required before production:
 - Pending: run fixture against live disposable DB.
 - Risks: platform bypass must remain restricted to migrations/fixtures/system maintenance, never request handlers.
 - Next recommended step: add CI job for DB fixtures once disposable Postgres is available.
+
+## 2026-05-16 Stage 5E — RLS Fixture Breadth
+
+- Changed: expanded Pulse RLS fixture coverage across operational tables.
+- Completed: no-context and cross-tenant visibility checks now include representative Pulse module data beyond tickets.
+- Pending: live DB proof.
+- Risks: RLS fixture setup uses controlled platform bypass for cleanup only; request paths must never use that bypass.
+- Next recommended step: run fixture with `RUN_DATABASE_TESTS=1` after migrations.
+
+## 2026-05-16 — Tenant Context Profile AppSec
+
+- Changed: added a Synapse-owned tenant profile approval gate for normal module usage.
+- Completed: tenant profile routes require authenticated tenant context plus `tenant:read` or `tenant:update`.
+- Completed: `getTenantContext()` rejects missing/unapproved profiles and emits `tenant_profile_bypass_blocked`.
+- Completed: interview execution is behind `TenantProfileInterviewExecutor`; controllers do not call LLM providers directly.
+- Completed: drafts persist normalized answers and summaries/contracts only; no prompt text or chain-of-thought is stored.
+- Completed: profile start, answer save, summary generation, approval, update, and rejection emit audit events.
+- Pending: database-backed cross-tenant fixture for Tenant Context Profile once dev Postgres is available.
+- Risks: Tenant Context tables are platform `public` tables; app-level tenant guard/service filters remain mandatory. Modules must not query these tables directly.
+
+## 2026-05-16 — Runtime V1 AppSec
+
+- Changed: Synapse core execution dispatch uses signed service-to-service REST to the isolated Go Runtime.
+- Completed: runtime requests are HMAC signed with shared secret/key id; runtime rejects unsigned requests unless explicit dev mode is enabled.
+- Completed: product modules do not import runtime transport/client/signature components.
+- Completed: provider prompt is constructed only inside Synapse runtime orchestration at dispatch time from the already audit-safe submitted execution context.
+- Completed: successful runtime output only enters Pulse action planning when a saved actor snapshot exists for permission revalidation.
+- Pending: callback replay storage, key rotation, managed secret distribution, and live provider payload review.
+- Risks: synchronous runtime responses are trusted only after Pulse output schema validation; modules must not accept provider output directly.
+
+## 2026-05-16 — Runtime Result Ingress AppSec
+
+- Changed: runtime callbacks now terminate at Synapse core `/v1/runtime/results`.
+- Completed: central ingress requires raw-body HMAC validation before loading execution state or invoking module handlers.
+- Completed: module handler is resolved from persisted execution request `moduleSlug`, not from callback-provided routing data.
+- Completed: Pulse no longer owns a runtime callback controller.
+- Pending: callback replay/idempotency table and key rotation.
+- Risks: shared-secret auth is still V1; production should move toward managed rotation/workload identity.

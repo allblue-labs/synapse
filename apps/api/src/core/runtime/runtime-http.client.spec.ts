@@ -90,4 +90,39 @@ describe('RuntimeHttpClient', () => {
       requestedAt: '2026-05-08T09:59:00.000Z',
     })).rejects.toThrow('Synapse Runtime URL is not configured.');
   });
+
+  it('maps non-2xx runtime execution responses when the runtime returns lifecycle payload', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      json: jest.fn().mockResolvedValue({
+        executionId: 'runtime-exec-1',
+        tenantId: 'tenant-a',
+        provider: 'openai',
+        status: 'failed',
+        error: 'all providers failed',
+      }),
+    });
+    global.fetch = fetchMock as never;
+    const client = new RuntimeHttpClient(
+      { get: (key: string) => key === 'SYNAPSE_RUNTIME_URL' ? 'https://runtime.test/' : undefined } as never,
+      { sign: jest.fn().mockReturnValue({
+        [RuntimeSignatureHeaders.KEY_ID]: 'platform',
+        [RuntimeSignatureHeaders.TIMESTAMP]: '1778241600',
+        [RuntimeSignatureHeaders.SIGNATURE]: 'sha256=test',
+      }) } as never,
+    );
+
+    await expect(client.submit({
+      id: 'exec-1',
+      context: { tenantId: 'tenant-a', moduleSlug: 'pulse' },
+      requestType: 'pulse.test',
+      input: { input: { prompt: 'hello' } },
+      requestedAt: '2026-05-08T09:59:00.000Z',
+    })).resolves.toEqual(expect.objectContaining({
+      tenantId: 'tenant-a',
+      moduleSlug: 'pulse',
+      status: 'FAILED',
+      errorMessage: 'all providers failed',
+    }));
+  });
 });

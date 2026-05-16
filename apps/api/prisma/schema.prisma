@@ -339,13 +339,38 @@ enum ExecutionStatus {
   @@schema("public")
 }
 
+enum TenantContextProfileStatus {
+  PENDING
+  IN_PROGRESS
+  AWAITING_VALIDATION
+  APPROVED
+  REJECTED
+
+  @@schema("public")
+}
+
+enum TenantContextQuestionMode {
+  LLM
+  MANUAL_FORM
+
+  @@schema("public")
+}
+
+enum TenantContextSummaryStatus {
+  GENERATED
+  APPROVED
+  REJECTED
+
+  @@schema("public")
+}
+
 model Tenant {
-  id                        String                     @id @default(cuid())
+  id                        String                        @id @default(cuid())
   name                      String
-  slug                      String                     @unique
-  status                    TenantStatus               @default(PENDING_SETUP)
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
+  slug                      String                        @unique
+  status                    TenantStatus                  @default(PENDING_SETUP)
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
   users                     UserMembership[]
   agents                    Agent[]
   conversations             Conversation[]
@@ -371,6 +396,11 @@ model Tenant {
   usageEvents               UsageEvent[]
   usageAggregates           UsagePeriodAggregate[]
   usageStripeReports        UsageStripeReport[]
+  contextProfiles           TenantContextProfile[]
+  contextDrafts             TenantContextDraft[]
+  contextAnswers            TenantContextAnswer[]
+  contextSummaries          TenantContextSummary[]
+  contextVersions           TenantContextProfileVersion[]
 
   @@index([status])
   @@schema("public")
@@ -1131,5 +1161,126 @@ model ExecutionRequest {
   @@index([tenantId, status, updatedAt])
   @@index([tenantId, requestType, requestedAt])
   @@map("execution_requests")
+  @@schema("public")
+}
+
+model TenantContextProfile {
+  id                  String                     @id @default(cuid())
+  tenantId            String
+  status              TenantContextProfileStatus @default(PENDING)
+  schemaVersion       Int                        @default(1)
+  activeVersionNumber Int?
+  completedAt         DateTime?
+  approvedAt          DateTime?
+  approvedByUserId    String?
+  rejectedAt          DateTime?
+  rejectedByUserId    String?
+  rejectionReason     String?
+  metadata            Json                       @default("{}")
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+
+  tenant    Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  drafts    TenantContextDraft[]
+  answers   TenantContextAnswer[]
+  summaries TenantContextSummary[]
+  versions  TenantContextProfileVersion[]
+
+  @@unique([tenantId])
+  @@index([tenantId, status, updatedAt])
+  @@map("tenant_context_profiles")
+  @@schema("public")
+}
+
+model TenantContextProfileVersion {
+  id              String   @id @default(cuid())
+  tenantId        String
+  profileId       String
+  versionNumber   Int
+  schemaVersion   Int      @default(1)
+  contract        Json
+  business        Json
+  communication   Json
+  operational     Json
+  metadata        Json     @default("{}")
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profile   TenantContextProfile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  summaries TenantContextSummary[]
+
+  @@unique([profileId, versionNumber])
+  @@index([tenantId, versionNumber])
+  @@map("tenant_context_profile_versions")
+  @@schema("public")
+}
+
+model TenantContextDraft {
+  id              String                    @id @default(cuid())
+  tenantId        String
+  profileId       String
+  mode            TenantContextQuestionMode @default(LLM)
+  schemaVersion   Int                       @default(1)
+  answers         Json                      @default("{}")
+  currentQuestion String?
+  progress        Json                      @default("{}")
+  metadata        Json                      @default("{}")
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profile TenantContextProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId])
+  @@index([tenantId, updatedAt])
+  @@map("tenant_context_drafts")
+  @@schema("public")
+}
+
+model TenantContextAnswer {
+  id          String                    @id @default(cuid())
+  tenantId    String
+  profileId   String
+  questionKey String
+  answer      Json
+  normalized  Json?
+  mode        TenantContextQuestionMode @default(LLM)
+  metadata    Json                      @default("{}")
+  actorUserId String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profile TenantContextProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, questionKey])
+  @@index([tenantId, profileId, updatedAt])
+  @@map("tenant_context_answers")
+  @@schema("public")
+}
+
+model TenantContextSummary {
+  id            String                     @id @default(cuid())
+  tenantId      String
+  profileId     String
+  versionId     String?
+  schemaVersion Int                        @default(1)
+  summary       Json
+  contractDraft Json
+  status        TenantContextSummaryStatus @default(GENERATED)
+  generatedBy   String                     @default("internal")
+  actorUserId   String?
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  tenant  Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profile TenantContextProfile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  version TenantContextProfileVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, profileId, createdAt])
+  @@index([profileId, status, createdAt])
+  @@map("tenant_context_summaries")
   @@schema("public")
 }

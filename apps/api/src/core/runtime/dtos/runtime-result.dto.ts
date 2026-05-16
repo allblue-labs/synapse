@@ -1,26 +1,21 @@
-import {
-  IsIn,
-  IsObject,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsIn, IsObject, IsOptional, IsString } from 'class-validator';
 
-const EXECUTION_STATUSES = [
+const TERMINAL_EXECUTION_STATUSES = [
   'SUCCEEDED',
   'FAILED',
   'CANCELLED',
   'TIMED_OUT',
 ] as const;
 
-export class PulseRuntimeResultDto {
+export class RuntimeResultDto {
   @IsString()
   tenantId!: string;
 
   @IsString()
   executionRequestId!: string;
 
-  @IsIn(EXECUTION_STATUSES)
-  status!: typeof EXECUTION_STATUSES[number];
+  @IsIn(TERMINAL_EXECUTION_STATUSES)
+  status!: typeof TERMINAL_EXECUTION_STATUSES[number];
 
   @IsOptional()
   @IsObject()

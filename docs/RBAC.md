@@ -653,3 +653,35 @@ Synapse uses action-shaped permissions as the shared contract between backend ro
 - Pending: fixtures combining forbidden RBAC and RLS rejection.
 - Risks: successful RLS context does not mean a user is authorized; guards remain mandatory.
 - Next recommended step: add negative worker/action fixture with invalid actor permissions.
+
+## 2026-05-16 Stage 5E — RLS Fixture Scope
+
+- Changed: RLS fixture now validates several Pulse data classes behind the same tenant context boundary.
+- Completed: RBAC remains separate from DB visibility; fixture focuses on tenant row isolation only.
+- Pending: combined RBAC plus RLS negative fixture.
+- Risks: developers must not interpret RLS visibility as permission success.
+- Next recommended step: add forbidden-action audit fixture with RLS active.
+
+## 2026-05-16 — Tenant Context Profile RBAC
+
+- Changed: Tenant Context Profile APIs are protected by existing tenant permissions instead of ad hoc role checks.
+- Completed: read/status endpoints require `tenant:read`.
+- Completed: start, answer, manual submit, summary generation, approval, rejection, and edit require `tenant:update`.
+- Completed: tests assert controller permission metadata for the main routes.
+- Pending: frontend should hide/disable profile mutation controls for users lacking `tenant:update`.
+- Risks: future module code must call Synapse services and must not bypass RBAC by reading profile tables directly.
+
+## 2026-05-16 — Runtime V1 RBAC Boundary
+
+- Changed: runtime-dispatched Pulse results are action-planned only when the original execution request includes an actor snapshot.
+- Completed: actor snapshots continue through existing Pulse runtime ingestion and permission revalidation before any side effect.
+- Completed: executions without actor snapshots skip action planning instead of creating unauthorized module actions.
+- Pending: service-actor model for trusted automated workflows.
+- Risks: provider success is not authorization success; Synapse RBAC remains the gate before side effects.
+
+## 2026-05-16 — Runtime Result RBAC Boundary
+
+- Changed: runtime callback auth is centralized in Synapse core and remains separate from user JWT/RBAC.
+- Completed: callback payload cannot provide actor authority; Pulse ingestion still uses saved execution actor snapshots for side-effect planning.
+- Pending: service-actor policy for fully automated executions without a human actor snapshot.
+- Risks: never treat a valid runtime signature as permission to mutate module state; module handlers must re-enter existing governance.

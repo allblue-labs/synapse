@@ -25,6 +25,10 @@ export async function resetTenantFixtures(prisma: PrismaService, tenantIds: stri
       await tx.pulseTicket.deleteMany({ where: { tenantId: { in: tenantIds } } });
       await tx.pulseConversation.deleteMany({ where: { tenantId: { in: tenantIds } } });
       await tx.pulseChannel.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseOperationalSchedule.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseKnowledgeContext.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.pulseSkill.deleteMany({ where: { tenantId: { in: tenantIds } } });
+      await tx.integrationSetting.deleteMany({ where: { tenantId: { in: tenantIds } } });
       await tx.tenant.deleteMany({ where: { id: { in: tenantIds } } });
     },
     { platformBypass: true },

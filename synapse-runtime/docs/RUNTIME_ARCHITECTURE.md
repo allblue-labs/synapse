@@ -31,6 +31,7 @@ The Runtime is responsible for LLM/provider execution orchestration, timeout-saf
 7. Engine retries failed attempts up to policy limits.
 8. Engine falls back to the next allowed provider when enabled.
 9. Provider response is normalized into `ExecutionResponse`.
+   When structured output is requested, provider text is parsed as JSON into `structuredPayload`; invalid JSON fails the attempt and may trigger retry/fallback.
 10. Runtime logs execution metadata without sensitive prompts or provider secrets.
 
 ## Provider Abstraction
@@ -43,7 +44,7 @@ Providers implement:
 - `Health(ctx)`
 - `Models(ctx)`
 
-Stage 1 includes OpenAI and Claude adapters. Future providers should live in separate adapter packages and never leak provider-specific payload details into the engine.
+Stage 1 includes OpenAI and Claude adapters. Claude system messages are sent through Anthropic's `system` field. Future providers should live in separate adapter packages and never leak provider-specific payload details into the engine.
 
 ## REST V1
 
@@ -77,7 +78,9 @@ The signature is `sha256=` plus the HMAC-SHA256 hex digest using `SYNAPSE_RUNTIM
 
 Local development may set `SYNAPSE_RUNTIME_ALLOW_UNSIGNED=1`, but this must not be enabled in production.
 
-The NestJS platform now has a matching signer/client foundation. It should remain the only control-plane submitter until queue/gRPC service identity is designed.
+The NestJS platform now has a matching signer/client foundation. V1 dispatch uses this signed REST client only from Synapse core runtime orchestration. Product modules must not call the Runtime directly. Synapse should remain the only control-plane submitter until queue/gRPC service identity is designed.
+
+Future asynchronous callbacks should target Synapse core `/v1/runtime/results`. Synapse validates signatures and routes by persisted execution state. Product modules only implement result handler contracts.
 
 ## AppSec
 
@@ -100,9 +103,10 @@ Allowed tools are present in the execution request contract, but tool execution 
 
 ## Current Limitations
 
-- No service authentication yet.
+- Service authentication is HMAC shared-secret based; managed rotation/workload identity is not implemented yet.
 - No gRPC or queue consumer yet.
 - No streaming provider responses yet.
 - No local model adapters yet.
 - No Kubernetes scheduling yet.
 - No platform lifecycle callback yet.
+- Pulse V1 uses synchronous REST; async callback/replay storage remains pending.

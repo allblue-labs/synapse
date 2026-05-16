@@ -725,6 +725,14 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Risks: accidental missing tenant context may appear as empty lists instead of data until logs are inspected.
 - Next recommended step: QA Pulse inbox, ticket detail, action bar, knowledge, and schedules after migration rehearsal.
 
+## 2026-05-16 Stage 5E — RLS QA Scope
+
+- Changed: backend fixture scope now mirrors the Pulse areas Ninja should manually validate later.
+- Completed: tickets, conversations, timelines, knowledge, integrations, and schedules are covered at fixture level.
+- Pending: manual QA after live DB migration rehearsal.
+- Risks: frontend behavior should not change, but missing tenant context may produce empty states.
+- Next recommended step: prepare a QA checklist after DB fixture passes.
+
 ## 2026-05-10 Frontend Evolution — Stage 1 (Layout Foundation)
 
 - Changed (frontend, Claude Opus): adopted the staged evolution strategy (one focus per stage). Stage 1 introduces a persistent operational sidebar and slims the top bar; subsequent stages will refine surfaces, motion, navigation architecture, and content.
@@ -772,3 +780,108 @@ This document records backend-facing UX contracts only. Frontend visual architec
 - Pending: Stage 4 (Navigation Architecture) and the rest of the 11-stage plan.
 - Risks: prior `animate-fade-in` usage on toasts/dialogs continues to work, but pages that hand-rolled enter animations won't pick up the new `count-up` / `press` keyframes until they migrate.
 - Next recommended step: **Stage 4 — Navigation Architecture**. Do not start Stage 5+ before Stage 4 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 4 (Navigation Architecture)
+
+- Changed (frontend, Claude Opus): consolidated the sidebar architecture. `components/nav/workspace-sidebar.tsx` was rewritten so a single `<SidebarShell>` core powers both `WorkspaceSidebar` and `PlatformSidebar`. Mobile drawer, tooltips, sub-section collapse, and animated active state are all implemented once.
+- New surface — `SidebarMobileProvider` + `SidebarMobileTrigger`. The provider wraps each shell layout; the trigger renders a hamburger (`md:hidden`) in both top bars. The drawer is portaled to `document.body`, animates with the Stage-3 `animate-slide-in-left`, locks body scroll, closes on backdrop click / Esc / route change. No new dependency.
+- New CSS — collapsed-sidebar tooltip. `[data-collapsed="true"] .sidebar-link[data-tooltip]::after` reveals a pure-CSS popover on hover/focus with a small arrow. Pure presentational; no JS measurement. Dark mode flipped via `.dark` selector.
+- New behaviour — sub-section collapse. Groups marked `pinned: true` always render open (Workspace, Platform). Non-pinned groups (Pulse) get a chevron toggle; closed sections collapse to `max-h-0` with a 200 ms ease-snap transition. Per-section closed state is persisted as a JSON array of section ids under `synapse.sidebar.sections`.
+- New animation — active-state indicator. The left-edge accent bar uses `origin-top scale-y-0/100` so it grows in/out smoothly when the active route changes, instead of pop-rendering.
+- Cleanup — `app/(platform)/platform/_components/platform-nav.tsx` (orphan since Stage 1) was deleted along with the empty `_components/` directory.
+- Marketing — `components/marketing/public-nav.tsx` already had scroll-aware glass background + active-section observer + mobile drawer before this stage. Stage 4's "floating landing navigation" focus area was satisfied; no edit needed.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Out of scope (per strategy): page content, dashboard internals, design-system surface rework, motion language changes, backend.
+- Pending: Stage 5 (Workspace Overview) and the rest of the 11-stage plan.
+- Risks: the mobile drawer is the first portal-rendered nav surface in the app shell. Workspace and platform shells are mutually exclusive routes, so the `body` scroll lock cannot fight itself. Worth a recheck if a nested-layout scenario ever ships.
+- Next recommended step: **Stage 5 — Workspace Overview**. Strategy reminder: workspace overview is NOT Pulse-centric. Do not start Stage 6+ before Stage 5 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 5 (Workspace Overview)
+
+- Changed (frontend, Claude Opus): `app/(workspace)/workspace/overview/page.tsx` rewritten as a true cross-module tenant overview. Pulse is one signal among several; it no longer dominates the page.
+- Layout (top-to-bottom, asymmetric):
+  1. Identity hero — tenant name, role chip, plan/period/memberships meta row, 4-up hero stat cluster (Live items · Channels · AI inference · Automations).
+  2. Three-column block — Quotas (4 metric-type bars), Channels (live snapshot from `api.pulse.listChannels` + provider list), Activity (placeholder pointing at Pulse timeline + audit ledger).
+  3. Modules cluster — four equal-weight cards (Pulse · Agents · Knowledge · Store). Pulse is sized the same as Agents.
+  4. Operational metrics + Shortcuts — 2-column. Shortcuts include non-Pulse routes (Module store, Agents, Activity, Settings).
+- Live data wired today: `api.users.me()`, `api.pulse.listChannels`, `loadInboxLanes`, `loadKnowledgeContexts`. Everything else renders `—` rather than fabricating numbers; placeholders carry inline copy naming the backend dependency that unlocks each value.
+- Animation: every metric uses `<AnimatedNumber/>` (Stage 3) so values tween in as data arrives. Module cards adopt `.stagger-children` for a subtle entry cascade.
+- Tokens: `.surface-translucent`, `.surface-rail`, `.surface-dock`, `.surface-inset`, `.surface-hover-brand`, `.t-h1/3`, `.t-body`, `.t-small`, `.t-meta`, `.stack-page` — Stage 2's design system is consumed end-to-end.
+- Permission gates: `<Can permission="agents:write">` on the Agents CTA.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Out of scope: module store internals, Pulse internals, platform admin, marketing, backend.
+- Pending: Stage 6 (Platform Overview). Pending backend wire-ups surfaced honestly on the overview itself — billing summary client (plan, period, rated usage), cross-module activity ledger, per-metric quota facets.
+- Risks: placeholder activity card + `—` quota bars depend on inline copy naming the wire-up dependency; a future stage wiring data without removing the placeholder text could result in double-counted UX. Both spots carry inline comments.
+- Next recommended step: **Stage 6 — Platform Overview**. Strategy reminder: this should feel like an infra/control center. Do not start Stage 7+ before Stage 6 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 6 (Platform Overview)
+
+- Changed (frontend, Claude Opus): rewrote `app/(platform)/platform/overview/page.tsx` so it reads as an infra/control center. Five tiers, top-to-bottom: hero with period filter, system health rail, operations strip + activity stream (2-col), operational zones drilldown, runtime observability + shortcuts (2-col).
+- New component — `components/platform/period-filter.tsx`. Client-side tablist (`1h / 24h / 7d / 30d / All`), persists selection in `localStorage` under `synapse.platform.period`, indigo-tinted active state. Visual-only today; becomes the seam for the loader's time-window param when platform metrics ship.
+- System health rail — six zones with typed `HealthState` (`OPERATIONAL / DEGRADED / OUTAGE / UNKNOWN`), state icon, latency placeholder (`p95 —`), uptime placeholder (`up —`), left-edge color stripe, pulsing dot for live states.
+- Operations strip — dedicated success/failure section. 4 metric tiles (Total · Succeeded · Failed · Median latency) and 3 per-zone ratio bars (API · Runtime · Webhooks) rendered as green/red `bar-progress` chains. Honest `—` until metrics ship; ratio bars stay at zero rather than fabricating.
+- Activity stream — `surface-rail` placeholder enriched with the canonical action namespaces (`auth.*`, `pulse.ticket.*`, `billing.stripe_webhook.processed`, `runtime.execution.*`) so operators understand which categories surface here when `GET /v1/platform/audit/events` is exposed.
+- Zones drilldown — Tenants / Runtime / Billing / Modules cards each carry typed primary + secondary stats (all `null` → `—` today). Cards use `surface-translucent + surface-hover-brand + stagger-children`.
+- Runtime observability strip — added 4th cell (`Error rate · per 1k ops`) alongside Active workers / Queue depth / Exec per minute. `animate-sweep` behind the title for the "live processing" cue.
+- Tokens: Stage 2's design system consumed end-to-end (`surface-*`, `t-h1/3`, `t-body`, `t-small`, `t-meta-xs`, `stack-page`, `live-dot`, `stripes-pulse`). Motion: `<AnimatedNumber/>` for every metric, `animate-slide-up` on cards via `.stagger-children`.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Out of scope (per strategy): tenant workspace, Pulse internals, module store internals, management area (Stage 7).
+- Pending: Stage 7 (Management Area). Pending backend dependencies surfaced honestly: platform metrics endpoint with success/failure breakdowns, `audit:read` for the activity stream, per-zone latency/uptime, runtime worker heartbeats.
+- Risks: the period filter is visual-only. When metrics ship, the loader must consume `searchParams.period` (or a context propagator) — otherwise the filter will desync from the rendered numbers. Inline comment in the file names this.
+- Next recommended step: **Stage 7 — Management Area**. UX rule from strategy: operational tables + detail side panels + inline actions + realtime states. Avoid: giant CRUD forms, classic admin panels. Do not start Stage 8+ before Stage 7 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 7 (Management Area)
+
+- Changed (frontend, Claude Opus): built the management pattern as three reusable primitives, then applied it to the two highest-leverage platform admin surfaces (Tenants, Modules). No CRUD forms.
+- New primitives:
+  - `components/ui/sheet.tsx` — refined detail side panel. Slides in from the right (`animate-slide-in-right`), glass surface, scroll lock, focus management, Esc + backdrop dismiss, `dismissable={false}` for in-flight actions. Exports `Sheet`, `SheetBody`, `SheetFooter`, `SheetSection`.
+  - `components/ui/status-pill.tsx` — operational state colour grammar. Tones: `emerald / amber / red / violet / sky / indigo / zinc`. Sizes: `sm` (in-cell) and `md` (in-sheet). `pulse` prop for realtime states.
+  - `components/ui/inline-action.tsx` — button with built-in `pending` state (renders `<Spinner>` in place of icon). Three tones (`neutral / primary / danger`), two sizes.
+- Surfaces rebuilt:
+  - `app/(platform)/platform/tenants/page.tsx` — was `PendingSection`. Now a directory: hero with stat cluster + `PeriodFilter`; toolbar (search + status filter chips + `shown / total`); table with avatar, name, slug, status pill, plan pill, members, modules, created; inline `Suspend / Restore` + `Inspect` per row. Click opens `Sheet` with Identity / Usage / Governance sections; footer mirrors the destructive action with full confirmation feedback.
+  - `app/(platform)/platform/modules/page.tsx` — refactored from server-rendered table to client component using the same pattern. Hero, rollout ladder, governance card preserved on the left rail. Right column: toolbar with lifecycle filter chips, table with `<StatusPill>` for lifecycle + visibility chip + tier badges + `Reveal / Hide` + `Inspect` inline actions. Click opens `Sheet` with About / Plan tiers / Governance sections.
+- Realtime states: `<StatusPill tone="emerald" pulse>` on `Active` tenants and `GA / Pilot` lifecycles, consistent with the Stage-6 heartbeat language.
+- Mutations today: `pretendAction()` placeholder fires a toast naming the audit event that will land when the real backend mutation is wired. Inline copy in each page names the exact endpoint (`GET /v1/platform/tenants`, `PATCH /v1/platform/modules/:id`).
+- Cleanup: `<ul>` in the sheet swapped to `<div>` (children are key/value rows, not list items); `aria-selected` removed from `<tr>` in favour of `data-selected` styling — `<tr>` is not a tablist.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Out of scope (per strategy): users/roles/permissions UX, integrations + LLM providers, workspace settings → members, audit ledger reader.
+- Pending: the remaining management surfaces (`/platform/billing`, `/platform/flags`, `/platform/integrations`, `/platform/runtime`, `/platform/audit`) still show `PendingSection` but now have all the primitives they need to adopt this pattern when each becomes its own follow-up.
+- Risks: `pretendAction()` toasts name the audit event but do not write one. Future ICs wiring real mutations must replace each `onClick` with a Server Action returning `ActionResult` — the `InlineAction pending={...}` interface already accepts it.
+- Next recommended step: **Stage 8 — Module Store**. The client `/workspace/modules` store needs a Stage-8 review with the new primitives. Do not start Stage 9+ before Stage 8 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 8 (Module Store)
+
+- Changed (frontend, Claude Opus): rewrote `app/(workspace)/workspace/modules/page.tsx` as a cloud marketplace. No new primitives — every element consumes Stage-7's `Sheet`/`StatusPill`/`InlineAction` so workspace and platform shells speak the same management vocabulary.
+- Layout (`stack-page` rhythm): Hero (plan badge + 3-stat cluster + CTAs) → Active in workspace (installed modules with onboarding progress bar + next-up steps) → Catalog (category filter chips + responsive 1/2/3-col card grid) → Plan comparison table → Roadmap rail.
+- New module data fields (local placeholder until catalog client ships): `installed: boolean`, `tiers: ReadonlyArray<Tier>`, `onboarding: ReadonlyArray<{label, done}>`.
+- Detail Sheet on click: hero (status + plan + pricing pills), Features grid, Plan tiers grid (4 tiers shown — included or muted), **Onboarding** section with progress bar + checklist (installed modules only), Activation copy block. Footer: `Open module` link + tone-appropriate primary action (`Install` / `Uninstall` / `On roadmap`).
+- Activation flow: inline `<InlineAction tone="primary" icon={<Power/>}>Install</InlineAction>` in cards; `<InlineAction tone="danger" icon={<PowerOff/>}>Uninstall</InlineAction>` in the Sheet footer. Both call `pretendAction()` which toasts the audit event (`modules.enabled` / `modules.disabled`) until the real backend mutation is wired.
+- Realtime states: `<StatusPill tone="emerald" pulse>` on `Live` modules and on installed-card "Installed" chips. Onboarding bar fills with `brand→accent` until 100%, then switches to `emerald` for "fully set" cue.
+- Page is `'use client'` because state (category, selected module, pending) lives in React. When the catalog client ships, the static `CATALOG` becomes a server-side fetch with the same shape — no UX rewrite.
+- Verification: `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓. `/workspace/modules` is 8.93 kB / 125 kB First Load JS.
+- Out of scope (per strategy): Pulse internals (Stage 9), onboarding/AI interview flow (Stage 10), i18n (Stage 11), backend. Admin `/platform/modules` was closed in Stage 7 and stays untouched.
+- Pending backend dependencies (named in the page itself): catalog client, tenant enablement client, per-tenant onboarding state, billing summary client (the "Plan · Pro" hero pill is hardcoded today).
+- Risks: hardcoded plan badge — when billing ships, the loader must hydrate it from `currentUser.tenant.billingPlan` or the billing summary endpoint, otherwise the marketplace shows a plan the tenant doesn't have.
+- Next recommended step: **Stage 9 — Pulse Operational UX**. Strategy reminder: intelligent operational platform, not a card grid. Do not start Stage 10+ before Stage 9 closes.
+
+## 2026-05-16 — Tenant Context Profile Frontend Contract
+
+- Changed: backend now exposes Tenant Context Profile endpoints for a one-time global workspace interview/manual form.
+- Completed backend contract: status, approved context retrieval, start, save answer, manual submit, generate summary, approve, reject, and edit.
+- Pending frontend dependency: build an interview/manual form flow that saves every answer incrementally and shows the generated summary for explicit user approval.
+- Pending frontend behavior: if status is missing/in progress/awaiting validation/rejected, block normal module usage and route the user into the profile flow.
+- Risks: frontend must not present this as Pulse onboarding. Pulse-specific schedule, escalation, campaigns, and fallback messages belong in module onboarding later.
+
+## 2026-05-16 — Runtime V1 Frontend Impact
+
+- Changed: no frontend integration required for the first Go Runtime handoff.
+- Completed: provider execution remains behind backend queues/lifecycle and existing Pulse runtime result ingestion.
+- Pending frontend dependency: expose runtime execution status/timeline once backend adds stable read models for provider attempts and latency.
+- Risks: frontend must not display raw prompts, raw provider output, provider secrets, or chain-of-thought.
+
+## 2026-05-16 — Runtime Result Ingress UX Impact
+
+- Changed: no frontend route or interaction is affected by centralizing runtime callbacks.
+- Completed: `/v1/runtime/results` is service-to-service only and must not be used by browser clients.
+- Pending frontend dependency: none until backend exposes safe runtime observability read models.
+- Risks: never surface callback payloads directly in UI; use audit-safe timelines/metrics only.

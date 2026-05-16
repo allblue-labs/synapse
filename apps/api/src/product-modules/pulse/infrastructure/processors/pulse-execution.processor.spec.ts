@@ -20,7 +20,12 @@ function createJob(overrides: Partial<PulseExecutionJob> = {}) {
 describe('PulseExecutionProcessor', () => {
   const runtimeLifecycle = {
     get: jest.fn(),
-    transition: jest.fn(),
+  };
+  const runtimeDispatcher = {
+    dispatchQueued: jest.fn(),
+  };
+  const ingestRuntimeResult = {
+    execute: jest.fn(),
   };
   const queues = {
     enqueueFailed: jest.fn(),
@@ -31,47 +36,104 @@ describe('PulseExecutionProcessor', () => {
     jest.resetAllMocks();
   });
 
-  it('dispatches queued execution requests through a no-provider lifecycle stub', async () => {
+  it('dispatches queued execution requests through the signed Go runtime handoff', async () => {
     runtimeLifecycle.get.mockResolvedValue({
       id: 'exec-1',
       status: ExecutionStatus.QUEUED,
     });
-    runtimeLifecycle.transition
-      .mockResolvedValueOnce({ id: 'exec-1', status: ExecutionStatus.RUNNING })
-      .mockResolvedValueOnce({ id: 'exec-1', status: ExecutionStatus.SUCCEEDED });
+    runtimeDispatcher.dispatchQueued.mockResolvedValue({
+      transport: 'http',
+      request: {
+        id: 'exec-1',
+        context: {
+          tenantId: 'tenant-1',
+          moduleSlug: 'pulse',
+          metadata: {
+            actorSnapshot: {
+              userId: 'user-1',
+              email: 'operator@synapse.test',
+              role: 'tenant_operator',
+              permissions: ['tickets:write'],
+            },
+          },
+        },
+        requestType: 'pulse.advance_flow',
+        idempotencyKey: 'pulse.context:tenant-1:ticket-1',
+        input: {
+          contextPack: {
+            version: 'pulse.context-pack.v1',
+            tenantId: 'tenant-1',
+            workspaceId: 'tenant-1',
+            module: 'pulse',
+            skill: 'SUPPORT',
+            executionType: 'advance_flow',
+            conversationState: null,
+            ticketState: { id: 'ticket-1' },
+            playbookState: null,
+            knowledgeSnippets: [],
+            productsOrServices: [],
+            campaignContext: [],
+            schedulingContext: {},
+            allowedActions: ['ticket.advance_flow'],
+            requiredOutputSchema: {
+              type: 'object',
+              properties: { decisionSummary: { type: 'string' } },
+            },
+            securityHints: [],
+            usageHints: {},
+            assembledAt: '2026-05-09T12:00:00.000Z',
+          },
+        },
+        requestedAt: '2026-05-09T12:00:00.000Z',
+      },
+      response: {
+        id: 'runtime-exec-1',
+        tenantId: 'tenant-1',
+        moduleSlug: 'pulse',
+        status: ExecutionStatus.SUCCEEDED,
+        output: {
+          provider: 'openai',
+          model: 'gpt-4.1-mini',
+          structuredPayload: {
+            decisionSummary: 'Advance safely.',
+            confidence: 0.9,
+            nextState: 'collect_context',
+            recommendedActions: [],
+          },
+        },
+      },
+    });
+    ingestRuntimeResult.execute.mockResolvedValue({
+      execution: { id: 'exec-1', status: ExecutionStatus.SUCCEEDED },
+      actionPlan: { enqueued: [], skipped: [] },
+    });
 
     const processor = new PulseExecutionProcessor(
       runtimeLifecycle as never,
+      runtimeDispatcher as never,
+      ingestRuntimeResult as never,
       queues as never,
     );
 
     await processor.process(createJob() as never);
 
     expect(runtimeLifecycle.get).toHaveBeenCalledWith('tenant-1', 'exec-1');
-    expect(runtimeLifecycle.transition).toHaveBeenNthCalledWith(1, {
+    expect(runtimeDispatcher.dispatchQueued).toHaveBeenCalledWith({
       tenantId: 'tenant-1',
       executionId: 'exec-1',
-      status: ExecutionStatus.RUNNING,
-      output: {
-        dispatch: {
-          providerCalls: false,
-          stage: 'runtime_dispatch_prepared',
-        },
-      },
     });
-    expect(runtimeLifecycle.transition).toHaveBeenNthCalledWith(2, {
+    expect(ingestRuntimeResult.execute).toHaveBeenCalledWith({
       tenantId: 'tenant-1',
-      executionId: 'exec-1',
+      executionRequestId: 'exec-1',
       status: ExecutionStatus.SUCCEEDED,
       output: {
-        dispatch: {
-          prepared: true,
-          executable: false,
-          reason: 'runtime_provider_not_implemented',
-          providerCalls: false,
-          contextPackVersion: 'pulse.context-pack.v1',
-        },
+        decisionSummary: 'Advance safely.',
+        confidence: 0.9,
+        nextState: 'collect_context',
+        recommendedActions: [],
       },
+      errorMessage: undefined,
+      traceId: undefined,
     });
     expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
       tenantId: 'tenant-1',
@@ -87,8 +149,9 @@ describe('PulseExecutionProcessor', () => {
       eventType: 'pulse.runtime.execution_dispatch_completed',
       idempotencyKey: 'pulse.timeline:tenant-1:exec-1:dispatch-completed',
       payload: expect.objectContaining({
-        executable: false,
-        reason: 'runtime_provider_not_implemented',
+        status: ExecutionStatus.SUCCEEDED,
+        providerCalls: true,
+        actionPlanning: 'ingested',
       }),
     }));
     expect(queues.enqueueFailed).not.toHaveBeenCalled();
@@ -102,12 +165,14 @@ describe('PulseExecutionProcessor', () => {
 
     const processor = new PulseExecutionProcessor(
       runtimeLifecycle as never,
+      runtimeDispatcher as never,
+      ingestRuntimeResult as never,
       queues as never,
     );
 
     await processor.process(createJob() as never);
 
-    expect(runtimeLifecycle.transition).not.toHaveBeenCalled();
+    expect(runtimeDispatcher.dispatchQueued).not.toHaveBeenCalled();
     expect(queues.enqueueTimeline).toHaveBeenCalledWith(expect.objectContaining({
       eventType: 'pulse.runtime.execution_dispatch_skipped',
       idempotencyKey: 'pulse.timeline:tenant-1:exec-1:dispatch-skipped',
@@ -122,6 +187,8 @@ describe('PulseExecutionProcessor', () => {
     runtimeLifecycle.get.mockRejectedValue(new Error('database unavailable'));
     const processor = new PulseExecutionProcessor(
       runtimeLifecycle as never,
+      runtimeDispatcher as never,
+      ingestRuntimeResult as never,
       queues as never,
     );
 
@@ -143,6 +210,8 @@ describe('PulseExecutionProcessor', () => {
   it('rejects malformed execution jobs before lifecycle changes', async () => {
     const processor = new PulseExecutionProcessor(
       runtimeLifecycle as never,
+      runtimeDispatcher as never,
+      ingestRuntimeResult as never,
       queues as never,
     );
 
@@ -150,6 +219,6 @@ describe('PulseExecutionProcessor', () => {
       .rejects.toBeInstanceOf(BadRequestException);
 
     expect(runtimeLifecycle.get).not.toHaveBeenCalled();
-    expect(runtimeLifecycle.transition).not.toHaveBeenCalled();
+    expect(runtimeDispatcher.dispatchQueued).not.toHaveBeenCalled();
   });
 });

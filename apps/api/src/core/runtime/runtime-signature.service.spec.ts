@@ -51,14 +51,14 @@ describe('RuntimeSignatureService', () => {
     const body = '{"status":"SUCCEEDED"}';
     const headers = service.sign({
       method: 'POST',
-      path: '/v1/pulse/runtime/results',
+      path: '/v1/runtime/results',
       body,
       timestamp: 1778241600,
     });
 
     expect(() => service.assertValid({
       method: 'POST',
-      path: '/v1/pulse/runtime/results',
+      path: '/v1/runtime/results',
       body,
       headers,
       now: 1778241600,
@@ -76,14 +76,14 @@ describe('RuntimeSignatureService', () => {
     const body = '{"status":"SUCCEEDED"}';
     const headers = service.sign({
       method: 'POST',
-      path: '/v1/pulse/runtime/results',
+      path: '/v1/runtime/results',
       body,
       timestamp: 1778241600,
     });
 
     expect(() => service.assertValid({
       method: 'POST',
-      path: '/v1/pulse/runtime/results',
+      path: '/v1/runtime/results',
       body: '{"status":"FAILED"}',
       headers,
       now: 1778241600,
@@ -91,7 +91,7 @@ describe('RuntimeSignatureService', () => {
 
     expect(() => service.assertValid({
       method: 'POST',
-      path: '/v1/pulse/runtime/results',
+      path: '/v1/runtime/results',
       body,
       headers,
       now: 1778242201,

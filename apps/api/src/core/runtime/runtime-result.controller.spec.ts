@@ -1,14 +1,14 @@
 import { BadRequestException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../../common/authorization';
-import { PulseRuntimeResultController } from './pulse-runtime-result.controller';
+import { RuntimeResultController } from './runtime-result.controller';
 
-describe('PulseRuntimeResultController', () => {
+describe('RuntimeResultController', () => {
   const signatures = {
     assertValid: jest.fn(),
   };
-  const ingest = {
-    execute: jest.fn(),
+  const ingress = {
+    ingest: jest.fn(),
   };
 
   const dto = {
@@ -26,27 +26,27 @@ describe('PulseRuntimeResultController', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
-    ingest.execute.mockResolvedValue({ ok: true });
+    ingress.ingest.mockResolvedValue({ ok: true });
   });
 
   it('is public so runtime callbacks can use HMAC instead of JWT', () => {
     const reflector = new Reflector();
     expect(
       reflector.getAllAndOverride(IS_PUBLIC_KEY, [
-        PulseRuntimeResultController.prototype.ingest,
-        PulseRuntimeResultController,
+        RuntimeResultController.prototype.ingest,
+        RuntimeResultController,
       ]),
     ).toBe(true);
   });
 
-  it('verifies the raw body signature before ingesting runtime results', async () => {
-    const controller = new PulseRuntimeResultController(signatures as never, ingest as never);
+  it('verifies the raw body signature before routing runtime results', async () => {
+    const controller = new RuntimeResultController(signatures as never, ingress as never);
     const rawBody = Buffer.from(JSON.stringify(dto));
 
     await expect(controller.ingest(
       {
         method: 'POST',
-        originalUrl: '/v1/pulse/runtime/results',
+        originalUrl: '/v1/runtime/results',
         rawBody,
       } as never,
       { 'x-synapse-runtime-signature': 'sha256=test' },
@@ -55,25 +55,25 @@ describe('PulseRuntimeResultController', () => {
 
     expect(signatures.assertValid).toHaveBeenCalledWith({
       method: 'POST',
-      path: '/v1/pulse/runtime/results',
+      path: '/v1/runtime/results',
       body: rawBody.toString('utf8'),
       headers: { 'x-synapse-runtime-signature': 'sha256=test' },
     });
-    expect(ingest.execute).toHaveBeenCalledWith(dto);
+    expect(ingress.ingest).toHaveBeenCalledWith(dto);
   });
 
   it('fails closed when raw body is unavailable', () => {
-    const controller = new PulseRuntimeResultController(signatures as never, ingest as never);
+    const controller = new RuntimeResultController(signatures as never, ingress as never);
 
     expect(() => controller.ingest(
       {
         method: 'POST',
-        originalUrl: '/v1/pulse/runtime/results',
+        originalUrl: '/v1/runtime/results',
       } as never,
       {},
       dto,
     )).toThrow(BadRequestException);
     expect(signatures.assertValid).not.toHaveBeenCalled();
-    expect(ingest.execute).not.toHaveBeenCalled();
+    expect(ingress.ingest).not.toHaveBeenCalled();
   });
 });

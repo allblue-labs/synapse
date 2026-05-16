@@ -672,3 +672,35 @@ Global Prisma middleware can hide tenant behavior and break legitimate admin/sys
 - Pending: expand fixture coverage beyond tickets to conversations, events, schedules, knowledge, and integrations.
 - Risks: fixture cleanup must use controlled platform bypass because FORCE RLS applies to table owners too.
 - Next recommended step: execute the RLS fixture on disposable DB and then broaden table coverage.
+
+## 2026-05-16 Stage 5E — Pulse RLS Tenant Fixture Coverage
+
+- Changed: expanded RLS tenant fixture to conversations, events, schedules, knowledge, and integrations.
+- Completed: tenant B receives null/empty/open-default results for tenant A operational records.
+- Pending: live execution on migrated database.
+- Risks: tests remain skipped by default by design.
+- Next recommended step: run the opt-in fixture once Postgres is reachable.
+
+## 2026-05-16 — Tenant Context Profile Tenancy
+
+- Changed: added tenant-scoped global profile tables owned by Synapse in `public`.
+- Completed: profile, draft, answer, summary, and version records all carry required `tenantId`.
+- Completed: controller access depends on server-derived tenant context; clients do not submit tenant ids in profile payloads.
+- Completed: approved contract lookup requires the profile for the current tenant and active version number.
+- Pending: DB fixture for cross-tenant Tenant Context Profile rejection.
+- Risks: RLS is active for Pulse module tables, not for these platform profile tables; service-level tenant filters remain mandatory.
+
+## 2026-05-16 — Runtime V1 Tenant Boundary
+
+- Changed: runtime handoff carries tenant id from the persisted platform `ExecutionRequest`.
+- Completed: Pulse execution worker loads execution records by `tenantId + executionRequestId` before dispatch.
+- Completed: Go Runtime requires `tenantId` in every execution request and returns tenant id in responses.
+- Pending: database-backed fixture covering runtime handoff plus Pulse RLS result ingestion.
+- Risks: Go Runtime is not a tenant data store; tenant isolation remains enforced by Synapse before dispatch and during result ingestion.
+
+## 2026-05-16 — Runtime Result Tenant Routing
+
+- Changed: runtime result routing loads `ExecutionRequest` by tenant id and execution id before selecting a module handler.
+- Completed: module selection uses the saved execution context, preserving tenant/module ownership from the original governed request.
+- Pending: DB fixture for callback cross-tenant rejection and replay prevention.
+- Risks: callback payload tenant id must never be the only tenant boundary; persisted execution lookup remains mandatory.

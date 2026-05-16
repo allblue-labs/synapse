@@ -53,7 +53,7 @@ async function bootstrap() {
       const expressReq = req as typeof req & { originalUrl?: string; rawBody?: Buffer };
       if (
         expressReq.originalUrl === '/v1/billing/stripe/webhook' ||
-        expressReq.originalUrl === '/v1/pulse/runtime/results'
+        expressReq.originalUrl === '/v1/runtime/results'
       ) {
         expressReq.rawBody = Buffer.from(buf);
       }

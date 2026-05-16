@@ -47,6 +47,9 @@ export class RuntimeHttpClient implements RuntimeExecutionProvider {
     });
     const payload = await response.json().catch(() => ({})) as Partial<RuntimeRestExecutionResponse>;
     if (!response.ok) {
+      if (this.isRuntimeExecutionResponse(payload)) {
+        return this.toPlatformResponse(payload, request.context);
+      }
       throw new ServiceUnavailableException(
         typeof payload.error === 'string' ? payload.error : 'Synapse Runtime execution failed.',
       );
@@ -126,5 +129,11 @@ export class RuntimeHttpClient implements RuntimeExecutionProvider {
       cancelled: 'CANCELLED',
       timed_out: 'TIMED_OUT',
     }[status] as ExecutionResponseContract['status'];
+  }
+
+  private isRuntimeExecutionResponse(value: Partial<RuntimeRestExecutionResponse>): value is RuntimeRestExecutionResponse {
+    return typeof value.executionId === 'string' &&
+      typeof value.tenantId === 'string' &&
+      ['succeeded', 'failed', 'cancelled', 'timed_out'].includes(String(value.status));
   }
 }

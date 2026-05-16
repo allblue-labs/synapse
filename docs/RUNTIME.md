@@ -185,10 +185,10 @@ interface PainClient {
 - Risks: this is not external runtime integration yet; no Go Runtime, provider call, or callback endpoint was implemented.
 - Next recommended step: add signed callback/queue ingress using `RuntimeSignatureService`.
 
-## 2026-05-09 Stage 3K — Signed Pulse Runtime Result Callback
+## 2026-05-09 Stage 3K — Signed Runtime Result Callback
 
-- Changed: Pulse exposes `/v1/pulse/runtime/results` for signed runtime result callbacks.
-- Completed: HMAC verification uses runtime key id, timestamp tolerance, raw body, method, and path. Valid callbacks call Pulse result ingestion.
+- Changed: Synapse exposes `/v1/runtime/results` for signed runtime result callbacks.
+- Completed: HMAC verification uses runtime key id, timestamp tolerance, raw body, method, and path. Valid callbacks are routed by the persisted execution request module, not by trusting callback payload module data.
 - Pending: external Go Runtime implementation, provider callbacks, replay persistence, key rotation, and queue/gRPC ingress.
 - Risks: this endpoint is service-to-service and must not become a frontend/API-client integration surface.
 - Next recommended step: persist original execution actor/governance metadata and add callback isolation fixtures.
@@ -401,3 +401,33 @@ interface PainClient {
 - Pending: RLS-active runtime result ingestion fixture.
 - Risks: callback handlers must validate tenant/module/signature before entering Pulse repositories.
 - Next recommended step: extend runtime-result DB fixture after migration rehearsal.
+
+## 2026-05-16 Stage 5E — Runtime Adjacent RLS Fixture Coverage
+
+- Changed: Pulse context/timeline data used by runtime-adjacent flows is now included in RLS fixture coverage.
+- Completed: schedules, knowledge, integrations, conversations, and events have tenant visibility checks.
+- Pending: runtime-result ingestion fixture with RLS active.
+- Risks: external runtime callbacks remain unimplemented and must not bypass Synapse.
+- Next recommended step: extend runtime-result fixture after disposable DB run.
+
+## 2026-05-16 Runtime V1 — Signed Go Runtime Handoff
+
+- Changed: Synapse core now dispatches queued platform `ExecutionRequest` records to the isolated Go Runtime over signed REST instead of completing with `runtime_provider_not_implemented`.
+- Completed: modules do not know the Go Runtime client, URL, signer, transport, or provider adapter. Pulse only requests Synapse execution through platform lifecycle/governance contracts and supplies its module-owned Context Pack.
+- Completed: runtime handoff uses `RuntimeExecutionDispatchService`, `RuntimeHttpClient`, HMAC signing, OpenAI/Claude provider preference, fallback policy, timeout, and structured output schema from the submitted execution context.
+- Completed: Go Runtime now parses provider text into `structuredPayload` when structured output is requested; invalid JSON becomes a failed provider attempt.
+- Completed: successful runtime results are routed through Pulse runtime ingestion when an actor snapshot exists, preserving output schema validation and action governance.
+- Completed: executions without an actor snapshot can persist terminal runtime output, but action planning is skipped to avoid unauthorized module side effects.
+- Pending: callback/replay ledger, async queue/gRPC runtime transport, provider live smoke tests with real keys, tenant-specific provider policies, and usage metering for provider calls.
+- Risks: V1 dispatch is synchronous HTTP from the worker; long provider latency occupies the worker until queue/gRPC transport exists.
+- Next recommended step: add callback replay/idempotency storage, then run local end-to-end API plus Go Runtime smoke test with dev provider keys.
+
+## 2026-05-16 Runtime V1 — Central Result Ingress
+
+- Changed: runtime results now terminate at Synapse core `/v1/runtime/results`.
+- Completed: callback authentication, raw-body validation, and module routing are centralized.
+- Completed: routing uses the persisted `ExecutionRequest.context.moduleSlug`; callback payloads cannot choose the module handler.
+- Completed: Pulse registers a `RuntimeResultHandler` adapter and keeps runtime transport details out of the product module.
+- Pending: callback replay ledger and async callback delivery from the Go Runtime.
+- Risks: registry-based handler routing needs a production health check to detect missing module handlers at boot.
+- Next recommended step: implement replay-safe callback receipts in `public`.

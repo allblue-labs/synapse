@@ -2,6 +2,7 @@ package execution
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -109,6 +110,18 @@ func (e *Engine) Execute(ctx context.Context, request contracts.ExecutionRequest
 				return response
 			case attempt := <-resultCh:
 				if attempt.err == nil {
+					normalized, err := normalizeProviderResponse(request, attempt.result)
+					if err != nil {
+						errorsByProvider = append(errorsByProvider, fmt.Sprintf("%s: %s", attempt.provider, err.Error()))
+						e.logger.Error("execution_attempt_failed", map[string]any{
+							"executionId": executionID,
+							"tenantId":    request.TenantID,
+							"provider":    attempt.provider,
+							"attempt":     retry + 1,
+							"error":       err.Error(),
+						})
+						continue
+					}
 					completedAt := time.Now().UTC()
 					e.logger.Info("execution_succeeded", map[string]any{
 						"executionId": executionID,
@@ -120,11 +133,11 @@ func (e *Engine) Execute(ctx context.Context, request contracts.ExecutionRequest
 					return contracts.ExecutionResponse{
 						ExecutionID:       executionID,
 						TenantID:          request.TenantID,
-						Provider:          attempt.result.Provider,
-						Model:             attempt.result.Model,
-						Output:            attempt.result.Output,
-						StructuredPayload: attempt.result.StructuredPayload,
-						Usage:             attempt.result.Usage,
+						Provider:          normalized.Provider,
+						Model:             normalized.Model,
+						Output:            normalized.Output,
+						StructuredPayload: normalized.StructuredPayload,
+						Usage:             normalized.Usage,
 						LatencyMS:         completedAt.Sub(startedAt).Milliseconds(),
 						Status:            contracts.StatusSucceeded,
 						Retry: contracts.RetryMetadata{
@@ -132,7 +145,7 @@ func (e *Engine) Execute(ctx context.Context, request contracts.ExecutionRequest
 							ProviderErrors: errorsByProvider,
 							FallbackUsed:   response.Retry.FallbackUsed,
 						},
-						Metadata:    attempt.result.Metadata,
+						Metadata:    normalized.Metadata,
 						StartedAt:   startedAt,
 						CompletedAt: completedAt,
 					}
@@ -216,6 +229,25 @@ func (e *Engine) fail(response contracts.ExecutionResponse, startedAt time.Time,
 		"attempts":    response.Retry.Attempts,
 	})
 	return response
+}
+
+func normalizeProviderResponse(
+	request contracts.ExecutionRequest,
+	response providers.ProviderResponse,
+) (providers.ProviderResponse, error) {
+	if request.StructuredOutput == nil || response.StructuredPayload != nil {
+		return response, nil
+	}
+	if response.Output == "" {
+		return response, errors.New("structured output was requested but provider returned empty output")
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(response.Output), &payload); err != nil {
+		return response, fmt.Errorf("structured output was requested but provider output is not valid JSON: %w", err)
+	}
+	response.StructuredPayload = payload
+	return response, nil
 }
 
 func validateRequest(request contracts.ExecutionRequest) error {

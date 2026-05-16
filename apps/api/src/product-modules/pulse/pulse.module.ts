@@ -9,7 +9,7 @@ import {RuntimeModule} from '../../core/runtime/runtime.module';
 import {PermissionResolverService} from '../../common/authorization';
 import {BillingModule} from '../../modules/billing/billing.module';
 import {PulseController} from './pulse.controller';
-import {PulseRuntimeResultController} from './pulse-runtime-result.controller';
+import {PulseRuntimeResultHandler} from './pulse-runtime-result.handler';
 import {ListQueueUseCase} from './application/use-cases/list-queue.use-case';
 import {GetEntryUseCase} from './application/use-cases/get-entry.use-case';
 import {ListChannelsUseCase} from './application/use-cases/list-channels.use-case';
@@ -104,9 +104,10 @@ const USE_CASES = [
       ...Object.values(PULSE_QUEUES).map((name) => ({name})),
     ),
   ],
-  controllers: [PulseController, PulseRuntimeResultController],
+  controllers: [PulseController],
   providers: [
     ...USE_CASES,
+    PulseRuntimeResultHandler,
     PulseProcessor,
     PulseContextProcessor,
     PulseExecutionProcessor,

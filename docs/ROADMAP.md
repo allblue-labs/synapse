@@ -814,6 +814,52 @@ Last updated: 2026-05-07
 - Risks: framer-motion deferred — Stage 9 (Pulse Operational UX) or Stage 10 (Onboarding) may revisit if orchestrated enter/exit choreography is needed (e.g. AnimatePresence on a mobile drawer).
 - Next recommended step: **Stage 4 — Navigation Architecture**. Do not start Stage 5+ before Stage 4 closes.
 
+## 2026-05-15 Frontend Evolution — Stage 4 (Navigation Architecture)
+
+- Changed: consolidated the sidebar architecture into a single `<SidebarShell>` core; both `WorkspaceSidebar` and `PlatformSidebar` are now thin configs around it. Public exports preserved.
+- Completed: mobile sidebar drawer with `SidebarMobileProvider`/`SidebarMobileTrigger` (hamburger in both top bars, portal-rendered, slide-in-left motion, body scroll lock, Esc + route-change close — no `framer-motion`). Collapsed-sidebar tooltips (pure-CSS popover on hover/focus). Sub-section collapse with per-section state persisted under `synapse.sidebar.sections`. Animated active-state indicator (left-edge bar `scale-y` transition). Orphan `_components/platform-nav.tsx` retired.
+- Completed: marketing `public-nav.tsx` already satisfied the "floating landing navigation" focus area (scroll-aware glass + active-section observer + mobile drawer). No edit needed there.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Pending: Stage 5 (Workspace Overview) and the rest of the 11-stage plan.
+- Risks: the mobile drawer is the first portal-rendered nav surface; current shell isolation means scroll-lock contention is not possible. Watch for it if nested layouts ever ship.
+- Next recommended step: **Stage 5 — Workspace Overview**. Strategy reminder: not Pulse-centric. Do not start Stage 6+ before Stage 5 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 5 (Workspace Overview)
+
+- Changed: `app/(workspace)/workspace/overview/page.tsx` rewritten as a cross-module tenant overview. Pulse is one signal among several; identity hero + 3-column operational block (Quotas · Channels · Activity) + equal-weight modules cluster (Pulse · Agents · Knowledge · Store) + Operational metrics + Shortcuts.
+- Completed: live data from `api.users.me()`, `api.pulse.listChannels`, `loadInboxLanes`, `loadKnowledgeContexts`. Everything else renders `—` with inline copy naming the backend dependency. Stage-3 `<AnimatedNumber/>` on every metric so values tween in when data lands. Stage-2 design tokens consumed end-to-end.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Pending backend wire-ups: billing summary client (plan / period / rated usage), cross-module activity ledger, per-metric quota facets. Stage 6 (Platform Overview) is next per the staged plan.
+- Risks: placeholder activity card + `—` quota bars depend on copy that names the wire-up; future stages must remove placeholder text once data arrives.
+- Next recommended step: **Stage 6 — Platform Overview**. Strategy reminder: infra/control-center feeling. Do not start Stage 7+ before Stage 6 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 6 (Platform Overview)
+
+- Changed: rewrote `app/(platform)/platform/overview/page.tsx` as an infra/control center. Five-tier layout: hero (with period filter), system health rail, operations strip + activity stream, operational zones drilldown, runtime + shortcuts.
+- Completed: new `components/platform/period-filter.tsx` (client-side tablist, `localStorage`-persisted, indigo accent). System health rail with typed `HealthState` and latency/uptime placeholders. Success/failure operations strip with per-zone ratio bars. Activity stream placeholder enriched with canonical action namespaces. Runtime observability gains an `Error rate` cell. Every metric uses Stage-3 `<AnimatedNumber/>`.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓.
+- Pending backend dependencies (named in the page itself): platform metrics endpoint with success/failure breakdowns, `audit:read` for the activity stream, per-zone latency/uptime, runtime worker heartbeats. Stage 7 (Management Area) is next.
+- Risks: period filter is visual-only today; when metrics ship the loader must read it, otherwise filter and numbers desync.
+- Next recommended step: **Stage 7 — Management Area**. UX rule: operational tables + side panels + inline actions, not CRUD forms. Do not start Stage 8+ before Stage 7 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 7 (Management Area)
+
+- Changed: built the management pattern as three reusable primitives (`Sheet`/`SheetBody`/`SheetFooter`/`SheetSection`, `StatusPill`, `InlineAction`), then applied it to `/platform/tenants` (was placeholder) and `/platform/modules` (refactored from hand-rolled table). No CRUD forms.
+- Completed: detail Sheets slide in from the right with Stage-3 motion, glass surface, full focus/scroll-lock/Esc handling. `StatusPill` standardises the platform's state colour grammar. `InlineAction` carries built-in pending state via Stage-3 `<Spinner>`. Realtime states use `pulse` consistent with the Stage-6 heartbeat. Every count uses `<AnimatedNumber/>`. Pages are client components; placeholder rows become server-side fetches when `GET /v1/platform/tenants` / `GET /v1/platform/modules` land — no UX rewrite needed.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓. `/platform/tenants` 6.93 kB / 123 kB. `/platform/modules` 7.87 kB / 124 kB.
+- Pending: remaining management surfaces (`/platform/billing`, `/platform/flags`, `/platform/integrations`, `/platform/runtime`, `/platform/audit`) still show `PendingSection`. They now have all the primitives they need to adopt this pattern when each becomes a focused follow-up. Users/roles/permissions UX deferred until a client lands.
+- Risks: `pretendAction()` placeholders toast the audit event name but don't write one. Future ICs wiring real mutations must replace each `onClick` with a Server Action returning `ActionResult` — the `InlineAction pending={...}` interface already accepts it.
+- Next recommended step: **Stage 8 — Module Store**. Strategy reminder: cloud marketplace / modern services catalog feel. Do not start Stage 9+ before Stage 8 closes.
+
+## 2026-05-15 Frontend Evolution — Stage 8 (Module Store)
+
+- Changed: rewrote `app/(workspace)/workspace/modules/page.tsx` as a cloud marketplace using Stage-7 primitives (`Sheet`, `StatusPill`, `InlineAction`). Layout: Hero → Active in workspace (with onboarding progress) → Catalog (category filter + cards) → Plan comparison table → Roadmap rail. Detail Sheet on card click with Features / Plan tiers / Onboarding checklist / Activation footer (`Install` / `Manage` / `Uninstall`).
+- Completed: new module data fields (`installed`, `tiers`, `onboarding`) added to the local catalog; client component owns state (filter, selected, pending); `pretendAction()` toasts audit events until backend wires up. Realtime states use `<StatusPill pulse>` for `Live` and installed cards.
+- Completed: handoff verification — `npm run typecheck` ✓ · `npm run lint` ✓ · `npm run build` ✓. `/workspace/modules` 8.93 kB / 125 kB.
+- Pending backend dependencies (named in the page): tenant catalog client, enablement client (`modules:enable` / `modules:disable`), per-tenant onboarding state, billing summary client (the "Plan · Pro" hero pill is hardcoded today).
+- Risks: hardcoded plan badge — must hydrate from billing when that client ships, otherwise the marketplace shows a plan the tenant doesn't have.
+- Next recommended step: **Stage 9 — Pulse Operational UX**. Strategy reminder: intelligent operational platform, not a card grid. Do not start Stage 10+ before Stage 9 closes.
+
 ## 2026-05-15 Stage 5A — Database Performance + RLS Foundation
 
 - Changed: shifted backend focus to production database performance, efficiency, and multitenant security.
@@ -846,3 +892,38 @@ Last updated: 2026-05-07
 - Pending: execute the fixture against disposable Postgres and expand coverage after first pass.
 - Risks: FORCE RLS will expose any future direct Prisma paths without tenant context.
 - Next recommended step: run database fixtures before applying this migration to shared dev/staging.
+
+## 2026-05-16 Stage 5E — Pulse RLS Fixture Coverage
+
+- Changed: expanded RLS fixture coverage for the Pulse operational schema.
+- Completed: ticket, channel, conversation, event, schedule, knowledge, and integration visibility are covered.
+- Pending: actual DB execution with `RUN_DATABASE_TESTS=1`.
+- Risks: fixture remains compile-time/skipped until a migrated Postgres is reachable.
+- Next recommended step: run migration rehearsal against disposable Postgres.
+
+## 2026-05-16 Backend Stage — Tenant Context Profile
+
+- Changed: inserted a Synapse-owned global tenant profile stage before normal module usage.
+- Completed: one-time interview lifecycle, draft persistence, summary validation, explicit approval, immutable version creation, and approved contract retrieval.
+- Completed: module boundary clarified: modules ask Synapse for `TenantContextContract` and then merge with their own module context.
+- Pending: frontend interview UI, module enablement gate integration, and runtime-backed interview provider.
+- Risks: avoid adding Pulse-specific fields to Tenant Context; Pulse schedule/escalation/campaign data must stay in Pulse-owned schema.
+- Next recommended step: enforce approved Tenant Context Profile inside module activation/use gates.
+
+## 2026-05-16 Runtime V1 — API Integration
+
+- Changed: moved from runtime-prepared/stubbed execution to first signed API-to-Go-Runtime execution path.
+- Completed: Synapse `RuntimeExecutionDispatchService` dispatches to Runtime HTTP with OpenAI/Claude preference and structured output schema.
+- Completed: Pulse remains isolated from Runtime transport/provider details and only talks to Synapse lifecycle/governance/dispatch contracts.
+- Completed: Go Runtime can normalize structured JSON output for platform validation.
+- Pending: callback/replay layer, async transport, live provider tests, provider allowlists, and billing/usage reporting for provider calls.
+- Risks: V1 proves the contract but is not yet the final scalable runtime architecture.
+- Next recommended step: implement replay-safe runtime callback persistence before async execution.
+
+## 2026-05-16 Runtime V1 — Central Result Ingress
+
+- Changed: centralized runtime result callbacks under Synapse core.
+- Completed: modules register result handlers by contract; Synapse validates the callback and routes by persisted execution ownership.
+- Pending: replay-safe callback persistence, key rotation, and end-to-end callback smoke test.
+- Risks: module handlers must stay business/domain adapters only and must not learn Runtime transport details.
+- Next recommended step: add `RuntimeCallbackReceipt` or equivalent replay ledger in platform schema.
